@@ -1,0 +1,21 @@
+Module,Action,Student,Teacher,Registrar (register),Cashier,SAPS,Developer,Owner
+dashboard,read,1,1,1,1,1,1,1
+students,read,1 (self only),1,1,1,1,1,1
+students,write,0,1,1,1,1,1,1
+students,delete,0,1,1,1,1,1,1
+subjects,read,1 (enrolled only),1,1,0,1,1,1
+subjects,write,0,1,1,0,1,1,1
+subjects,delete,0,1,1,0,1,1,1
+grades,read,1 (self only),1,1,1,1,1,1
+grades,write,0,1,1,0,1,1,1
+grades,delete,0,1,1,0,1,1,1
+permits,read,1 (self via /my-permits),1,0,1,1,1,1
+permits,write,0,0,0,1,1,1,1
+permits,delete,0,0,0,1,1,1,1
+payments,read,1 (self only),1,1,1,1,1,1
+payments,write,0,0,1,1,1,1,1
+payments,delete,0,0,1,1,1,1,1
+search,read,0,1,1,1,1,1,1
+users,read,0,0,0,0,0,1,1
+users,write,0,0,0,0,0,1,1
+users,delete,0,0,0,0,0,1,1
