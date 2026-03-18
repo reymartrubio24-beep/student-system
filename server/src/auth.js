@@ -1,22 +1,27 @@
+import "dotenv/config";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import db, { logAction, run, get, lastInsertId } from "./db.js";
+import db, { logAction, run, get, all, lastInsertId } from "./db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 
 export function signToken(user) {
-  return jwt.sign({ id: user.id, role: user.role, username: user.username, student_id: user.student_id }, JWT_SECRET, { expiresIn: "12h" });
+  return jwt.sign({ id: user.id, role: user.role, username: user.username, student_id: user.student_id, uuid: user.uuid }, JWT_SECRET, { expiresIn: "12h" });
 }
 
 export function authRequired(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
+  if (!token) {
+    console.log("[AUTH] Missing token in header");
+    return res.status(401).json({ error: "Unauthorized" });
+  }
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     req.user = payload;
     next();
-  } catch {
+  } catch (err) {
+    console.log(`[AUTH] Token verification failed: ${err.message}`);
     return res.status(401).json({ error: "Invalid token" });
   }
 }
@@ -31,6 +36,17 @@ export function requireRole(module, action = "read") {
       action === "write" ? "can_write" :
       action === "delete" ? "can_delete" : "can_read";
 
+    // 1. Check for specific user override
+    const userPerm = get(
+      `SELECT ${column} FROM user_permissions WHERE user_id=? AND (module=? OR module='*')`,
+      [req.user.id, module]
+    );
+
+    if (userPerm !== null && userPerm[column]) {
+      return next();
+    }
+
+    // 2. Fallback to role-based permission
     const permission = get(
       `SELECT ${column} FROM authorization WHERE role=? AND (module=? OR module='*')`,
       [role, module],
@@ -85,15 +101,45 @@ export function ensureInitialAdmin() {
 export function loginHandler(req, res) {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: "Missing credentials" });
-  let user = get("SELECT * FROM users WHERE username = ? AND deleted_at IS NULL", [username]);
-  if (!user) return res.status(401).json({ error: "Invalid credentials" });
-  const ok = bcrypt.compareSync(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+  
+  console.log(`[LOGIN] Attempt for: ${username}`);
+  
+  // Find all users with matching username (case-insensitive)
+  const matches = all("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
+  console.log(`[LOGIN] Found ${matches.length} case-insensitive matches`);
+  
+  if (!matches || matches.length === 0) {
+    console.log(`[LOGIN] No matching user found for: ${username}`);
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+  
+  // Iterate through matches to find the one with the correct password
+  let user = null;
+  for (const m of matches) {
+    const isMatch = bcrypt.compareSync(password, m.password_hash);
+    console.log(`[LOGIN] Checking match ID: ${m.id}, Username: ${m.username}, Password match: ${isMatch}`);
+    if (isMatch) {
+      user = m;
+      break;
+    }
+  }
+
+  if (!user) {
+    console.log(`[LOGIN] Password mismatch for: ${username}`);
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+  
   if (user.deleted_at) return res.status(403).json({ error: "Account disabled" });
   if (user.role === "student") {
     if (!user.student_id) return res.status(403).json({ error: "Account not linked to a student" });
     const activeStudent = get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [user.student_id]);
     if (!activeStudent) return res.status(403).json({ error: "Student record inactive or deleted" });
+  }
+  // Ensure uuid is present for isolation context
+  if (!user.uuid) {
+    const gen = (typeof globalThis.crypto?.randomUUID === "function") ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`.replace(/\./g,"");
+    run("UPDATE users SET uuid=? WHERE id=?", [gen, user.id]);
+    user = get("SELECT * FROM users WHERE id = ?", [user.id]);
   }
   // Auto-link: if student account has no student_id but username looks like a Student ID (YYYY-NNNN) and such student exists, link it
   if (user.role === "student" && (!user.student_id || user.student_id === null)) {
@@ -109,25 +155,55 @@ export function loginHandler(req, res) {
   }
   const token = signToken(user);
   logAction({ userId: user.id, action: "LOGIN", entity: "user", entityId: String(user.id), details: { username } });
-  res.json({ token, role: user.role, username: user.username, student_id: user.student_id });
+  
+  // Fetch with potential student fallback
+  const finalUser = get(`
+    SELECT u.*, s.name as student_full_name 
+    FROM users u 
+    LEFT JOIN students s ON u.student_id = s.id 
+    WHERE u.id = ?
+  `, [user.id]);
+  
+  res.json({ 
+    token, 
+    role: finalUser.role, 
+    username: finalUser.username, 
+    student_id: finalUser.student_id, 
+    uuid: finalUser.uuid,
+    full_name: finalUser.full_name || finalUser.student_full_name || null
+  });
 }
 
 export function registerHandler(req, res) {
   const { username, password, role, user_type } = req.body || {};
   if (!username || !password || !role) return res.status(400).json({ error: "Missing fields" });
-  const exists = get("SELECT 1 FROM users WHERE username = ? AND deleted_at IS NULL", [username]);
-  if (exists) return res.status(409).json({ error: "Username exists" });
+  
+  const existing = get("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
+  if (existing && role !== "student") {
+    return res.status(409).json({ error: "Username exists" });
+  }
+
+  // Check if this specific username+password combo (or just username if we prefer) exists and is deleted
+  const deleted = get("SELECT * FROM users WHERE username = ? AND deleted_at IS NOT NULL", [username]);
+  if (deleted) {
+    const hash = bcrypt.hashSync(password, 10);
+    run("UPDATE users SET password_hash=?, role=?, user_type=?, deleted_at=NULL WHERE id=?", [hash, role, user_type || role, deleted.id]);
+    const revived = get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [deleted.id]);
+    return res.status(200).json({ id: revived.id, username: revived.username, role: revived.role, user_type: revived.user_type, revived: true, uuid: revived.uuid });
+  }
+
   if (!["teacher","student","developer","saps","register","cashier"].includes(role)) return res.status(400).json({ error: "Invalid role" });
   const hash = bcrypt.hashSync(password, 10);
   run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?)", [username, hash, role, user_type || role]);
   const id = lastInsertId();
-  res.status(201).json({ id, username, role, user_type: user_type || role });
+  const revived = get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [id]);
+  res.status(201).json({ id: revived.id, username: revived.username, role: revived.role, user_type: revived.user_type, uuid: revived.uuid });
 }
 
 export function studentSelfRegister(req, res) {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: "Missing fields" });
-  const exists = get("SELECT 1 FROM users WHERE username = ? AND deleted_at IS NULL", [username]);
+  const exists = get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
   if (exists) return res.status(409).json({ error: "Username exists" });
   const hash = bcrypt.hashSync(password, 10);
   run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?)", [username, hash, "student", "student"]);

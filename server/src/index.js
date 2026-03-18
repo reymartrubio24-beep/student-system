@@ -6,7 +6,7 @@ import morgan from "morgan";
 import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
-import db, { tx, logAction, initDB, run, get, all, dbFilePath } from "./db.js";
+import db, { tx, logAction, initDB, run, get, all, lastInsertId, dbFilePath } from "./db.js";
 import {
   authRequired,
   requireRole,
@@ -24,7 +24,8 @@ ensureInitialAdmin();
 
 const app = express();
 app.use(helmet());
-app.use(cors({ origin: ["http://localhost:3000"], credentials: false }));
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : ["http://localhost:3000", "http://localhost:5173", "http://localhost:4000"];
+app.use(cors({ origin: allowedOrigins, credentials: false }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
@@ -124,10 +125,20 @@ app.get(
     const includeDeleted = String(req.query.include_deleted || "") === "1";
     const users = includeDeleted
       ? all(
-          "SELECT id, username, role, user_type, student_id, created_at, deleted_at FROM users ORDER BY created_at DESC",
+          "SELECT u.id, u.username, u.role, u.user_type, u.student_id, u.created_at, u.deleted_at, " +
+          "CASE WHEN u.full_name IS NOT NULL AND u.full_name <> '' THEN u.full_name " +
+          "     WHEN s.name IS NOT NULL AND s.name <> '' THEN s.name " +
+          "     ELSE NULL END AS full_name " +
+          "FROM users u LEFT JOIN students s ON u.student_id = s.id AND u.student_id <> '' " +
+          "ORDER BY u.created_at DESC",
         )
       : all(
-          "SELECT id, username, role, user_type, student_id, created_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC",
+          "SELECT u.id, u.username, u.role, u.user_type, u.student_id, u.created_at, " +
+          "CASE WHEN u.full_name IS NOT NULL AND u.full_name <> '' THEN u.full_name " +
+          "     WHEN s.name IS NOT NULL AND s.name <> '' THEN s.name " +
+          "     ELSE NULL END AS full_name " +
+          "FROM users u LEFT JOIN students s ON u.student_id = s.id AND u.student_id <> '' " +
+          "WHERE u.deleted_at IS NULL ORDER BY u.created_at DESC",
         );
     res.json(users);
   },
@@ -159,30 +170,33 @@ app.post(
         ])
         .optional(),
       student_id: z.string().min(1).optional(),
+      full_name: z.string().optional(),
     });
     const parsed = shape.safeParse(req.body);
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
     const { username, password, role, user_type, student_id } = parsed.data;
-    const exists = get("SELECT 1 FROM users WHERE username = ? AND deleted_at IS NULL", [username]);
-    if (exists) return res.status(409).json({ error: "Username exists" });
+    const exists = get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
+    if (exists && role !== "student") return res.status(409).json({ error: "Username already taken (case-insensitive)" });
     const hash = bcrypt.hashSync(password, 10);
     tx(() => {
       run(
-        "INSERT INTO users (username, password_hash, role, user_type, student_id) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO users (username, password_hash, role, user_type, student_id, full_name) VALUES (?, ?, ?, ?, ?, ?)",
         [
           username,
           hash,
           role,
           user_type || role,
           role === "student" ? student_id || null : null,
+          parsed.data.full_name || null,
         ],
       );
-      const row = get(
-        "SELECT id, username, role, user_type, created_at FROM users WHERE username=?",
-        [username],
-      );
-      writeProfile(row);
+      // Fetch the specific user we just created. For students, use student_id for uniqueness.
+      const row = role === "student" 
+        ? get("SELECT id, username, role, user_type, created_at FROM users WHERE student_id=? AND deleted_at IS NULL", [student_id])
+        : get("SELECT id, username, role, user_type, created_at FROM users WHERE username=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1", [username]);
+      
+      if (row) writeProfile(row);
       logAction({
         userId: req.user.id,
         action: "CREATE",
@@ -210,6 +224,8 @@ app.put(
     if (typeof body.role === "string") norm.role = body.role.trim();
     if (typeof body.user_type === "string")
       norm.user_type = body.user_type.trim();
+    if ("student_id" in body) norm.student_id = (body.student_id === null || typeof body.student_id !== "string") ? null : body.student_id.trim();
+    if ("full_name" in body) norm.full_name = (body.full_name === null || typeof body.full_name !== "string") ? null : body.full_name.trim();
     const shape = z.object({
       username: z
         .string()
@@ -236,7 +252,8 @@ app.put(
           { errorMap: () => ({ message: "user_type must be a valid role" }) },
         )
         .optional(),
-      student_id: z.string().min(1).optional(),
+      student_id: z.string().nullable().optional(),
+      full_name: z.string().nullable().optional(),
     });
     const parsed = shape.safeParse(norm);
     if (!parsed.success)
@@ -261,11 +278,11 @@ app.put(
     }
     if (!prev) return res.status(404).json({ error: "Not found" });
     if (parsed.data.username) {
-      const dup = get("SELECT 1 FROM users WHERE username=? AND id<>? AND deleted_at IS NULL", [
+      const dup = get("SELECT 1 FROM users WHERE LOWER(username)=LOWER(?) AND id<>? AND deleted_at IS NULL", [
         parsed.data.username,
         prev.id,
       ]);
-      if (dup) return res.status(409).json({ error: "Username exists" });
+      if (dup) return res.status(409).json({ error: "Username already taken (case-insensitive)" });
     }
     tx(() => {
       const updates = [];
@@ -282,9 +299,13 @@ app.put(
         updates.push("user_type=?");
         params.push(parsed.data.user_type);
       }
-      if (typeof parsed.data.student_id === "string") {
+      if ("student_id" in parsed.data) {
         updates.push("student_id=?");
         params.push(parsed.data.student_id);
+      }
+      if ("full_name" in parsed.data) {
+        updates.push("full_name=?");
+        params.push(parsed.data.full_name);
       }
       if (parsed.data.password) {
         updates.push("password_hash=?");
@@ -372,6 +393,50 @@ app.delete(
   },
 );
 
+app.get("/users/:id/permissions", authRequired, requireRole("users"), (req, res) => {
+  const id = Number(req.params.id);
+  const rows = all("SELECT * FROM user_permissions WHERE user_id=?", [id]);
+  res.json(rows);
+});
+
+app.post("/users/:id/permissions", authRequired, requireRole("users", "write"), (req, res) => {
+  const userId = Number(req.params.id);
+  const { module, can_read, can_write, can_delete } = req.body;
+  if (!module) return res.status(400).json({ error: "Module required" });
+  
+  tx(() => {
+    run(`
+      INSERT OR REPLACE INTO user_permissions (user_id, module, can_read, can_write, can_delete)
+      VALUES (?, ?, ?, ?, ?)
+    `, [userId, module, can_read ? 1 : 0, can_write ? 1 : 0, can_delete ? 1 : 0]);
+    
+    logAction({
+      userId: req.user.id,
+      action: "SET_PERMISSION",
+      entity: "user_permission",
+      entityId: `${userId}:${module}`,
+      details: { module, can_read, can_write, can_delete }
+    });
+  });
+  res.json({ ok: true });
+});
+
+app.delete("/users/:id/permissions/:module", authRequired, requireRole("users", "write"), (req, res) => {
+  const userId = Number(req.params.id);
+  const module = req.params.module;
+  
+  tx(() => {
+    run("DELETE FROM user_permissions WHERE user_id=? AND module=?", [userId, module]);
+    logAction({
+      userId: req.user.id,
+      action: "DELETE_PERMISSION",
+      entity: "user_permission",
+      entityId: `${userId}:${module}`
+    });
+  });
+  res.json({ ok: true });
+});
+
 app.patch(
   "/users/:id/disable",
   authRequired,
@@ -431,6 +496,8 @@ const subjectSchema = z.object({
   professor: z.string().optional().default(""),
   schedule: z.string().optional().default(""),
   room: z.string().optional().default(""),
+  campus: z.string().optional().default(""),
+  time: z.string().optional().default(""),
   semester_id: z.number().int().optional().nullable(),
 });
 const gradeSchema = z.object({
@@ -586,30 +653,38 @@ app.post(
           if (n.includes(",")) return n.split(",")[0].trim();
           const parts = n.trim().split(/\s+/);
           return parts[parts.length - 1] || "student";
-        })();
-        const cleanBase = baseLast.toLowerCase().replace(/[^a-z0-9]/g, "");
-        let username = cleanBase || "student";
-        for (let i = 1; i < 1000; i++) {
-          const uexists = get(
-            "SELECT 1 FROM users WHERE username=? AND deleted_at IS NULL",
-            [username],
+        })().toLowerCase();
+
+        const username = baseLast;
+        const password = assignedId; // Student ID as password
+        const hash = bcrypt.hashSync(password, 10);
+        
+        // Find if an account for this specific student already exists (e.g. was deleted)
+        const existingUser = get("SELECT * FROM users WHERE student_id=?", [assignedId]);
+        
+        if (existingUser) {
+          run("UPDATE users SET username=?, password_hash=?, role='student', user_type='student', deleted_at=NULL WHERE id=?", [username, hash, existingUser.id]);
+          logAction({
+            userId: existingUser.id,
+            action: "RESTORE",
+            entity: "user",
+            entityId: String(existingUser.id),
+            details: { username, linked_student_id: assignedId, via: "AUTO_RELINK" },
+          });
+        } else {
+          run(
+            "INSERT INTO users (username, password_hash, role, user_type, student_id) VALUES (?,?,?,?,?)",
+            [username, hash, "student", "student", assignedId],
           );
-          if (!uexists) break;
-          username = `${cleanBase}-${i + 1}`;
+          const uidRow = get("SELECT id FROM users WHERE student_id=?", [assignedId]);
+          logAction({
+            userId: uidRow?.id || req.user.id,
+            action: "USER_CREATE",
+            entity: "user",
+            entityId: String(uidRow?.id || 0),
+            details: { username, linked_student_id: assignedId, msg: "Lastname as username, StudentID as password" },
+          });
         }
-        const hash = bcrypt.hashSync(assignedId, 10);
-        run(
-          "INSERT INTO users (username, password_hash, role, user_type, student_id) VALUES (?,?,?,?,?)",
-          [username, hash, "student", "student", assignedId],
-        );
-        const uidRow = get("SELECT id FROM users WHERE username=?", [username]);
-        logAction({
-          userId: uidRow?.id || req.user.id,
-          action: "USER_CREATE",
-          entity: "user",
-          entityId: String(uidRow?.id || 0),
-          details: { username, linked_student_id: assignedId },
-        });
         return res.status(201).json({ ok: true, id: assignedId, username });
       }
       return res.status(409).json({ error: "Could not assign unique ID" });
@@ -755,7 +830,7 @@ app.post(
       const msg = String((e && e.message) || "");
       const isUnique = /UNIQUE constraint/i.test(msg);
       if (isUnique) return res.status(409).json({ error: "Semester exists" });
-      res.status(500).json({ error: "Internal error" });
+      res.status(500).json({ error: "Internal error", details: msg });
     }
   },
 );
@@ -804,7 +879,7 @@ app.put(
       const msg = String((e && e.message) || "");
       const isUnique = /UNIQUE constraint/i.test(msg);
       if (isUnique) return res.status(409).json({ error: "Semester exists" });
-      res.status(500).json({ error: "Internal error" });
+      res.status(500).json({ error: "Internal error", details: msg });
     }
   },
 );
@@ -876,7 +951,7 @@ app.post(
       const msg = String((e && e.message) || "");
       const isUnique = /UNIQUE constraint/i.test(msg);
       if (isUnique) return res.status(409).json({ error: "Period exists" });
-      res.status(500).json({ error: "Internal error" });
+      res.status(500).json({ error: "Internal error", details: msg });
     }
   },
 );
@@ -925,7 +1000,7 @@ app.put(
       const msg = String((e && e.message) || "");
       const isUnique = /UNIQUE constraint/i.test(msg);
       if (isUnique) return res.status(409).json({ error: "Period exists" });
-      res.status(500).json({ error: "Internal error" });
+      res.status(500).json({ error: "Internal error", details: msg });
     }
   },
 );
@@ -1099,7 +1174,7 @@ app.post(
       const isUnique = /UNIQUE constraint/i.test(msg);
       if (isUnique)
         return res.status(409).json({ error: "Permit exists for period" });
-      res.status(500).json({ error: "Internal error" });
+      res.status(500).json({ error: "Internal error", details: msg });
     }
   },
 );
@@ -1331,9 +1406,9 @@ app.get(
 );
 
 app.get("/subjects", authRequired, requireRole("subjects"), (req, res) => {
-  const { role, username } = req.user;
+  const { role } = req.user;
   if (role === "teacher") {
-    const rows = all("SELECT * FROM subjects WHERE professor=? AND deleted_at IS NULL", [username]);
+    const rows = all("SELECT * FROM subjects WHERE deleted_at IS NULL");
     return res.json(rows);
   }
   if (role === "student") {
@@ -1361,7 +1436,9 @@ app.post(
       professor: String(body.professor || "").trim(),
       schedule: String(body.schedule || "").trim(),
       room: String(body.room || "").trim(),
+      campus: String(body.campus || "").trim(),
       semester_id: body.semester_id != null ? Number(body.semester_id) : null,
+      time: String(body.time || "").trim(),
     };
     const parsed = subjectSchema.safeParse(norm);
     if (!parsed.success)
@@ -1369,9 +1446,36 @@ app.post(
         .status(400)
         .json({ error: "Invalid data", details: parsed.error.flatten() });
     try {
+      const existing = get("SELECT deleted_at FROM subjects WHERE id=?", [parsed.data.id]);
+      if (existing && existing.deleted_at) {
+        tx(() => {
+          run(
+            "UPDATE subjects SET name=?, units=?, professor=?, schedule=?, room=?, campus=?, time=?, semester_id=?, deleted_at=NULL WHERE id=?",
+            [
+              parsed.data.name,
+              parsed.data.units,
+              parsed.data.professor,
+              parsed.data.schedule,
+              parsed.data.room,
+              parsed.data.campus,
+              parsed.data.time,
+              parsed.data.semester_id || null,
+              parsed.data.id
+            ],
+          );
+          logAction({
+            userId: req.user.id,
+            action: "RESTORE",
+            entity: "subject",
+            entityId: parsed.data.id,
+            details: { via: "POST_UPSERT" }
+          });
+        });
+        return res.status(200).json({ ok: true, revived: true });
+      }
       tx(() => {
         run(
-          "INSERT INTO subjects (id,name,units,professor,schedule,room,semester_id) VALUES (?,?,?,?,?,?,?)",
+          "INSERT INTO subjects (id,name,units,professor,schedule,room,campus,time,semester_id) VALUES (?,?,?,?,?,?,?,?,?)",
           [
             parsed.data.id,
             parsed.data.name,
@@ -1379,6 +1483,8 @@ app.post(
             parsed.data.professor,
             parsed.data.schedule,
             parsed.data.room,
+            parsed.data.campus,
+            parsed.data.time,
             parsed.data.semester_id || null,
           ],
         );
@@ -1394,8 +1500,37 @@ app.post(
       const msg = String((e && e.message) || "");
       const isUnique =
         /UNIQUE constraint failed|UNIQUE constraint|ConstraintError/i.test(msg);
-      if (isUnique) return res.status(409).json({ error: "Subject exists" });
-      res.status(500).json({ error: "Internal error" });
+      if (isUnique) {
+        const soft = get("SELECT deleted_at FROM subjects WHERE id=?", [parsed.data.id]);
+        if (soft && soft.deleted_at) {
+          tx(() => {
+            run(
+              "UPDATE subjects SET name=?, units=?, professor=?, schedule=?, room=?, campus=?, time=?, semester_id=?, deleted_at=NULL WHERE id=?",
+              [
+                parsed.data.name,
+                parsed.data.units,
+                parsed.data.professor,
+                parsed.data.schedule,
+                parsed.data.room,
+                parsed.data.campus,
+                parsed.data.time,
+                parsed.data.semester_id || null,
+                parsed.data.id
+              ],
+            );
+            logAction({
+              userId: req.user.id,
+              action: "RESTORE",
+              entity: "subject",
+              entityId: parsed.data.id,
+              details: { via: "POST_UPSERT_FALLBACK" }
+            });
+          });
+          return res.status(200).json({ ok: true, revived: true });
+        }
+        return res.status(409).json({ error: "Subject exists" });
+      }
+      res.status(500).json({ error: "Internal error", details: e.message });
     }
   },
 );
@@ -1413,7 +1548,7 @@ app.put(
     );
     if (!s) return res.status(404).json({ error: "Not found" });
     tx(() => {
-      const fields = ["name", "units", "professor", "schedule", "room", "semester_id"];
+      const fields = ["name", "units", "professor", "schedule", "room", "campus", "time", "semester_id"];
       const sets = fields
         .filter((f) => f in parsed.data)
         .map((f) => `${f}=?`)
@@ -1538,10 +1673,10 @@ app.post(
     const norm = {
       student_id: String(body.student_id || "").trim(),
       subject_id: String(body.subject_id || "").trim(),
-      prelim: body.prelim === undefined ? null : Number(body.prelim),
-      midterm: body.midterm === undefined ? null : Number(body.midterm),
-      prefinal: body.prefinal === undefined ? null : Number(body.prefinal),
-      final: body.final === undefined ? null : Number(body.final),
+      prelim: (body.prelim === undefined || body.prelim === "" || body.prelim === null) ? null : Number(body.prelim),
+      midterm: (body.midterm === undefined || body.midterm === "" || body.midterm === null) ? null : Number(body.midterm),
+      prefinal: (body.prefinal === undefined || body.prefinal === "" || body.prefinal === null) ? null : Number(body.prefinal),
+      final: (body.final === undefined || body.final === "" || body.final === null) ? null : Number(body.final),
     };
     const parsed = gradeSchema.safeParse(norm);
     if (!parsed.success)
@@ -1645,7 +1780,7 @@ app.post(
         }
         return res.status(409).json({ error: "Grade exists" });
       }
-      res.status(500).json({ error: "Internal error" });
+      res.status(500).json({ error: "Internal error", details: e.message });
     }
   },
 );
@@ -1889,6 +2024,252 @@ app.get("/my-permits", authRequired, (req, res) => {
   logAction({ userId: req.user.id, action: "READ", entity: "student_permit", entityId: String(sid) });
   res.json(rows);
 });
+
+// Attendance CRUD with teacher isolation
+const attendanceCreateSchema = z.object({
+  course_name: z.string().min(1),
+  block_number: z.string().min(1),
+  subject_id: z.string().min(1),
+  semester_id: z.number().int(),
+  time_slot: z.enum(["Morning Class", "Afternoon Class", "Evening Class"]),
+  term_period: z.enum(["1st prelim", "2nd prelim", "midterm", "semi-final", "final prelim"]).optional()
+});
+
+function teacherUUID(req) {
+  return req.user?.uuid || null;
+}
+
+function isOwnerMatch(row, uuid) {
+  if (!row) return false;
+  if (!uuid) return false;
+  return String(row.created_by_teacher_id) === String(uuid);
+}
+
+function today() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// List tables (accessible by teacher [own only] or owner/dev [all])
+app.get("/attendance/tables", authRequired, requireRole("attendance"), (req, res) => {
+  const { role } = req.user;
+  const uuid = teacherUUID(req);
+  let rows;
+  if (role === "owner" || role === "developer") {
+    rows = all("SELECT * FROM attendance_tables ORDER BY created_at DESC");
+  } else {
+    rows = all("SELECT * FROM attendance_tables WHERE created_by_teacher_id = ? ORDER BY created_at DESC", [uuid]);
+  }
+  res.json(rows);
+});
+
+// Legacy support for TeacherAttendanceDashboard which might call /attendance
+app.get("/attendance", authRequired, requireRole("attendance"), (req, res) => {
+  const { role } = req.user;
+  const uuid = teacherUUID(req);
+  const rows = all("SELECT * FROM attendance_tables WHERE created_by_teacher_id = ? ORDER BY created_at DESC", [uuid]);
+  res.json(rows);
+});
+
+app.post("/attendance", authRequired, requireRole("attendance", "write"), (req, res) => {
+  const uuid = teacherUUID(req);
+  const parsed = attendanceCreateSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: "Invalid fields", details: parsed.error.errors.map(e => e.message) });
+  
+  const subjectExists = get("SELECT 1 FROM subjects WHERE id=? AND deleted_at IS NULL", [parsed.data.subject_id]);
+  if (!subjectExists) return res.status(400).json({ error: "Invalid subject_id" });
+  
+  const semesterExists = get("SELECT 1 FROM semesters WHERE id=?", [parsed.data.semester_id]);
+  if (!semesterExists) return res.status(400).json({ error: "Invalid semester_id" });
+
+  try {
+    tx(() => {
+      run(`
+        INSERT INTO attendance_tables (course_name, block_number, subject_id, semester_id, time_slot, term_period, created_by_teacher_id)
+        VALUES (?,?,?,?,?,?,?)
+      `, [parsed.data.course_name, parsed.data.block_number, parsed.data.subject_id, parsed.data.semester_id, parsed.data.time_slot, parsed.data.term_period || null, uuid]);
+      const id = String(get("SELECT last_insert_rowid() AS id").id);
+      logAction({ userId: req.user.id, action: "CREATE", entity: "attendance_table", entityId: id, details: { created_by: uuid, payload: parsed.data } });
+    });
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ error: "Internal error", details: e.message });
+  }
+});
+
+app.delete("/attendance/tables/:id", authRequired, requireRole("attendance", "delete"), (req, res) => {
+  const uuid = teacherUUID(req);
+  const id = Number(req.params.id);
+  const row = get("SELECT * FROM attendance_tables WHERE id=?", [id]);
+  if (!row) return res.status(404).json({ error: "Not found" });
+  if (req.user.role === "teacher" && !isOwnerMatch(row, uuid)) return res.status(403).json({ error: "Forbidden" });
+  
+  tx(() => {
+    run("DELETE FROM attendance_tables WHERE id=?", [id]);
+    logAction({ userId: req.user.id, action: "DELETE", entity: "attendance_table", entityId: String(id) });
+  });
+  res.json({ ok: true });
+});
+
+// Enrollment management
+app.get("/attendance/tables/:id/enrollments", authRequired, requireRole("attendance"), (req, res) => {
+  const id = Number(req.params.id);
+  const table = get("SELECT * FROM attendance_tables WHERE id=?", [id]);
+  if (!table) return res.status(404).json({ error: "Not found" });
+  
+  const rows = all(`
+    SELECT e.student_id, s.name, s.course, s.year, s.status
+    FROM attendance_enrollments e
+    JOIN students s ON s.id = e.student_id
+    WHERE e.table_id = ?
+    ORDER BY s.name
+  `, [id]);
+  res.json(rows);
+});
+
+app.post("/attendance/tables/:id/enroll", authRequired, requireRole("attendance", "write"), (req, res) => {
+  const id = Number(req.params.id);
+  const uuid = teacherUUID(req);
+  const table = get("SELECT * FROM attendance_tables WHERE id=?", [id]);
+  if (!table) return res.status(404).json({ error: "Not found" });
+  
+  const shape = z.object({ student_id: z.string().min(1) });
+  const parsed = shape.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: "Invalid fields" });
+  
+  const sid = parsed.data.student_id;
+  const stud = get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [sid]);
+  if (!stud) return res.status(404).json({ error: "Student not found" });
+
+  try {
+    tx(() => {
+      const already = get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
+      if (!already) {
+        run("INSERT INTO attendance_enrollments (table_id, student_id, created_by_teacher_id) VALUES (?,?,?)", [id, sid, uuid]);
+      }
+      logAction({ userId: req.user.id, action: "ENROLL", entity: "attendance", entityId: String(id), details: { student_id: sid } });
+    });
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/attendance/tables/:id/enroll/:studentId", authRequired, requireRole("attendance", "delete"), (req, res) => {
+  const id = Number(req.params.id);
+  const sid = String(req.params.studentId);
+  const exists = get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
+  if (!exists) return res.status(404).json({ error: "Not found" });
+  
+  tx(() => {
+    run("DELETE FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
+    logAction({ userId: req.user.id, action: "UNENROLL", entity: "attendance", entityId: String(id), details: { student_id: sid } });
+  });
+  res.json({ ok: true });
+});
+
+// Attendance records
+app.get("/attendance/tables/:id/attendance", authRequired, requireRole("attendance"), (req, res) => {
+  const id = Number(req.params.id);
+  const date = typeof req.query.date === "string" ? req.query.date : today();
+  const table = get("SELECT 1 FROM attendance_tables WHERE id=?", [id]);
+  if (!table) return res.status(404).json({ error: "Not found" });
+  
+  const rows = all(`
+    SELECT s.id as student_id, s.name, s.course, s.year, s.status,
+           COALESCE(ar.status, '') as attendance_status
+    FROM attendance_enrollments e
+    JOIN students s ON s.id = e.student_id
+    LEFT JOIN attendance_records ar ON ar.table_id = e.table_id AND ar.student_id = e.student_id AND ar.date = ?
+    WHERE e.table_id = ?
+    ORDER BY s.name
+  `, [date, id]);
+  res.json({ date, rows });
+});
+
+app.put("/attendance/tables/:id/attendance/:studentId", authRequired, requireRole("attendance", "write"), (req, res) => {
+  const id = Number(req.params.id);
+  const sid = String(req.params.studentId);
+  const uuid = teacherUUID(req);
+  const shape = z.object({ status: z.enum(["present", "absent", "late", "excuse"]), date: z.string().optional() });
+  const parsed = shape.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: "Invalid fields" });
+  
+  const date = parsed.data.date || today();
+  const enrolled = get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
+  if (!enrolled) return res.status(404).json({ error: "Not enrolled" });
+
+  try {
+    tx(() => {
+      const existing = get("SELECT id FROM attendance_records WHERE table_id=? AND student_id=? AND date=?", [id, sid, date]);
+      if (existing) {
+        run("UPDATE attendance_records SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [parsed.data.status, existing.id]);
+      } else {
+        run("INSERT INTO attendance_records (table_id, student_id, date, status, created_by_teacher_id) VALUES (?,?,?,?,?)", [id, sid, date, parsed.data.status, uuid]);
+      }
+      logAction({ userId: req.user.id, action: "ATTENDANCE_SET", entity: "attendance", entityId: `${id}:${sid}:${date}`, details: { status: parsed.data.status } });
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/attendance/tables/:id/attendance/present-all", authRequired, requireRole("attendance", "write"), (req, res) => {
+  const id = Number(req.params.id);
+  const uuid = teacherUUID(req);
+  const date = typeof req.body?.date === "string" ? req.body.date : today();
+  const table = get("SELECT 1 FROM attendance_tables WHERE id=?", [id]);
+  if (!table) return res.status(404).json({ error: "Not found" });
+  
+  const students = all("SELECT student_id FROM attendance_enrollments WHERE table_id=?", [id]).map(r => r.student_id);
+  try {
+    tx(() => {
+      for (const sid of students) {
+        const existing = get("SELECT id FROM attendance_records WHERE table_id=? AND student_id=? AND date=?", [id, sid, date]);
+        if (existing) {
+          run("UPDATE attendance_records SET status='present', updated_at=CURRENT_TIMESTAMP WHERE id=?", [existing.id]);
+        } else {
+          run("INSERT INTO attendance_records (table_id, student_id, date, status, created_by_teacher_id) VALUES (?,?,?,?,?)", [id, sid, date, "present", uuid]);
+        }
+      }
+      logAction({ userId: req.user.id, action: "ATTENDANCE_BULK", entity: "attendance", entityId: String(id), details: { date, count: students.length, status: "present_all" } });
+    });
+    res.json({ ok: true, count: students.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Student: view-only attendance
+app.get("/attendance/my", authRequired, (req, res) => {
+  if (req.user.role !== "student") return res.status(403).json({ error: "Forbidden" });
+  const sid = req.user.student_id;
+  const date = typeof req.query.date === "string" ? req.query.date : null;
+  const rows = date
+    ? all(`
+        SELECT at.id as table_id, at.course_name, at.block_number, at.time_slot,
+               ar.date, ar.status
+        FROM attendance_records ar
+        JOIN attendance_tables at ON at.id = ar.table_id
+        WHERE ar.student_id = ? AND ar.date = ?
+        ORDER BY at.course_name
+      `, [sid, date])
+    : all(`
+        SELECT at.id as table_id, at.course_name, at.block_number, at.time_slot,
+               ar.date, ar.status
+        FROM attendance_records ar
+        JOIN attendance_tables at ON at.id = ar.table_id
+        WHERE ar.student_id = ?
+        ORDER BY ar.date DESC
+      `, [sid]);
+  logAction({ userId: req.user.id, action: "READ", entity: "attendance", entityId: String(sid), details: { date: date || null } });
+  res.json(rows);
+});
+
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {

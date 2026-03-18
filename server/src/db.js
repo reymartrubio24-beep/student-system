@@ -2,7 +2,13 @@ import fs from "fs";
 import path from "path";
 import initSqlJs from "sql.js";
 
-const dataDir = path.join(process.cwd(), "server", "data");
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// DB is in server/src/db.js, data should be in server/data
+const dataDir = path.join(__dirname, "..", "data");
+
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 export const dbFilePath = path.join(dataDir, "app.sqlite");
 
@@ -17,11 +23,12 @@ export async function initDB() {
     PRAGMA foreign_keys = ON;
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
+      username TEXT NOT NULL COLLATE NOCASE,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('student','teacher','developer','owner','saps','register','cashier')),
       user_type TEXT,
-      student_id TEXT,
+      student_id TEXT COLLATE NOCASE,
+      full_name TEXT,
       deleted_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -30,7 +37,7 @@ export async function initDB() {
       value TEXT
     );
     CREATE TABLE IF NOT EXISTS students (
-      id TEXT PRIMARY KEY,
+      id TEXT PRIMARY KEY COLLATE NOCASE,
       name TEXT NOT NULL,
       course TEXT NOT NULL,
       year TEXT NOT NULL,
@@ -48,6 +55,8 @@ export async function initDB() {
       professor TEXT,
       schedule TEXT,
       room TEXT,
+      campus TEXT,
+      time TEXT,
       deleted_at TEXT
     );
     CREATE TABLE IF NOT EXISTS grades (
@@ -164,6 +173,48 @@ export async function initDB() {
       can_delete INTEGER DEFAULT 0,
       UNIQUE(role, module)
     );
+    CREATE TABLE IF NOT EXISTS user_permissions (
+      user_id INTEGER NOT NULL,
+      module TEXT NOT NULL,
+      can_read INTEGER DEFAULT 0,
+      can_write INTEGER DEFAULT 0,
+      can_delete INTEGER DEFAULT 0,
+      PRIMARY KEY (user_id, module),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    -- Attendance management
+    CREATE TABLE IF NOT EXISTS attendance_tables (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      course_name TEXT NOT NULL,
+      block_number TEXT NOT NULL,
+      subject_id TEXT,
+      semester_id INTEGER,
+      time_slot TEXT CHECK(time_slot IN ('Morning Class','Afternoon Class','Evening Class')),
+      term_period TEXT CHECK(term_period IN ('1st prelim','2nd prelim','midterm','semi-final','final prelim')),
+      created_by_teacher_id TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS attendance_enrollments (
+      table_id INTEGER NOT NULL,
+      student_id TEXT NOT NULL,
+      created_by_teacher_id TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (table_id, student_id),
+      FOREIGN KEY (table_id) REFERENCES attendance_tables(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS attendance_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_id INTEGER NOT NULL,
+      student_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('present','absent','late','excuse')),
+      created_by_teacher_id TEXT NOT NULL,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (table_id, student_id, date),
+      FOREIGN KEY (table_id) REFERENCES attendance_tables(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    );
   `);
 
   // Seed default semesters and periods if empty
@@ -209,6 +260,27 @@ export async function initDB() {
     if (!subcols.includes("semester_id")) {
       run("ALTER TABLE subjects ADD COLUMN semester_id INTEGER");
     }
+    if (!subcols.includes("time")) {
+      run("ALTER TABLE subjects ADD COLUMN time TEXT");
+    }
+    if (!subcols.includes("campus")) {
+      run("ALTER TABLE subjects ADD COLUMN campus TEXT");
+    }
+  } catch {}
+  // Ensure attendance permissions exist for teacher and student
+  try {
+    const attTeacher = get("SELECT 1 FROM authorization WHERE role='teacher' AND module='attendance'");
+    if (!attTeacher) {
+      run("INSERT INTO authorization (role,module,can_read,can_write,can_delete) VALUES ('teacher','attendance',1,1,1)");
+    }
+    const attStudent = get("SELECT 1 FROM authorization WHERE role='student' AND module='attendance'");
+    if (!attStudent) {
+      run("INSERT INTO authorization (role,module,can_read,can_write,can_delete) VALUES ('student','attendance',1,0,0)");
+    }
+  } catch {}
+  // Enforce teacher cannot delete subjects (RBAC hardening)
+  try {
+    run("UPDATE authorization SET can_delete=0 WHERE role='teacher' AND module='subjects'");
   } catch {}
   // Migrate student_permits columns if missing
   try {
@@ -276,10 +348,84 @@ export async function initDB() {
   if (!cols.includes("deleted_at")) {
     run("ALTER TABLE users ADD COLUMN deleted_at TEXT");
   }
+  if (!cols.includes("full_name")) {
+    run("ALTER TABLE users ADD COLUMN full_name TEXT");
+  }
+  // Add uuid for teachers/developers/owners for row-level isolation context
+  if (!cols.includes("uuid")) {
+    run("ALTER TABLE users ADD COLUMN uuid TEXT");
+    // Backfill UUIDs for existing users
+    const users = all("SELECT id, role, uuid FROM users");
+    for (const u of users) {
+      if (!u.uuid) {
+        // Generate pseudo-UUID using SQL.js functions by proxying through JS
+        const gen = (typeof globalThis.crypto?.randomUUID === "function") ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`.replace(/\./g,"");
+        run("UPDATE users SET uuid=? WHERE id=?", [gen, u.id]);
+      }
+    }
+  }
+  // Attendance columns migration for existing databases
+  try {
+    const attCols = all(`PRAGMA table_info('attendance_tables')`);
+    const names = attCols.map(c => c.name);
+    if (!names.includes("subject_id")) run("ALTER TABLE attendance_tables ADD COLUMN subject_id TEXT");
+    if (!names.includes("semester_id")) run("ALTER TABLE attendance_tables ADD COLUMN semester_id INTEGER");
+    if (!names.includes("time_slot")) run("ALTER TABLE attendance_tables ADD COLUMN time_slot TEXT");
+    if (!names.includes("term_period")) run("ALTER TABLE attendance_tables ADD COLUMN term_period TEXT");
+    if (!names.includes("created_by_teacher_id")) run("ALTER TABLE attendance_tables ADD COLUMN created_by_teacher_id TEXT");
+    // If the legacy column academic_year exists, migrate to new table without it
+    if (names.includes("academic_year") || names.includes("class_identifier")) {
+      tx(() => {
+        run(`
+          CREATE TABLE IF NOT EXISTS attendance_tables__new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_name TEXT NOT NULL,
+            block_number TEXT NOT NULL,
+            subject_id TEXT,
+            semester_id INTEGER,
+            time_slot TEXT CHECK(time_slot IN ('Morning Class','Afternoon Class','Evening Class')),
+            term_period TEXT CHECK(term_period IN ('1st prelim','2nd prelim','midterm','semi-final','final prelim')),
+            created_by_teacher_id TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        run(`
+          INSERT INTO attendance_tables__new (id, course_name, block_number, subject_id, semester_id, time_slot, term_period, created_by_teacher_id, created_at)
+          SELECT id, course_name, block_number, subject_id, semester_id, COALESCE(time_slot, 'Morning Class'), NULL, COALESCE(created_by_teacher_id, ''), created_at
+          FROM attendance_tables
+        `);
+        run("DROP TABLE attendance_tables");
+        run("ALTER TABLE attendance_tables__new RENAME TO attendance_tables");
+      });
+    }
+    const enrCols = all(`PRAGMA table_info('attendance_enrollments')`).map(c => c.name);
+    if (!enrCols.includes("created_by_teacher_id")) run("ALTER TABLE attendance_enrollments ADD COLUMN created_by_teacher_id TEXT");
+    const recCols = all(`PRAGMA table_info('attendance_records')`).map(c => c.name);
+    if (!recCols.includes("created_by_teacher_id")) run("ALTER TABLE attendance_records ADD COLUMN created_by_teacher_id TEXT");
+  } catch {}
+
+  // Create attendance indexes after ensuring columns exist
+  try {
+    database.run(`
+      CREATE INDEX IF NOT EXISTS idx_att_tables_teacher ON attendance_tables(created_by_teacher_id);
+      CREATE INDEX IF NOT EXISTS idx_att_enroll_teacher ON attendance_enrollments(created_by_teacher_id);
+      CREATE INDEX IF NOT EXISTS idx_att_records_teacher ON attendance_records(created_by_teacher_id);
+    `);
+  } catch {}
+
   // Backfill user_type = role for student/teacher; null for developer
   run("UPDATE users SET user_type = CASE WHEN role IN ('student','teacher') THEN role ELSE NULL END WHERE user_type IS NULL");
-  // Ensure new roles are allowed: rebuild table if CHECK constraint is outdated
+  // Ensure new roles are allowed and UNIQUE constraint is removed
   try {
+    const indices = all("PRAGMA index_list('users')");
+    for (const idx of indices) {
+      if (idx.unique === 1) {
+        const cols = all(`PRAGMA index_info('${idx.name}')`);
+        if (cols.some(c => c.name === 'username')) {
+          throw new Error("Rebuild needed to remove UNIQUE username");
+        }
+      }
+    }
     run("INSERT INTO users (username,password_hash,role) VALUES (?,?,?)", ["__role_check_expand__", "x", "saps"]);
     run("DELETE FROM users WHERE username=?", ["__role_check_expand__"]);
   } catch {
@@ -289,7 +435,7 @@ export async function initDB() {
       BEGIN TRANSACTION;
       CREATE TABLE IF NOT EXISTS users_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('student','teacher','developer','owner','saps','register','cashier')),
         user_type TEXT,
@@ -333,36 +479,37 @@ export async function initDB() {
   } catch {
     // Skip rebuild if constraint prevents it
   }
+
+  // Rebuild grades table to allow NULL scores if previous schema had NOT NULL
+  try {
+    const gcols = all(`PRAGMA table_info('grades')`);
+    const mustRebuild = gcols.some(c => ["prelim","midterm","prefinal","final"].includes(c.name) && c.notnull === 1);
+    if (mustRebuild) {
+      database.run(`
+        PRAGMA foreign_keys=OFF;
+        BEGIN TRANSACTION;
+        CREATE TABLE IF NOT EXISTS grades_new (
+          student_id TEXT NOT NULL,
+          subject_id TEXT NOT NULL,
+          prelim INTEGER,
+          midterm INTEGER,
+          prefinal INTEGER,
+          final INTEGER,
+          deleted_at TEXT,
+          PRIMARY KEY (student_id, subject_id)
+        );
+        INSERT INTO grades_new (student_id, subject_id, prelim, midterm, prefinal, final, deleted_at)
+        SELECT student_id, subject_id, prelim, midterm, prefinal, final, deleted_at FROM grades;
+        DROP TABLE grades;
+        ALTER TABLE grades_new RENAME TO grades;
+        COMMIT;
+        PRAGMA foreign_keys=ON;
+      `);
+    }
+  } catch {}
+
   persist();
 }
-// Rebuild grades table to allow NULL scores if previous schema had NOT NULL
-try {
-  const gcols = all(`PRAGMA table_info('grades')`);
-  const mustRebuild = gcols.some(c => ["prelim","midterm","prefinal","final"].includes(c.name) && c.notnull === 1);
-  if (mustRebuild) {
-    database.run(`
-      PRAGMA foreign_keys=OFF;
-      BEGIN TRANSACTION;
-      CREATE TABLE IF NOT EXISTS grades_new (
-        student_id TEXT NOT NULL,
-        subject_id TEXT NOT NULL,
-        prelim INTEGER,
-        midterm INTEGER,
-        prefinal INTEGER,
-        final INTEGER,
-        deleted_at TEXT,
-        PRIMARY KEY (student_id, subject_id)
-      );
-      INSERT INTO grades_new (student_id, subject_id, prelim, midterm, prefinal, final, deleted_at)
-      SELECT student_id, subject_id, prelim, midterm, prefinal, final, deleted_at FROM grades;
-      DROP TABLE grades;
-      ALTER TABLE grades_new RENAME TO grades;
-      COMMIT;
-      PRAGMA foreign_keys=ON;
-    `);
-    persist();
-  }
-} catch {}
 
 function persist() {
   const data = database.export();

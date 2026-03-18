@@ -1,11 +1,11 @@
 # Roles and Permissions
 
 Roles:
-- student: personal dashboard, own grades, own permits, own payments
-- teacher: full access to dashboard, search, students, subjects, grades; permit verification by room/block
-- saps: assign/manage student permits; full access to students, subjects, grades, payments, search
-- register (Registrar): full access to students, subjects, grades, payments, search
-- cashier: payments, students, student permits, search
+- student: personal dashboard, own grades, own permit number
+- teacher: manage students, subjects, grades
+- saps: assign/manage permit numbers, global student search, tuition balance management
+- register: manage subjects, grades, tuition balance oversight
+- cashier: tuition management, payment records, student visibility, search
 - developer/owner: full access; owner can restore deleted entities
 
 Permission Matrix (summary):
@@ -28,7 +28,7 @@ Key Endpoints:
   - PUT /users/:id
   - DELETE /users/:id
 - Students
-  - GET /students (student sees self; others see all, RBAC-enforced)
+  - GET /students (student sees self; others see all)
   - POST /students (teacher/developer/register/saps)
   - PUT /students/:id (teacher/developer/register/saps)
   - DELETE /students/:id (teacher/developer/register)
@@ -37,20 +37,19 @@ Key Endpoints:
   - GET /students/:id/tuition-balance (saps/register/cashier/developer/owner)
   - PUT /students/:id/tuition-balance (saps/register/cashier/developer/owner)
 - Subjects
-  - GET /subjects (RBAC-enforced; cashier blocked)
+  - GET /subjects
   - POST /subjects (teacher/developer/register)
   - PUT /subjects/:id (teacher/developer/register)
   - DELETE /subjects/:id (teacher/developer/register)
 - Grades
-  - GET /grades (student = own only; others = all, RBAC-enforced)
-  - GET /grades/:studentId (student blocked from others)
+  - GET /grades (student = own only; others = all)
+  - GET /grades/:studentId
   - POST /grades (teacher/developer/register)
   - PUT /grades/:studentId/:subjectId (teacher/developer/register)
   - DELETE /grades/:studentId/:subjectId (teacher/developer/register)
 - Payments
   - POST /payments (cashier/developer/owner)
   - GET /payments/:studentId (cashier/register/saps/developer/owner)
-  - GET /payments (student = own only; staff = all)
 - Admin
   - POST /admin/backup (developer/owner)
   - POST /admin/cleanup-orphan-grades (developer/owner)
@@ -60,5 +59,5 @@ Audit Logging:
 - Records LOGIN, CREATE/UPDATE/DELETE/RESTORE actions, ROLE_CHANGE, CLEANUP, BACKUP with details.
 
 Privacy Controls:
-- Students only see their own student record, subjects, grades, permits, and payments.
+- Students only see their own student record and grades.
 - Higher roles retain visibility to all students and grades.

@@ -34,12 +34,23 @@ global.fetch = jest.fn((url, opts) => {
 
 describe("Student Permits Navigation", () => {
   it("renders permits sidebar and semester selection", async () => {
+    render(<App />);
+    // Simulate logged in state
     window.localStorage.setItem("auth", JSON.stringify({ token: "t", role: "developer", username: "dev" }));
     render(<App />);
+    // Open permits page
     fireEvent.click(await screen.findByText("Student Permits"));
+    // Sidebar lists semesters
     await waitFor(() => {
-      expect(screen.getAllByText(/Semesters/i)[0]).toBeInTheDocument();
+      expect(screen.getByText(/Semesters/i)).toBeInTheDocument();
+      expect(screen.getByText("2026-2027 · 1st")).toBeInTheDocument();
     });
-    fireEvent.click(screen.getAllByText(/Semesters/i)[0]);
+    // Select semester
+    fireEvent.click(screen.getByText("2026-2027 · 1st"));
+    // Table shows permits
+    await waitFor(() => {
+      expect(screen.getByText("Permit ID")).toBeInTheDocument();
+      expect(screen.getByText("Final Permit")).toBeInTheDocument();
+    });
   });
 });

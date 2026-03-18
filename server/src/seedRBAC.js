@@ -29,6 +29,7 @@ const permissions = [
   { role: "teacher",  module: "grades",       can_read: 1, can_write: 1, can_delete: 1 },
   { role: "teacher",  module: "search",       can_read: 1, can_write: 0, can_delete: 0 },
   { role: "teacher",  module: "permits",      can_read: 1, can_write: 0, can_delete: 0 }, // Teacher can view permits via room/block
+  { role: "teacher",  module: "attendance",   can_read: 1, can_write: 1, can_delete: 1 },
 
   // Student: own grades, own subjects, global student count (dashboard), own permits, own payments, own password
   { role: "student",  module: "dashboard",    can_read: 1, can_write: 0, can_delete: 0 },
@@ -36,6 +37,7 @@ const permissions = [
   { role: "student",  module: "permits",      can_read: 1, can_write: 0, can_delete: 0 },
   { role: "student",  module: "payments",     can_read: 1, can_write: 0, can_delete: 0 },
   { role: "student",  module: "profile",      can_read: 1, can_write: 1, can_delete: 0 },
+  { role: "student",  module: "attendance",   can_read: 1, can_write: 0, can_delete: 0 },
 
   // Developer (full bypass in middleware, but for completeness)
   { role: "developer", module: "*",           can_read: 1, can_write: 1, can_delete: 1 }

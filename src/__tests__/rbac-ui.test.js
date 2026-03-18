@@ -71,7 +71,7 @@ test("Teacher UI: nav guards include search, students, subjects, grades, permits
   render(<App />);
   expect(await screen.findByText("Student Search")).toBeInTheDocument();
   expect(screen.getByText("Students")).toBeInTheDocument();
-  expect(screen.getByText("Subjects")).toBeInTheDocument();
+  expect(screen.queryByText("Subjects")).not.toBeInTheDocument();
   expect(screen.getByText("Grades")).toBeInTheDocument();
   expect(screen.getByText("Student Permits")).toBeInTheDocument();
 });
