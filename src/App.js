@@ -396,22 +396,22 @@ export default function App() {
 
   const navItems = [
     { id: "dashboard", icon: "📊", label: "Dashboard" },
-    ...((role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
+    ...((role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer")
        ? [{ id: "search",    icon: "🔍", label: "Student Search" }] : []),
-    ...((role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
+    ...((role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer")
        ? [{ id: "students",  icon: "👤", label: "Students" }] : []),
-    ...((role === "register" || role === "saps" || role === "developer" || role === "owner")
+    ...((role === "register" || role === "saps" || role === "developer" || role === "owner" || role === "viewer")
        ? [{ id: "studentmgmt", icon: "🧭", label: "Student Management" }] : []),
-    ...((role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
+    ...((role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer")
        ? [{ id: "subjects",  icon: "📚", label: role === "student" ? "My Schedule" : "Subjects" }] : []),
-    ...((role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
+    ...((role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer")
        ? [{ id: "grades",    icon: "📝", label: "Grades" }] : []),
-    ...((role === "teacher" || role === "developer" || role === "owner")
+    ...((role === "teacher" || role === "developer" || role === "owner" || role === "viewer")
        ? [{ id: "attendance", icon: "🗓️", label: "Attendance" }] : []),
     ...(role === "student" ? [{ id: "mypermits", icon: "🎫", label: "My Permits" }] : []),
-    ...((role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
+    ...((role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer")
        ? [{ id: "permits", icon: "🎫", label: "Student Permits" }] : []),
-    ...((role === "student" || role === "register" || role === "cashier" || role === "saps" || role === "developer" || role === "owner")
+    ...((role === "student" || role === "register" || role === "cashier" || role === "saps" || role === "developer" || role === "owner" || role === "viewer")
        ? [{ id: "payments", icon: "💳", label: "Payments" }] : []),
     ...(role === "student" ? [{ id: "profile", icon: "👤", label: "My Profile" }] : []),
     ...((role === "developer" || role === "owner")
@@ -708,15 +708,15 @@ export default function App() {
             {page === "search"    && <StudentSearch students={students} subjects={subjects} grades={grades}
                 searchId={searchId} setSearchId={setSearchId} searchResult={searchResult}
                 setSearchResult={setSearchResult} searchDone={searchDone} setSearchDone={setSearchDone} />}
-            {page === "students"  && (role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Students students={students} setStudents={setStudents} subjects={subjects} token={auth.token} role={role} />}
-            {page === "studentmgmt" && (role === "register" || role === "saps" || role === "developer" || role === "owner") && <StudentManagement token={auth.token} role={role} students={students} allSubjects={subjects} grades={grades} setGrades={setGrades} />}
-            {page === "subjects"  && (role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} />}
-            {page === "grades"    && (role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} />}
-            {page === "attendance" && (role === "teacher" || role === "developer" || role === "owner") && <AttendanceManage token={auth.token} role={role} students={students} subjects={subjects} />}
+            {page === "students"  && (role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer") && <Students students={students} setStudents={setStudents} subjects={subjects} token={auth.token} role={role} />}
+            {page === "studentmgmt" && (role === "register" || role === "saps" || role === "developer" || role === "owner" || role === "viewer") && <StudentManagement token={auth.token} role={role} students={students} allSubjects={subjects} grades={grades} setGrades={setGrades} />}
+            {page === "subjects"  && (role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} />}
+            {page === "grades"    && (role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} />}
+            {page === "attendance" && (role === "teacher" || role === "developer" || role === "owner" || role === "viewer") && <AttendanceManage token={auth.token} role={role} students={students} subjects={subjects} />}
             {page === "attendance" && role === "teacher" && <TeacherAttendanceDashboard token={auth.token} teacherUuid={auth?.uuid} subjects={subjects} />}
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
-            {page === "permits"   && (role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} />}
-            {page === "payments"  && (role === "student" || role === "register" || role === "cashier" || role === "saps" || role === "developer" || role === "owner") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} />}
+            {page === "permits"   && (role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner" || role === "viewer") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} />}
+            {page === "payments"  && (role === "student" || role === "register" || role === "cashier" || role === "saps" || role === "developer" || role === "owner" || role === "viewer") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} />}
             {page === "profile"   && <Profile token={auth.token} username={auth.username} />}
             {page === "users"     && (role === "developer" || role === "owner") && <UsersAdmin token={auth.token} />}
             {page === "logs"      && (role === "developer" || role === "owner") && <LogsView token={auth.token} />}
@@ -3473,6 +3473,7 @@ function UsersAdmin({ token }) {
             <option value="saps">saps</option>
             <option value="register">register</option>
             <option value="cashier">cashier</option>
+            <option value="viewer">viewer</option>
           </Select>
           <Select label="User Type" value={ut} onChange={e => setUT(e.target.value)}>
             <option value="teacher">teacher</option>
@@ -3481,6 +3482,7 @@ function UsersAdmin({ token }) {
             <option value="saps">saps</option>
             <option value="register">register</option>
             <option value="cashier">cashier</option>
+            <option value="viewer">viewer</option>
           </Select>
           <Input label="Student ID Link" value={studentIdLink} onChange={e => setStudentIdLink(e.target.value)} />
           <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 16 }}>
@@ -3497,7 +3499,7 @@ function UsersAdmin({ token }) {
               <tr key={x.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                 <Td><strong>{x.full_name || "-"}</strong></Td>
                 <Td>{x.username}</Td>
-                <Td><Badge text={x.role} type={x.role === "teacher" ? "blue" : x.role === "developer" ? "yellow" : "green"} /></Td>
+                <Td><Badge text={x.role} type={x.role === "teacher" ? "blue" : x.role === "developer" ? "yellow" : x.role === "viewer" ? "pink" : "green"} /></Td>
                 <Td>{x.user_type || "-"}</Td>
                 <Td style={{ color: "#6b7280", fontSize: 12 }}>{x.created_at}</Td>
                 <Td>
@@ -3526,6 +3528,7 @@ function UsersAdmin({ token }) {
               <option value="saps">saps</option>
               <option value="register">register</option>
               <option value="cashier">cashier</option>
+              <option value="viewer">viewer</option>
             </Select>
             <Select label="User Type" value={edit.user_type} onChange={e => setEdit(s => ({ ...s, user_type: e.target.value }))}>
               <option value="teacher">teacher</option>
@@ -3534,6 +3537,7 @@ function UsersAdmin({ token }) {
               <option value="saps">saps</option>
               <option value="register">register</option>
               <option value="cashier">cashier</option>
+              <option value="viewer">viewer</option>
             </Select>
             <div style={{ gridColumn: "1/-1", display: "flex", gap: 10 }}>
               <Btn variant="primary" onClick={saveEdit} style={{ flex: 1 }} disabled={busy}>Save</Btn>

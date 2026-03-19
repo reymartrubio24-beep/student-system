@@ -25,7 +25,7 @@ export async function initDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL COLLATE NOCASE,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('student','teacher','developer','owner','saps','register','cashier')),
+      role TEXT NOT NULL CHECK(role IN ('student','teacher','developer','owner','saps','register','cashier','viewer')),
       user_type TEXT,
       student_id TEXT COLLATE NOCASE,
       full_name TEXT,

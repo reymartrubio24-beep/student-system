@@ -148,6 +148,16 @@ app.post(
   authRequired,
   requireRole("users", "write"),
   (req, res) => {
+    console.log(`[USER_CREATE] Attempt by ${req.user.username}:`, req.body);
+    const body = req.body || {};
+    const norm = {
+      username: typeof body.username === "string" ? body.username.trim() : body.username,
+      password: body.password,
+      role: typeof body.role === "string" ? body.role.trim() : body.role,
+      user_type: typeof body.user_type === "string" ? body.user_type.trim() : body.user_type,
+      student_id: typeof body.student_id === "string" ? body.student_id.trim() : body.student_id,
+      full_name: typeof body.full_name === "string" ? body.full_name.trim() : body.full_name,
+    };
     const shape = z.object({
       username: z.string().min(3),
       password: z.string().min(6),
@@ -158,6 +168,7 @@ app.post(
         "saps",
         "register",
         "cashier",
+        "viewer",
       ]),
       user_type: z
         .enum([
@@ -167,45 +178,54 @@ app.post(
           "saps",
           "register",
           "cashier",
+          "viewer",
         ])
         .optional(),
       student_id: z.string().min(1).optional(),
-      full_name: z.string().optional(),
+      full_name: z.string().nullable().optional(),
     });
-    const parsed = shape.safeParse(req.body);
+    const parsed = shape.safeParse(norm);
     if (!parsed.success)
-      return res.status(400).json({ error: "Invalid fields" });
+      return res.status(400).json({ error: "Invalid fields", details: parsed.error.flatten() });
     const { username, password, role, user_type, student_id } = parsed.data;
     const exists = get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
     if (exists && role !== "student") return res.status(409).json({ error: "Username already taken (case-insensitive)" });
     const hash = bcrypt.hashSync(password, 10);
-    tx(() => {
-      run(
-        "INSERT INTO users (username, password_hash, role, user_type, student_id, full_name) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-          username,
-          hash,
-          role,
-          user_type || role,
-          role === "student" ? student_id || null : null,
-          parsed.data.full_name || null,
-        ],
-      );
-      // Fetch the specific user we just created. For students, use student_id for uniqueness.
-      const row = role === "student" 
-        ? get("SELECT id, username, role, user_type, created_at FROM users WHERE student_id=? AND deleted_at IS NULL", [student_id])
-        : get("SELECT id, username, role, user_type, created_at FROM users WHERE username=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1", [username]);
-      
-      if (row) writeProfile(row);
-      logAction({
-        userId: req.user.id,
-        action: "CREATE",
-        entity: "user",
-        entityId: String(row.id),
-        details: { username, role, user_type: user_type || role },
+    try {
+      tx(() => {
+        run(
+          "INSERT INTO users (username, password_hash, role, user_type, student_id, full_name) VALUES (?, ?, ?, ?, ?, ?)",
+          [
+            username,
+            hash,
+            role,
+            user_type || role,
+            role === "student" ? student_id || null : null,
+            parsed.data.full_name || null,
+          ],
+        );
+        // Fetch the specific user we just created. For students, use student_id for uniqueness.
+        const row = role === "student" 
+          ? get("SELECT id, username, role, user_type, created_at FROM users WHERE student_id=? AND deleted_at IS NULL", [student_id])
+          : get("SELECT id, username, role, user_type, created_at FROM users WHERE username=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1", [username]);
+        
+        if (row) {
+          writeProfile(row);
+          logAction({
+            userId: req.user.id,
+            action: "CREATE",
+            entity: "user",
+            entityId: String(row.id),
+            details: { username, role, user_type: user_type || role },
+          });
+        }
       });
-    });
-    res.status(201).json({ ok: true });
+      console.log(`[USER_CREATE] Successfully created user: ${username}`);
+      res.status(201).json({ ok: true });
+    } catch (err) {
+      console.error("[USER_CREATE] Error:", err.message);
+      res.status(500).json({ error: "Creation failed: " + err.message });
+    }
   },
 );
 app.put(
@@ -237,18 +257,18 @@ app.put(
         .optional(),
       role: z
         .enum(
-          ["teacher", "student", "developer", "saps", "register", "cashier"],
+          ["teacher", "student", "developer", "saps", "register", "cashier", "viewer"],
           {
             errorMap: () => ({
               message:
-                "role must be 'teacher', 'student', 'developer', 'saps', 'register' or 'cashier'",
+                "role must be a valid system role (teacher, student, developer, saps, register, cashier, or viewer)",
             }),
           },
         )
         .optional(),
       user_type: z
         .enum(
-          ["teacher", "student", "developer", "saps", "register", "cashier"],
+          ["teacher", "student", "developer", "saps", "register", "cashier", "viewer"],
           { errorMap: () => ({ message: "user_type must be a valid role" }) },
         )
         .optional(),
