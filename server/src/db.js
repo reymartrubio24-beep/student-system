@@ -277,23 +277,42 @@ export async function initDB() {
     if (!attStudent) {
       run("INSERT INTO authorization (role,module,can_read,can_write,can_delete) VALUES ('student','attendance',1,0,0)");
     }
+    const subStudent = get("SELECT 1 FROM authorization WHERE role='student' AND module='subjects'");
+    if (!subStudent) {
+      run("INSERT INTO authorization (role,module,can_read,can_write,can_delete) VALUES ('student','subjects',1,0,0)");
+    }
   } catch {}
   // Enforce teacher cannot delete subjects (RBAC hardening)
   try {
     run("UPDATE authorization SET can_delete=0 WHERE role='teacher' AND module='subjects'");
   } catch {}
+  // Migrate attendance tables columns if missing
+  try {
+    const attCols = all(`PRAGMA table_info('attendance_tables')`).map(r => r.name);
+    if (!attCols.includes("created_by_teacher_id")) {
+      run("ALTER TABLE attendance_tables ADD COLUMN created_by_teacher_id TEXT");
+    }
+  } catch {}
+  try {
+    const enrollCols = all(`PRAGMA table_info('attendance_enrollments')`).map(r => r.name);
+    if (!enrollCols.includes("created_by_teacher_id")) {
+      run("ALTER TABLE attendance_enrollments ADD COLUMN created_by_teacher_id TEXT");
+    }
+  } catch {}
+  try {
+    const recCols = all(`PRAGMA table_info('attendance_records')`).map(r => r.name);
+    if (!recCols.includes("created_by_teacher_id")) {
+      run("ALTER TABLE attendance_records ADD COLUMN created_by_teacher_id TEXT");
+    }
+  } catch {}
+
   // Migrate student_permits columns if missing
   try {
     const pcols = all(`PRAGMA table_info('student_permits')`).map(r => r.name);
-    if (!pcols.includes("issue_date")) {
-      run("ALTER TABLE student_permits ADD COLUMN issue_date TEXT");
-    }
-    if (!pcols.includes("expiry_date")) {
-      run("ALTER TABLE student_permits ADD COLUMN expiry_date TEXT");
-    }
+    if (!pcols.includes("issue_date")) run("ALTER TABLE student_permits ADD COLUMN issue_date TEXT");
+    if (!pcols.includes("expiry_date")) run("ALTER TABLE student_permits ADD COLUMN expiry_date TEXT");
     if (!pcols.includes("status")) {
       run("ALTER TABLE student_permits ADD COLUMN status TEXT");
-      // Optional: backfill status as 'active' for existing rows
       run("UPDATE student_permits SET status = COALESCE(status, 'active')");
     }
     // Backfill permit_number if null using the row id as a stable surrogate

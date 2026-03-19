@@ -402,8 +402,8 @@ export default function App() {
        ? [{ id: "students",  icon: "👤", label: "Students" }] : []),
     ...((role === "register" || role === "saps" || role === "developer" || role === "owner")
        ? [{ id: "studentmgmt", icon: "🧭", label: "Student Management" }] : []),
-    ...((role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
-       ? [{ id: "subjects",  icon: "📚", label: "Subjects" }] : []),
+    ...((role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
+       ? [{ id: "subjects",  icon: "📚", label: role === "student" ? "My Schedule" : "Subjects" }] : []),
     ...((role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
        ? [{ id: "grades",    icon: "📝", label: "Grades" }] : []),
     ...((role === "teacher" || role === "developer" || role === "owner")
@@ -413,8 +413,11 @@ export default function App() {
        ? [{ id: "permits", icon: "🎫", label: "Student Permits" }] : []),
     ...((role === "student" || role === "register" || role === "cashier" || role === "saps" || role === "developer" || role === "owner")
        ? [{ id: "payments", icon: "💳", label: "Payments" }] : []),
-    ...(role === "student" ? [{ id: "profile", icon: "👤", label: "Profile" }] : []),
-    ...((role === "developer" || role === "owner") ? [{ id: "users", icon: "🛠️", label: "Users" }] : [])
+    ...(role === "student" ? [{ id: "profile", icon: "👤", label: "My Profile" }] : []),
+    ...((role === "developer" || role === "owner")
+       ? [{ id: "users",    icon: "👥", label: "Users Admin" }] : []),
+    ...((role === "developer" || role === "owner")
+       ? [{ id: "logs",     icon: "📜", label: "System Logs" }] : []),
   ];
 
   useEffect(() => {
@@ -566,10 +569,10 @@ export default function App() {
           
           <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: sidebarExpanded ? "flex-start" : "center", 
             padding: sidebarExpanded ? "0 24px" : "0", borderBottom: "1px solid var(--border-color)" }}>
-            <div className="neon-border" style={{ width: 40, height: 40, background: "rgba(68, 215, 255, 0.1)", borderRadius: 10,
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <img src={logo || "/yllanalogo.png"} alt="Logo" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4 }}
-                onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "🎓"; }} />
+            <div className="neon-border" style={{ width: 44, height: 44, background: "rgba(68, 215, 255, 0.1)", borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+              <img src={logo || "/yllanalogo.png"} alt="Logo" style={{ width: "95%", height: "95%", objectFit: "contain" }}
+                onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.style.background = "rgba(68, 215, 255, 0.1)"; e.currentTarget.parentElement.textContent = "🎓"; }} />
             </div>
             {sidebarExpanded && (
               <div className="glow-text" style={{ marginLeft: 16, fontSize: 16, fontWeight: 800, letterSpacing: 0.5, color: "var(--neon-blue)",
@@ -656,14 +659,6 @@ export default function App() {
 
             <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
               <div style={{ display: "flex", gap: 16 }}>
-                <div style={{ position: "relative", cursor: "pointer" }}>
-                  <span style={{ fontSize: 20 }}>🔔</span>
-                  <span style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", color: "white", fontSize: 9, fontWeight: 800, padding: "2px 5px", borderRadius: 10 }}>3</span>
-                </div>
-                <div style={{ position: "relative", cursor: "pointer" }}>
-                  <span style={{ fontSize: 20 }}>✉️</span>
-                  <span style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", color: "white", fontSize: 9, fontWeight: 800, padding: "2px 5px", borderRadius: 10 }}>1</span>
-                </div>
               </div>
               
               <div className="desktop-only" style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 500 }}>
@@ -715,7 +710,7 @@ export default function App() {
                 setSearchResult={setSearchResult} searchDone={searchDone} setSearchDone={setSearchDone} />}
             {page === "students"  && (role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Students students={students} setStudents={setStudents} subjects={subjects} token={auth.token} role={role} />}
             {page === "studentmgmt" && (role === "register" || role === "saps" || role === "developer" || role === "owner") && <StudentManagement token={auth.token} role={role} students={students} allSubjects={subjects} grades={grades} setGrades={setGrades} />}
-            {page === "subjects"  && (role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} />}
+            {page === "subjects"  && (role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} />}
             {page === "grades"    && (role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} />}
             {page === "attendance" && (role === "teacher" || role === "developer" || role === "owner") && <AttendanceManage token={auth.token} role={role} students={students} subjects={subjects} />}
             {page === "attendance" && role === "teacher" && <TeacherAttendanceDashboard token={auth.token} teacherUuid={auth?.uuid} subjects={subjects} />}
@@ -724,6 +719,7 @@ export default function App() {
             {page === "payments"  && (role === "student" || role === "register" || role === "cashier" || role === "saps" || role === "developer" || role === "owner") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} />}
             {page === "profile"   && <Profile token={auth.token} username={auth.username} />}
             {page === "users"     && (role === "developer" || role === "owner") && <UsersAdmin token={auth.token} />}
+            {page === "logs"      && (role === "developer" || role === "owner") && <LogsView token={auth.token} />}
           </div>
         </div>
       </div>)}
@@ -749,114 +745,161 @@ export { Dashboard };
 
 function Dashboard({ token, role, username, full_name }) {
   const [stats, setStats] = useState(null);
-  useEffect(() => {
-    api("/dashboard-stats", {}, token).then(setStats).catch(() => {});
+  const [content, setContent] = useState({ next_examination: "No examination scheduled.", ybvc_staff: [] });
+  const [editExamOpen, setEditExamOpen] = useState(false);
+  const [examValue, setExamValue] = useState("");
+  const [editStaffOpen, setEditStaffOpen] = useState(false);
+  const [staffJson, setStaffJson] = useState("");
+
+  const canEditExam = role === "saps" || role === "developer";
+  const canEditStaff = role === "saps" || role === "developer";
+  const canEditFounder = role === "developer";
+
+  const loadData = useCallback(async () => {
+    try {
+      const s = await api("/dashboard-stats", {}, token);
+      setStats(s);
+      const c = await api("/dashboard/content", {}, token);
+      setContent(c);
+      setExamValue(c.next_examination);
+      setStaffJson(JSON.stringify(c.ybvc_staff, null, 2));
+    } catch {}
   }, [token]);
 
-  if (!stats) return <div style={{ color: "var(--neon-blue)", fontWeight: 800 }} className="glow-text">LOADING STUDENT SYSTEM...</div>;
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const saveExam = async () => {
+    try {
+      await api("/dashboard/content", { method: "POST", body: { type: "next_examination", value: examValue } }, token);
+      setEditExamOpen(false);
+      loadData();
+    } catch (e) { alert(e.message); }
+  };
+
+  const saveStaff = async () => {
+    try {
+      const val = JSON.parse(staffJson);
+      await api("/dashboard/content", { method: "POST", body: { type: "ybvc_staff", value: val } }, token);
+      setEditStaffOpen(false);
+      loadData();
+    } catch (e) { alert("Invalid JSON format. Please provide a valid array of staff objects."); }
+  };
+
+  if (!stats) return <div style={{ color: "var(--neon-blue)", fontWeight: 800, padding: 40 }} className="glow-text">LOADING STUDENT SYSTEM...</div>;
 
   const items = [
-    { icon: "🎓", val: stats.totalStudents, label: "Total Students", color: "#44d7ff", trend: "+4.1% ↑", variant: "active" },
+    { icon: "🎓", val: stats.totalStudents, label: "Total Students", color: "#44d7ff", variant: "active" },
     { icon: "📚", val: stats.activeSubjects, label: role === "student" ? "My Subjects" : "Active Subjects", color: "#44d7ff" },
-    ...(role !== "student" ? [{ icon: "⚠️", val: stats.atRiskCount || 0,
-      label: "At-Risk Students", color: "#f87171" }] : []),
-    { icon: "📝", val: stats.gradeRecords,
-      label: role === "student" ? "My Grade Records" : "Grade Records", color: "#44d7ff" },
+    ...(role !== "student" ? [{ icon: "⚠️", val: stats.atRiskCount || 0, label: "At-Risk Students", color: "#f87171" }] : []),
+    { icon: "📝", val: stats.gradeRecords, label: role === "student" ? "My Grade Records" : "Grade Records", color: "#44d7ff" },
   ];
 
   return (
     <div>
       <PageHeader title="Overview" sub={`Dashboard / Welcome back, ${full_name || username || role}`} />
+      
       <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24, marginBottom: 32 }}>
         {items.map((s, i) => (
-          <div key={i} className="glass-card"
-            style={{ 
-              padding: "24px 32px",
-              display: "flex", alignItems: "center", gap: 24, transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", cursor: "pointer",
-              ...(s.variant === "active" ? { border: "1px solid var(--neon-blue)", boxShadow: "var(--neon-glow)" } : {})
-            }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 15px 40px rgba(68, 215, 255, 0.2)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = s.variant === 'active' ? 'var(--neon-glow)' : '0 8px 32px 0 rgba(0, 0, 0, 0.3)'; }}
-          >
-            <div className="neon-border" style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(68, 215, 255, 0.1)", color: "var(--neon-blue)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>
+          <div key={i} className="glass-card" style={{ padding: "24px 32px", display: "flex", alignItems: "center", gap: 24 }}>
+            <div className="neon-border" style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(68, 215, 255, 0.1)", color: "var(--neon-blue)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>
               {s.icon}
             </div>
-            <div style={{ flex: 1 }}>
+            <div>
               <div style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>{s.label}</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-                <div style={{ fontSize: 32, fontWeight: 800, color: "white", lineHeight: 1 }}>{s.val?.toLocaleString() || s.val}</div>
-                {s.trend && <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{s.trend}</div>}
-              </div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: "white", lineHeight: 1 }}>{s.val}</div>
             </div>
           </div>
         ))}
       </div>
 
       <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, marginBottom: 32 }}>
-        <Card title="Research Trends (Publications)">
-           <div style={{ height: 260, position: "relative", padding: "20px 0" }}>
-              <div style={{ borderLeft: "2px solid rgba(255,255,255,0.1)", borderBottom: "2px solid rgba(255,255,255,0.1)", position: "absolute", inset: 0 }} />
-              <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <path d="M0 80 Q 15 70, 30 75 T 60 50 T 100 20" fill="none" stroke="var(--neon-blue)" strokeWidth="3" style={{ filter: 'drop-shadow(0 0 8px rgba(68,215,255,0.8))' }} />
-                <path d="M0 80 Q 15 70, 30 75 T 60 50 T 100 20 L 100 100 L 0 100 Z" fill="url(#grad1)" style={{ opacity: 0.2 }} />
-                <defs>
-                  <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: 'var(--neon-blue)', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: 'var(--neon-blue)', stopOpacity: 0 }} />
-                  </linearGradient>
-                </defs>
-              </svg>
-           </div>
+        <Card title="Department Statistics (Student Population)">
+          <div style={{ height: 260, display: "flex", alignItems: "flex-end", gap: 20, paddingBottom: 20 }}>
+            {(stats.departmentCounts || []).length > 0 ? stats.departmentCounts.slice(0, 6).map((d, i) => {
+              const max = Math.max(...stats.departmentCounts.map(x => x.total), 1);
+              const height = (d.total / max) * 180;
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--neon-blue)" }}>{d.total}</div>
+                  <div style={{ width: "100%", height, background: "var(--accent-gradient)", borderRadius: "8px 8px 0 0", boxShadow: "0 4px 15px rgba(68,215,255,0.2)" }} />
+                  <div style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 700, textAlign: "center", height: 30 }}>{d.department}</div>
+                </div>
+              );
+            }) : <div style={{ color: "var(--text-dim)", width: "100%", textAlign: "center" }}>No department data available.</div>}
+          </div>
         </Card>
-        <Card title="Project Distribution">
-           <div style={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ width: 180, height: 180, borderRadius: "50%", border: "15px solid rgba(255,255,255,0.05)", borderTopColor: "var(--neon-blue)", transform: "rotate(-45deg)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                 <div style={{ transform: "rotate(45deg)", fontSize: 24, fontWeight: 800 }}>85%</div>
-              </div>
-           </div>
+
+        <Card title="School Founder & Leadership" action={canEditFounder && <Btn variant="outline" style={{ fontSize: 11, padding: "4px 8px" }}>Edit</Btn>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--neon-blue)", fontWeight: 800, textTransform: "uppercase", marginBottom: 4 }}>Owner / Founder</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "white" }}>Dr. Grace B. Talpis, MPA</div>
+            </div>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 800, textTransform: "uppercase", marginBottom: 4 }}>Executive Vice President</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "white" }}>Lito Talpis</div>
+            </div>
+            <div style={{ marginTop: 10, background: "rgba(68, 215, 255, 0.05)", padding: 12, borderRadius: 10, border: "1px dashed rgba(68, 215, 255, 0.2)" }}>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", fontStyle: "italic" }}>"Dedicated to academic excellence and student success at YBVC."</div>
+            </div>
+          </div>
         </Card>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <Card title="Recent Project Updates">
-           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-             {[
-               { title: "Project Tilllocation", lead: "Dr. Elena Vance", progress: 75, status: "Active" },
-               { title: "Project Development", lead: "Astrophysics", progress: 50, status: "Active" },
-               { title: "Science Publication", lead: "World Vanpa", progress: 75, status: "Active" }
-             ].map((row, i) => (
-               <div key={i} style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                 <div style={{ flex: 1 }}>
-                   <div style={{ fontSize: 13, fontWeight: 700 }}>{row.title}</div>
-                   <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{row.lead}</div>
-                 </div>
-                 <div style={{ width: 100 }}>
-                   <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
-                     <div style={{ width: `${row.progress}%`, height: "100%", background: "var(--neon-blue)", boxShadow: "0 0 10px rgba(68,215,255,0.5)" }} />
-                   </div>
-                 </div>
-                 <div style={{ fontSize: 12, fontWeight: 800 }}>{row.progress}%</div>
-               </div>
-             ))}
-           </div>
+      <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <Card title="Next Examination" action={canEditExam && <Btn variant="outline" onClick={() => setEditExamOpen(true)} style={{ fontSize: 11, padding: "4px 8px" }}>Manage</Btn>}>
+          <div style={{ background: "rgba(68, 215, 255, 0.05)", borderRadius: 12, padding: 24, border: "1px solid rgba(68, 215, 255, 0.1)", minHeight: 180 }}>
+            <div style={{ fontSize: 18, color: "white", fontWeight: 600, lineHeight: 1.6 }}>{content.next_examination}</div>
+            <div style={{ marginTop: 24, fontSize: 12, color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "var(--neon-blue)" }}>📢</span> Important notice for all students
+            </div>
+          </div>
         </Card>
-        <Card title="Funding Allocation">
-           <div style={{ display: "flex", alignItems: "flex-end", gap: 20, height: 160, paddingBottom: 20 }}>
-             {[
-               { label: "Grants", val: "$42M", h: 100 },
-               { label: "Research", val: "$38M", h: 80 },
-               { label: "Equipment", val: "$15M", h: 40 }
-             ].map((bar, i) => (
-               <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                 <div style={{ fontSize: 12, fontWeight: 800, color: "var(--neon-blue)" }}>{bar.val}</div>
-                 <div style={{ width: "100%", height: bar.h, background: "var(--accent-gradient)", borderRadius: "8px 8px 0 0", boxShadow: "0 4px 15px rgba(68,215,255,0.2)" }} />
-                 <div style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700 }}>{bar.label}</div>
-               </div>
-             ))}
-           </div>
+
+        <Card title="YBVC STAFF" action={canEditStaff && <Btn variant="outline" onClick={() => setEditStaffOpen(true)} style={{ fontSize: 11, padding: "4px 8px" }}>Configure</Btn>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeigth: 200, overflowY: "auto" }}>
+            {content.ybvc_staff && content.ybvc_staff.length > 0 ? content.ybvc_staff.map((s, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--neon-blue)" }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "white" }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{s.position}</div>
+                </div>
+              </div>
+            )) : <div style={{ color: "var(--text-dim)", padding: 20, textAlign: "center" }}>No staff records added.</div>}
+          </div>
         </Card>
       </div>
+
+      <Modal show={editExamOpen} title="📢 Edit Examination Message" onClose={() => setEditExamOpen(false)} width={500}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 13, color: "var(--text-dim)" }}>This message will be visible to all roles on the dashboard.</div>
+          <textarea 
+            value={examValue} 
+            onChange={e => setExamValue(e.target.value)}
+            style={{ width: "100%", height: 120, padding: 14, borderRadius: 10, background: "#0f172a", color: "white", border: "1px solid var(--border-color)", outline: "none", fontSize: 14 }}
+          />
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn style={{ flex: 1 }} onClick={saveExam}>Save Message</Btn>
+            <Btn variant="ghost" onClick={() => setEditExamOpen(false)}>Cancel</Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal show={editStaffOpen} title="👥 Configure YBVC STAFF" onClose={() => setEditStaffOpen(false)} width={600}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 13, color: "var(--text-dim)" }}>Enter staff list as a JSON array of objects: <code>{"[{\"name\": \"...\", \"position\": \"...\"}]"}</code></div>
+          <textarea 
+            value={staffJson} 
+            onChange={e => setStaffJson(e.target.value)}
+            style={{ width: "100%", height: 200, padding: 14, borderRadius: 10, background: "#0f172a", color: "white", border: "1px solid var(--border-color)", fontSize: 12, fontFamily: "monospace" }}
+          />
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn style={{ flex: 1 }} onClick={saveStaff}>Save Staff List</Btn>
+            <Btn variant="ghost" onClick={() => setEditStaffOpen(false)}>Cancel</Btn>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -950,7 +993,7 @@ function AttendanceManage({ token, role, students, subjects }) {
   };
   const unenroll = async (sid) => {
     if (!window.confirm("Remove student from this attendance table?")) return;
-    try { await api(`/attendance/tables/${selected}/enroll/${sid}`, { method: "DELETE" }, token); await refreshEnrollments(selected); await refreshAttendance(selected, date); } catch (e) { setError(e.message); }
+    try { await api(`/attendance/tables/${selected}/enroll/${sid}`, { method: "DELETE" }, token); setEnrollInput(""); await refreshEnrollments(selected); await refreshAttendance(selected, date); } catch (e) { setError(e.message); }
   };
   const dateList = (start, end) => {
     if (!start || !end) return [];
@@ -1239,15 +1282,16 @@ function AttendanceManage({ token, role, students, subjects }) {
             </div>
             <div style={{ marginTop: 10 }}>
               {enrollInput && (
-                <div style={{ marginBottom: 8, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: 8 }}>
-                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>Matches:</div>
-                  <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 8 }}>
+                <div style={{ marginBottom: 16, background: "rgba(255, 255, 255, 0.03)", border: "1px solid var(--border-color)", borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Matches:</div>
+                  <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
                     {students
                       .filter(s => [s.name, s.id].some(x => String(x).toLowerCase().includes(enrollInput.toLowerCase())))
-                      .slice(0, 6)
+                      .slice(0, 8)
                       .map(s => (
-                        <div key={s.id} onClick={() => setEnrollInput(s.id)} style={{ cursor: "pointer", padding: "6px 8px", borderRadius: 6, background: "#fff", border: "1px solid #e5e7eb" }}>
-                          <strong>{s.name}</strong> <span style={{ color: "#6b7280" }}>({s.id})</span>
+                        <div key={s.id} onClick={() => setEnrollInput(s.id)} style={{ cursor: "pointer", padding: "10px 14px", borderRadius: 10, background: "rgba(255, 255, 255, 0.05)", border: "1px solid var(--border-color)", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.borderColor = "var(--neon-blue)"} onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border-color)"}>
+                          <div style={{ fontWeight: 800, color: "white", fontSize: 13 }}>{s.name}</div>
+                          <div style={{ color: "var(--neon-blue)", fontSize: 11, fontWeight: 700 }}>{s.id}</div>
                         </div>
                       ))}
                   </div>
@@ -1258,10 +1302,10 @@ function AttendanceManage({ token, role, students, subjects }) {
                   <thead><tr><Th>ID</Th><Th>Name</Th><Th>Course/Year</Th><Th>Status</Th><Th>Action</Th></tr></thead>
                   <tbody>
                     {enrollments.map(s => (
-                      <tr key={s.student_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                        <Td><code style={{ fontSize: 11, background: "#f1f5f9", color: "#111827", padding: "2px 5px", borderRadius: 4, fontWeight: 800 }}>{s.student_id}</code></Td>
-                        <Td><strong>{s.name}</strong></Td>
-                        <Td>{s.course} - {s.year}</Td>
+                      <tr key={s.student_id} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                        <Td><code style={{ fontSize: 11, background: "rgba(68, 215, 255, 0.1)", color: "var(--neon-blue)", padding: "4px 8px", borderRadius: 6, fontWeight: 800 }}>{s.student_id}</code></Td>
+                        <Td><strong style={{ color: "white" }}>{s.name}</strong></Td>
+                        <Td style={{ color: "var(--text-dim)" }}>{s.course} - {s.year}</Td>
                         <Td><Badge text={s.status} type={s.status === "Active" ? "green" : "red"} /></Td>
                         <Td><Btn onClick={() => unenroll(s.student_id)}>Remove</Btn></Td>
                       </tr>
@@ -1908,20 +1952,20 @@ function PermitsView({ token, semesterId, role, username }) {
         </>
       ) : (
         <>
-      {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
+      {msg && <div style={{ background: "linear-gradient(135deg, #ecfdf5, #d1fae5)", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "#065f46", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 18 }}>
         <Card title="Select Student">
           <input placeholder="🔍 Search..." value={searchStu} onChange={e => setSearchStu(e.target.value)}
-            style={{ width: "100%", padding: "8px 11px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 12, outline: "none", marginBottom: 10 }} />
+            style={{ width: "100%", padding: "8px 11px", border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, outline: "none", marginBottom: 10, background: "#0f172a", color: "white" }} />
           <div style={{ maxHeight: 420, overflowY: "auto" }}>
             {filteredStudents.map(s => (
               <div key={s.id} onClick={() => setSelectedStudent(s.id)} style={{
                 padding: "10px 12px", borderRadius: 8, cursor: "pointer", marginBottom: 4,
-                background: selectedStudent === s.id ? "#eff6ff" : "#f9fafb",
-                border: `1.5px solid ${selectedStudent === s.id ? "#2563eb" : "transparent"}`,
+                background: selectedStudent === s.id ? "rgba(68, 215, 255, 0.15)" : "rgba(255,255,255,0.08)",
+                border: `1.5px solid ${selectedStudent === s.id ? "var(--neon-blue)" : "transparent"}`,
                 transition: "all 0.15s",
               }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>{s.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: selectedStudent === s.id ? "white" : "var(--text-main)" }}>{s.name}</div>
                 <div style={{ fontSize: 11, color: "#6b7280" }}>{s.id} · {s.course}</div>
               </div>
             ))}
@@ -1954,7 +1998,7 @@ function PermitsView({ token, semesterId, role, username }) {
                     <thead><tr><Th>Period</Th><Th>Permit #</Th><Th>Issue</Th><Th>Expiry</Th><Th>Status</Th><Th>Actions</Th></tr></thead>
                     <tbody>
                       {permitsFiltered.map(p => (
-                        <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <tr key={p.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
                           <Td>{p.name || p.period_name}</Td>
                           <Td><code>{p.permit_number || "—"}</code></Td>
                           <Td>{p.issue_date ? new Date(p.issue_date).toLocaleDateString() : "—"}</Td>
@@ -2077,7 +2121,7 @@ function Payments({ token, role, studentIdFromAuth }) {
   return (
     <div>
       <PageHeader title="💳 Payments" sub={role === "student" ? "View your tuition balance and history" : "Record tuition payments"} />
-      {msg && <div style={{ background: "#eef2ff", border: "1px solid #c7d2fe", color: "#3730a3", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
+      {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", color: "var(--neon-blue)", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
       
       {role !== "student" && (
         <Card title="Record Payment">
@@ -2109,8 +2153,8 @@ function Payments({ token, role, studentIdFromAuth }) {
 
       {balance !== null && (
         <Card title={role === "student" ? "My Balance" : `Account Balance: ${studentId}`}>
-          <div style={{ fontSize: 24, fontWeight: 900, color: "#111827" }}>₱{balance.toFixed(2)}</div>
-          <div style={{ fontSize: 12, color: "#6b7280" }}>Remaining balance for current semester.</div>
+          <div className="glow-text" style={{ fontSize: 32, fontWeight: 900, color: "var(--neon-blue)", marginBottom: 4 }}>₱{balance.toFixed(2)}</div>
+          <div style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 500 }}>Remaining balance for current semester.</div>
         </Card>
       )}
 
@@ -2121,7 +2165,7 @@ function Payments({ token, role, studentIdFromAuth }) {
               <thead><tr><Th>Date</Th><Th>Amount</Th><Th>Method</Th><Th>Reference</Th></tr></thead>
               <tbody>
                 {payments.map(p => (
-                  <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <tr key={p.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
                     <Td>{new Date(p.created_at).toLocaleString()}</Td>
                     <Td>₱{Number(p.amount).toFixed(2)}</Td>
                     <Td>{p.method || "-"}</Td>
@@ -2369,8 +2413,8 @@ function Students({ students, setStudents, subjects, token, role }) {
       if (termFilter === "All") return true;
       // Determine if student has any subject in the selected term
       // We infer via existing grades in global state (loaded separately in App and used to populate subjects list)
-      // Since Students component does not have grades here, we approximate by checking subjects array for semester term; in practice,
-      // staff uses this view alongside Student Management to focus on term.
+      // Since Students component does not have grades here, we approximate by checking subjects array for semester term.
+      // In practice, staff uses this view alongside Student Management to focus on term.
       const enrolledSubjects = subjects.filter(sub => termName(sub.semester_id) === termFilter);
       if (enrolledSubjects.length === 0) return false;
       // If any of the subjects have grades for this student, they are enrolled; fallback to presence in subjects table is acceptable for quick filter
@@ -2659,7 +2703,7 @@ function Subjects({ subjects, setSubjects, token, role }) {
 
   return (
     <div>
-      <PageHeader title="📚 Subject Management" sub="Add, edit, and remove subjects from the course offerings" />
+      <PageHeader title={role === "student" ? "📅 My Class Schedule" : "📚 Subject Management"} sub={role === "student" ? "View your enrolled subjects and their locations" : "Add, edit, and remove subjects from the course offerings"} />
       {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8,
         padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
       <Card>
@@ -2674,20 +2718,22 @@ function Subjects({ subjects, setSubjects, token, role }) {
         </div>
         <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {filtered.map((s, i) => (
-            <div key={s.id} style={{ border: "1px solid #e5e7eb", borderRadius: 11, padding: 16,
-              borderTop: `4px solid ${COLORS[i % COLORS.length]}`, background: "white" }}>
+            <div key={s.id} className="glass-card" style={{ padding: 16,
+              borderTop: `4px solid ${COLORS[i % COLORS.length]}`, transition: "all 0.3s ease" }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-5px)"; e.currentTarget.style.boxShadow = "var(--neon-glow)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 32px 0 rgba(0, 0, 0, 0.3)"; }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <code style={{ fontSize: 11, fontWeight: 800, color: "#6b7280",
-                  background: "#f1f5f9", padding: "2px 8px", borderRadius: 5 }}>{s.id}</code>
-                <span style={{ fontSize: 11, background: "#dbeafe", color: "#1e40af",
-                  padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{s.units} Units</span>
+                <code style={{ fontSize: 11, fontWeight: 800, color: "var(--neon-blue)",
+                  background: "rgba(68, 215, 255, 0.1)", padding: "2px 8px", borderRadius: 5, border: "1px solid var(--border-color)" }}>{s.id}</code>
+                <span style={{ fontSize: 11, background: "rgba(68, 215, 255, 0.15)", color: "var(--neon-blue)",
+                  padding: "2px 8px", borderRadius: 10, fontWeight: 700, border: "1px solid var(--border-color)" }}>{s.units} Units</span>
               </div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: "#111827", margin: "6px 0 4px" }}>{s.name}</div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 2 }}>👨‍🏫 {s.professor}</div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 2 }}>🕐 {s.schedule} {s.time && ` | ${s.time}`}</div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 2 }}>🏢 {s.campus}</div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>📍 {s.room}</div>
-              <div style={{ display: "flex", gap: 7 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: "white", margin: "6px 0 4px" }}>{s.name}</div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 4 }}>👨‍🏫 <span style={{ color: "white" }}>{s.professor || "No professor info available"}</span></div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 4 }}>🕐 <span style={{ color: "white" }}>{s.schedule} {s.time && ` | ${s.time}`}</span></div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 4 }}>🏢 <span style={{ color: "white" }}>{s.campus}</span></div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 12 }}>📍 <span style={{ color: "white" }}>{s.room}</span></div>
+              <div style={{ display: "flex", gap: 7, marginTop: "auto" }}>
                 {(role === "register" || role === "developer" || role === "owner") ? (
                   <>
                     <Btn variant="outline" onClick={() => openEdit(s)}
@@ -2696,7 +2742,9 @@ function Subjects({ subjects, setSubjects, token, role }) {
                       style={{ flex: 1, fontSize: 11, padding: "5px 8px", justifyContent: "center" }}>🗑️ Delete</Btn>
                   </>
                 ) : (
-                  <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", width: "100%" }}>Read-only access</div>
+                  <div style={{ fontSize: 12, color: "var(--neon-blue)", fontWeight: 800, textAlign: "center", width: "100%", padding: "8px", background: "rgba(68, 215, 255, 0.1)", borderRadius: 8, border: "1px dashed var(--border-color)" }}>
+                    {role === "student" ? "✓ ENROLLED" : "READ-ONLY ACCESS"}
+                  </div>
                 )}
               </div>
             </div>
@@ -3133,7 +3181,12 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                       return (
                         <tr key={subj.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
                           <Td>{subj.id}</Td>
-                          <Td><strong>{subj.name}</strong></Td>
+                          <Td>
+                            <strong>{subj.name}</strong>
+                            <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
+                              📍 {subj.room || "-"} | 🏢 {subj.campus || "-"}
+                            </div>
+                          </Td>
                           <Td><GradeCell val={g.prelim} /></Td>
                           <Td><GradeCell val={g.midterm} /></Td>
                           <Td><GradeCell val={g.prefinal} /></Td>
@@ -3504,6 +3557,91 @@ function UsersAdmin({ token }) {
       <Modal show={!!permModal} title={`🛡️ User Permissions: ${permModal?.username}`} onClose={() => setPermModal(null)} width={600}>
         {permModal && <PermissionsEditor userId={permModal.id} token={token} />}
       </Modal>
+    </div>
+  );
+}
+
+function LogsView({ token }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterAction, setFilterAction] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    let path = "/audit-logs";
+    const params = new URLSearchParams();
+    if (filterAction) params.append("action", filterAction);
+    if (filterDate) params.append("date", filterDate);
+    if (params.toString()) path += "?" + params.toString();
+
+    api(path, {}, token)
+      .then(d => { setLogs(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [token, filterAction, filterDate]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const uniqueActions = ["LOGIN", "CREATE", "UPDATE", "DELETE", "ATTENDANCE_SET", "ENROLL", "UNENROLL", "PAYMENT", "GRADE_UPDATE"];
+
+  return (
+    <div>
+      <PageHeader title="📜 System Audit Logs" sub="Track system-wide activities" />
+      
+      <Card title="Recent Activity" action={<Btn variant="outline" onClick={refresh}>🔄 Refresh</Btn>}>
+        <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ width: 220 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 6, display: "block" }}>Action</label>
+            <select value={filterAction} onChange={e => setFilterAction(e.target.value)}
+              style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10, background: "#0f172a", color: "#ffffff", outline: "none" }}>
+              <option value="">All Actions</option>
+              {uniqueActions.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <div style={{ width: 180 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 6, display: "block" }}>Date</label>
+            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+              style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--border-color)", borderRadius: 10, background: "#0f172a", color: "#ffffff", outline: "none" }} />
+          </div>
+          <Btn variant="ghost" onClick={() => { setFilterAction(""); setFilterDate(""); }}>Clear</Btn>
+        </div>
+
+        <div className="table-container">
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <Th>Time</Th>
+                <Th>User</Th>
+                <Th>Action</Th>
+                <Th>Entity</Th>
+                <Th>ID</Th>
+                <Th>Details</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>Loading...</td></tr>
+              ) : logs.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>No results.</td></tr>
+              ) : (
+                logs.map(log => (
+                  <tr key={log.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                    <Td style={{ fontSize: 11, color: "var(--text-dim)" }}>{new Date(log.created_at).toLocaleString()}</Td>
+                    <Td>
+                      <div style={{ fontWeight: 800, fontSize: 13 }}>{log.username || "(system)"}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-dim)", opacity: 0.7 }}>{log.user_role}</div>
+                    </Td>
+                    <Td><Badge text={log.action} type={log.action === "DELETE" ? "red" : (log.action === "CREATE" ? "green" : "blue")} /></Td>
+                    <Td style={{ fontWeight: 700, color: "var(--neon-blue)" }}>{log.entity}</Td>
+                    <Td><code style={{ fontSize: 11 }}>{log.entity_id}</code></Td>
+                    <Td style={{ fontSize: 12, color: "var(--text-dim)", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.details}</Td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }

@@ -527,19 +527,28 @@ app.get("/dashboard-stats", authRequired, (req, res) => {
   const { role, student_id } = req.user;
   const stats = {};
 
-  // Total students (Available to all roles by request)
+  // Total students (Available to all roles)
   const totalStudents = get("SELECT COUNT(*) as c FROM students WHERE deleted_at IS NULL");
   stats.totalStudents = totalStudents?.c || 0;
+
+  // Department / Course counts for the new bar graph
+  const deptCounts = all(`
+    SELECT course as department, COUNT(*) as total 
+    FROM students 
+    WHERE deleted_at IS NULL 
+    GROUP BY course
+  `);
+  stats.departmentCounts = deptCounts;
 
   if (role === "student") {
     // Student Dashboard: own grades count, own subjects
     const ownGrades = get("SELECT COUNT(*) as c FROM grades WHERE student_id=? AND deleted_at IS NULL", [student_id]);
     stats.gradeRecords = ownGrades?.c || 0;
     
+    // Own subjects count
     const ownSubjects = get("SELECT COUNT(*) as c FROM grades WHERE student_id=? AND deleted_at IS NULL", [student_id]);
     stats.activeSubjects = ownSubjects?.c || 0;
     
-    // Hide at-risk (not in stats)
     return res.json(stats);
   }
 
@@ -547,11 +556,10 @@ app.get("/dashboard-stats", authRequired, (req, res) => {
   const activeSubs = get("SELECT COUNT(*) as c FROM subjects WHERE deleted_at IS NULL");
   stats.activeSubjects = activeSubs?.c || 0;
   
-  const gradeRecords = get("SELECT COUNT(*) as c FROM grades WHERE deleted_at IS NULL");
-  stats.gradeRecords = gradeRecords?.c || 0;
+  const gradeRecordsCount = get("SELECT COUNT(*) as c FROM grades WHERE deleted_at IS NULL");
+  stats.gradeRecords = gradeRecordsCount?.c || 0;
 
-  // At-risk students (only for staff, hide for student)
-  // This is a complex query, we'll return a count
+  // At-risk students
   const atRisk = all(`
     SELECT student_id, AVG((prelim + midterm + prefinal + final) / 4.0) as avg_grade
     FROM grades
@@ -563,6 +571,60 @@ app.get("/dashboard-stats", authRequired, (req, res) => {
 
   res.json(stats);
 });
+
+// GET dashboard extra content
+app.get("/dashboard/content", authRequired, (req, res) => {
+  const exam = get("SELECT value FROM settings WHERE key='next_examination'")?.value || "No exam scheduled.";
+  const staff = get("SELECT value FROM settings WHERE key='ybvc_staff'")?.value || "[]";
+  res.json({ next_examination: exam, ybvc_staff: JSON.parse(staff) });
+});
+
+// UPDATE dashboard extra content
+app.post("/dashboard/content", authRequired, (req, res) => {
+  const { role, username } = req.user;
+  const { type, value } = req.body;
+  
+  console.log(`[DASHBOARD_CONTENT] Update attempt by ${username} (${role}): type=${type}`);
+
+  // Permission check
+  const allowedRoles = ["developer", "saps"];
+  if (!allowedRoles.includes(role)) {
+    console.warn(`[DASHBOARD_CONTENT] Access denied for role: ${role}`);
+    return res.status(403).json({ error: "Access denied: Unauthorized to edit dashboard content" });
+  }
+
+  try {
+    if (type === "ybvc_staff") {
+      run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ybvc_staff', ?)", [JSON.stringify(value)]);
+    } else if (type === "next_examination") {
+      run("INSERT OR REPLACE INTO settings (key, value) VALUES ('next_examination', ?)", [String(value)]);
+    } else {
+      console.error(`[DASHBOARD_CONTENT] Invalid type: ${type}`);
+      return res.status(400).json({ error: "Invalid content type" });
+    }
+    console.log(`[DASHBOARD_CONTENT] Update successful: ${type}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[DASHBOARD_CONTENT] DB Error:", err);
+    res.status(500).json({ error: "Database error: " + err.message });
+  }
+});
+// GET Audit Logs (developer/owner only)
+app.get("/audit-logs", authRequired, (req, res) => {
+  const { role } = req.user;
+  if (role !== "developer" && role !== "owner") {
+    return res.status(403).json({ error: "Access denied" });
+  }
+  const rows = all(`
+    SELECT a.*, u.username, u.role as user_role 
+    FROM audit_log a 
+    LEFT JOIN users u ON a.user_id = u.id 
+    ORDER BY a.created_at DESC 
+    LIMIT 200
+  `);
+  res.json(rows);
+});
+
 app.post(
   "/students",
   authRequired,
@@ -1413,11 +1475,15 @@ app.get("/subjects", authRequired, requireRole("subjects"), (req, res) => {
   }
   if (role === "student") {
     const sid = req.user.student_id;
+    console.log(`[DEBUG] Fetching subjects for student_id: ${sid}`);
     const rows = all(`
       SELECT b.* FROM subjects b
       JOIN grades g ON g.subject_id = b.id
-      WHERE g.student_id = ? AND g.deleted_at IS NULL AND b.deleted_at IS NULL
+      WHERE g.student_id = ? 
+      AND (g.deleted_at IS NULL OR g.deleted_at = '') 
+      AND (b.deleted_at IS NULL OR b.deleted_at = '')
     `, [sid]);
+    console.log(`[DEBUG] Found ${rows.length} subjects for ${sid}`);
     return res.json(rows);
   }
   const rows = all("SELECT * FROM subjects WHERE deleted_at IS NULL");
