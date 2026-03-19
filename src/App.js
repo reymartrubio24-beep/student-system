@@ -555,7 +555,7 @@ export default function App() {
     <div style={{ fontFamily: "'Outfit', 'Inter', sans-serif", background: "var(--bg-dark)",
       minHeight: "100vh", display: "flex", flexDirection: "column", color: "white" }}>
       {!auth && (
-        <AuthScreen onAuthed={setAuthPersist} />
+        <AuthScreen onAuthed={setAuthPersist} logo={logo} />
       )}
       
       {auth && (<div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative" }}>
@@ -3262,7 +3262,7 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
   );
 }
 
-function AuthScreen({ onAuthed }) {
+function AuthScreen({ onAuthed, logo }) {
   const [u, setU] = useState("");
   const [p, setP] = useState("");
   const [msg, setMsg] = useState("");
@@ -3286,8 +3286,9 @@ function AuthScreen({ onAuthed }) {
       <div style={{ position: "absolute", width: "800px", height: "800px", background: "radial-gradient(circle, rgba(37,99,235,0.05) 0%, transparent 70%)", bottom: "-20%", right: "-10%" }} />
       
       <div className="glass-card" style={{ width: 420, padding: 48, boxShadow: "0 25px 80px rgba(0,0,0,0.6)", zIndex: 1, textAlign: "center" }}>
-        <div className="neon-border" style={{ width: 80, height: 80, background: "rgba(68, 215, 255, 0.1)", borderRadius: 20, margin: "0 auto 32px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-           <span style={{ fontSize: 40 }}>🎓</span>
+        <div className="neon-border" style={{ width: 88, height: 88, background: "rgba(68, 215, 255, 0.1)", borderRadius: "50%", margin: "0 auto 32px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+           <img src={logo || "/yllanalogo.png"} alt="Logo" style={{ width: "95%", height: "95%", objectFit: "contain" }}
+             onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "🎓"; }} />
         </div>
         <div className="glow-text" style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, color: "white", letterSpacing: "-0.5px" }}>STUDENT<span style={{ color: "var(--neon-blue)" }}>DASHBOARD</span></div>
         <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 40, fontWeight: 500 }}>
