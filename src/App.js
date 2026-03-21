@@ -749,7 +749,7 @@ function Dashboard({ token, role, username, full_name }) {
   const [editExamOpen, setEditExamOpen] = useState(false);
   const [examValue, setExamValue] = useState("");
   const [editStaffOpen, setEditStaffOpen] = useState(false);
-  const [staffJson, setStaffJson] = useState("");
+  const [staffList, setStaffList] = useState([]);
 
   const canEditExam = role === "saps" || role === "developer";
   const canEditStaff = role === "saps" || role === "developer";
@@ -762,7 +762,7 @@ function Dashboard({ token, role, username, full_name }) {
       const c = await api("/dashboard/content", {}, token);
       setContent(c);
       setExamValue(c.next_examination);
-      setStaffJson(JSON.stringify(c.ybvc_staff, null, 2));
+      setStaffList(c.ybvc_staff || []);
     } catch {}
   }, [token]);
 
@@ -778,11 +778,24 @@ function Dashboard({ token, role, username, full_name }) {
 
   const saveStaff = async () => {
     try {
-      const val = JSON.parse(staffJson);
-      await api("/dashboard/content", { method: "POST", body: { type: "ybvc_staff", value: val } }, token);
+      await api("/dashboard/content", { method: "POST", body: { type: "ybvc_staff", value: staffList } }, token);
       setEditStaffOpen(false);
       loadData();
-    } catch (e) { alert("Invalid JSON format. Please provide a valid array of staff objects."); }
+    } catch (e) { alert(e.message); }
+  };
+
+  const updateStaffItem = (index, field, value) => {
+    const newList = [...staffList];
+    newList[index][field] = value;
+    setStaffList(newList);
+  };
+
+  const addStaffItem = () => {
+    setStaffList([...staffList, { name: "", position: "" }]);
+  };
+
+  const removeStaffItem = (index) => {
+    setStaffList(staffList.filter((_, i) => i !== index));
   };
 
   if (!stats) return <div style={{ color: "var(--neon-blue)", fontWeight: 800, padding: 40 }} className="glow-text">LOADING STUDENT SYSTEM...</div>;
@@ -888,14 +901,52 @@ function Dashboard({ token, role, username, full_name }) {
 
       <Modal show={editStaffOpen} title="👥 Configure YBVC STAFF" onClose={() => setEditStaffOpen(false)} width={600}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ fontSize: 13, color: "var(--text-dim)" }}>Enter staff list as a JSON array of objects: <code>{"[{\"name\": \"...\", \"position\": \"...\"}]"}</code></div>
-          <textarea 
-            value={staffJson} 
-            onChange={e => setStaffJson(e.target.value)}
-            style={{ width: "100%", height: 200, padding: 14, borderRadius: 10, background: "#0f172a", color: "white", border: "1px solid var(--border-color)", fontSize: 12, fontFamily: "monospace" }}
-          />
-          <div style={{ display: "flex", gap: 10 }}>
-            <Btn style={{ flex: 1 }} onClick={saveStaff}>Save Staff List</Btn>
+          <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 8 }}>Manage the list of staff members shown on the dashboard.</div>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto", paddingRight: 8 }}>
+            {staffList.map((s, i) => (
+              <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-end", background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 10, border: "1px solid var(--border-color)" }}>
+                <div style={{ flex: 1 }}>
+                  <Input 
+                    label="Name" 
+                    value={s.name} 
+                    onChange={e => updateStaffItem(i, "name", e.target.value)} 
+                    placeholder="e.g. Juan Dela Cruz"
+                    style={{ marginBottom: 0 }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Input 
+                    label="Position" 
+                    value={s.position} 
+                    onChange={e => updateStaffItem(i, "position", e.target.value)} 
+                    placeholder="e.g. Registrar"
+                    style={{ marginBottom: 0 }}
+                  />
+                </div>
+                <button 
+                  onClick={() => removeStaffItem(i)} 
+                  style={{ background: "rgba(239, 68, 68, 0.1)", border: "none", color: "#f87171", padding: "10px", borderRadius: 8, cursor: "pointer" }}
+                  title="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            
+            {staffList.length === 0 && (
+              <div style={{ textAlign: "center", padding: 20, color: "var(--text-dim)", border: "1px dashed var(--border-color)", borderRadius: 10 }}>
+                No staff members added. Click the button below to add one.
+              </div>
+            )}
+          </div>
+
+          <Btn variant="outline" onClick={addStaffItem} style={{ width: "100%", justifyContent: "center" }}>
+            + Add Staff Member
+          </Btn>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 10, borderTop: "1px solid var(--border-color)", paddingTop: 20 }}>
+            <Btn style={{ flex: 1 }} onClick={saveStaff}>Save Changes</Btn>
             <Btn variant="ghost" onClick={() => setEditStaffOpen(false)}>Cancel</Btn>
           </div>
         </div>
