@@ -1502,8 +1502,8 @@ app.get("/subjects", authRequired, requireRole("subjects"), async (req, res) => 
       SELECT b.* FROM subjects b
       JOIN grades g ON g.subject_id = b.id
       WHERE g.student_id = ? 
-      AND (g.deleted_at IS NULL OR g.deleted_at = '') 
-      AND (b.deleted_at IS NULL OR b.deleted_at = '')
+      AND g.deleted_at IS NULL 
+      AND b.deleted_at IS NULL
     `, [sid]);
     console.log(`[DEBUG] Found ${rows.length} subjects for ${sid}`);
     return res.json(rows);
@@ -2175,11 +2175,11 @@ app.post("/attendance", authRequired, requireRole("attendance", "write"), async 
 
   try {
     await tx(async () => {
-      await run(`
+      const insertRes = await run(`
         INSERT INTO attendance_tables (course_name, block_number, subject_id, semester_id, time_slot, term_period, created_by_teacher_id)
-        VALUES (?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?) RETURNING id
       `, [parsed.data.course_name, parsed.data.block_number, parsed.data.subject_id, parsed.data.semester_id, parsed.data.time_slot, parsed.data.term_period || null, uuid]);
-      const id = String(await get("SELECT last_insert_rowid() AS id").id);
+      const id = String(insertRes.rows[0].id);
       await logAction({ userId: req.user.id, action: "CREATE", entity: "attendance_table", entityId: id, details: { created_by: uuid, payload: parsed.data } });
     });
     res.status(201).json({ ok: true });
