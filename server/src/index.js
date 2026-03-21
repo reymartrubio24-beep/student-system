@@ -40,6 +40,57 @@ app.post(
 app.post("/auth/register-student", studentSelfRegister);
 app.post("/auth/bootstrap-owner", bootstrapOwner);
 
+console.log("[DEBUG] Registering /teacher/subjects routes...");
+
+// Teacher-specific permit view endpoints
+app.get("/teacher/subjects", authRequired, requireRole("students"), async (req, res) => {
+  const { role, username, id } = req.user;
+  if (role !== "teacher" && role !== "developer" && role !== "owner") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  
+  // Get teacher's full name to match against subjects
+  const teacher = await get("SELECT full_name FROM users WHERE id=?", [id]);
+  const fullName = teacher?.full_name || username;
+
+  // Return subjects where this teacher is the professor
+  const rows = await all(
+    "SELECT id, name FROM subjects WHERE (professor=? OR professor=?) AND deleted_at IS NULL", 
+    [username, fullName]
+  );
+  res.json(rows);
+});
+
+app.get("/teacher/subjects/:id/students", authRequired, requireRole("students"), async (req, res) => {
+    const { id: subjectId } = req.params;
+    const { username, id: userId } = req.user;
+    
+    // Get teacher's full name
+    const teacher = await get("SELECT full_name FROM users WHERE id=?", [userId]);
+    const fullName = teacher?.full_name || username;
+
+    const students = await all(`
+        SELECT DISTINCT s.* 
+        FROM students s
+        JOIN grades g ON g.student_id = s.id
+        JOIN subjects sub ON sub.id = g.subject_id
+        WHERE sub.id = ? AND (sub.professor = ? OR sub.professor = ?) AND s.deleted_at IS NULL
+    `, [subjectId, username, fullName]);
+
+    // For each student, check if they have any active permit containing "Prelim" in its period name
+    const result = await Promise.all(students.map(async s => {
+        const permit = await get(`
+            SELECT sp.status 
+            FROM student_permits sp
+            JOIN permit_periods pp ON sp.permit_period_id = pp.id
+            WHERE sp.student_id = ? AND pp.name LIKE '%Prelim%' AND sp.status = 'active'
+            ORDER BY sp.created_at DESC LIMIT 1
+        `, [s.id]);
+        return { ...s, has_active_permit: !!permit };
+    }));
+    res.json(result);
+});
+
 app.post(
   "/auth/change-password",
   authRequired,
@@ -2064,38 +2115,7 @@ app.post("/admin/restore", authRequired, requireRole("settings", "write"), async
   res.json({ ok: true });
 });
 
-// Teacher-specific permit view endpoints
-app.get("/teacher/rooms", authRequired, requireRole("students"), async (req, res) => {
-  const { role, username } = req.user;
-  if (role !== "teacher" && role !== "developer" && role !== "owner") {
-    return res.status(403).json({ error: "Forbidden" });
-  }
-  const rows = await all("SELECT DISTINCT room FROM subjects WHERE professor=? AND deleted_at IS NULL", [username]);
-  res.json(rows);
-});
-
-app.get("/teacher/rooms/:room/students", authRequired, requireRole("students"), async (req, res) => {
-    const { room } = req.params;
-    const { username } = req.user;
-    const students = await all(`
-        SELECT DISTINCT s.* 
-        FROM students s
-        JOIN grades g ON g.student_id = s.id
-        JOIN subjects sub ON sub.id = g.subject_id
-        WHERE sub.room = ? AND sub.professor = ? AND s.deleted_at IS NULL
-    `, [room, username]);
-
-    // For each student, check their latest permit status
-    const result = await Promise.all(students.map(async s => {
-        const permit = await get(`
-            SELECT status FROM student_permits 
-            WHERE student_id = ? 
-            ORDER BY created_at DESC LIMIT 1
-        `, [s.id]);
-        return { ...s, has_active_permit: permit?.status === "active" };
-    }));
-    res.json(result);
-});
+// Student Permit filtering
 
 // Student Permit filtering
 app.get("/my-permits", authRequired, async (req, res) => {

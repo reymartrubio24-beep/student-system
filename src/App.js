@@ -1818,8 +1818,8 @@ function PermitsSidebar({ token, onSelectSemester, selectedSemester }) {
 }
 function PermitsView({ token, semesterId, role, username }) {
   // Teacher hooks (always declared)
-  const [rooms, setRooms] = useState([]);
-  const [selectedRoom, setSelectedRoom] = useState("");
+  const [subjectsList, setSubjectsList] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState("");
   const [teacherStudents, setTeacherStudents] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -1840,18 +1840,18 @@ function PermitsView({ token, semesterId, role, username }) {
   // Effects guarded by role conditions internally
   useEffect(() => {
     if (role === "teacher") {
-      api("/teacher/rooms", {}, token).then(setRooms).catch(() => {});
+      api("/teacher/subjects", {}, token).then(setSubjectsList).catch(() => {});
     }
   }, [token, role]);
   useEffect(() => {
-    if (role === "teacher" && selectedRoom) {
+    if (role === "teacher" && selectedSubject) {
       setLoading(true);
-      api(`/teacher/rooms/${encodeURIComponent(selectedRoom)}/students`, {}, token)
+      api(`/teacher/subjects/${encodeURIComponent(selectedSubject)}/students`, {}, token)
         .then(setTeacherStudents)
         .catch(() => {})
         .finally(() => setLoading(false));
     }
-  }, [selectedRoom, token, role]);
+  }, [selectedSubject, token, role]);
   useEffect(() => {
     if (role !== "teacher") {
       api("/students", {}, token).then(setStudents).catch(() => {});
@@ -1921,14 +1921,14 @@ function PermitsView({ token, semesterId, role, username }) {
       <PageHeader title="🎫 Student Permits" sub={role === "teacher" ? "View permits for your classes" : "Search, view, and manage permits"} />
       {role === "teacher" ? (
         <>
-          <Card title="Room/Block Selection">
-            <Select label="Select Room/Block" value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)}>
-              <option value="">-- Choose Room --</option>
-              {rooms.map(r => <option key={r.room} value={r.room}>{r.room}</option>)}
+          <Card title="Subject Selection">
+            <Select label="Select Subject" value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)}>
+              <option value="">-- Choose Subject --</option>
+              {subjectsList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
             </Select>
           </Card>
-          {selectedRoom && (
-            <Card title={`Students in Room: ${selectedRoom}`}>
+          {selectedSubject && (
+            <Card title={`Enrolled Students in Subject: ${selectedSubject}`}>
               {loading ? <div>Loading student list...</div> : (
                 <div className="table-container">
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
