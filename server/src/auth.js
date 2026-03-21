@@ -27,7 +27,7 @@ export function authRequired(req, res, next) {
 }
 
 export function requireRole(module, action = "read") {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
     const { role } = req.user;
     if (role === "owner" || role === "developer") return next();
@@ -37,8 +37,8 @@ export function requireRole(module, action = "read") {
       action === "delete" ? "can_delete" : "can_read";
 
     // 1. Check for specific user override
-    const userPerm = get(
-      `SELECT ${column} FROM user_permissions WHERE user_id=? AND (module=? OR module='*')`,
+    const userPerm = await get(
+      `SELECT ${column} FROM user_permissions WHERE user_id=$1 AND (module=$2 OR module='*')`,
       [req.user.id, module]
     );
 
@@ -47,14 +47,14 @@ export function requireRole(module, action = "read") {
     }
 
     // 2. Fallback to role-based permission
-    const permission = get(
-      `SELECT ${column} FROM authorization WHERE role=? AND (module=? OR module='*')`,
+    const permission = await get(
+      `SELECT ${column} FROM "authorization" WHERE role=$1 AND (module=$2 OR module='*')`,
       [role, module],
     );
 
     if (!permission || !permission[column]) {
       try {
-        logAction({ userId: req.user.id, action: "ACCESS_DENIED", entity: "rbac", entityId: module, details: { action, role, ip: req.ip } });
+        await logAction({ userId: req.user.id, action: "ACCESS_DENIED", entity: "rbac", entityId: module, details: { action, role, ip: req.ip } });
       } catch {}
       return res.status(403).json({ error: "Forbidden" });
     }
@@ -79,33 +79,33 @@ export function requireRole(module, action = "read") {
   };
 }
 
-export function ensureInitialAdmin() {
-  const row = get("SELECT COUNT(*) as c FROM users");
-  const count = row ? row.c : 0;
+export async function ensureInitialAdmin() {
+  const row = await get("SELECT COUNT(*) as c FROM users");
+  const count = parseInt(row ? row.c : 0);
   if (count === 0) {
     const hash = bcrypt.hashSync("admin123", 10);
-    run("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", ["developer", hash, "developer"]);
+    await run("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", ["developer", hash, "developer"]);
   }
   // Controlled owner bootstrap through environment variables, only if no owner set and not initialized
-  const ownerExists = get("SELECT 1 as x FROM users WHERE role='owner' AND deleted_at IS NULL");
-  const initialized = get("SELECT value FROM settings WHERE key='owner_initialized'");
+  const ownerExists = await get("SELECT 1 as x FROM users WHERE role='owner' AND deleted_at IS NULL");
+  const initialized = await get("SELECT value FROM settings WHERE key='owner_initialized'");
   const envUser = process.env.OWNER_USERNAME;
   const envPass = process.env.OWNER_PASSWORD;
   if (!ownerExists && (!initialized || initialized.value !== "1") && envUser && envPass) {
     const hash = bcrypt.hashSync(envPass, 12);
-    run("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'owner')", [envUser, hash]);
-    run("INSERT OR REPLACE INTO settings (key, value) VALUES ('owner_initialized','1')");
+    await run("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'owner')", [envUser, hash]);
+    await run("INSERT INTO settings (key, value) VALUES ('owner_initialized','1') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value");
   }
 }
 
-export function loginHandler(req, res) {
+export async function loginHandler(req, res) {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: "Missing credentials" });
   
   console.log(`[LOGIN] Attempt for: ${username}`);
   
   // Find all users with matching username (case-insensitive)
-  const matches = all("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
+  const matches = await all("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
   console.log(`[LOGIN] Found ${matches.length} case-insensitive matches`);
   
   if (!matches || matches.length === 0) {
@@ -132,32 +132,32 @@ export function loginHandler(req, res) {
   if (user.deleted_at) return res.status(403).json({ error: "Account disabled" });
   if (user.role === "student") {
     if (!user.student_id) return res.status(403).json({ error: "Account not linked to a student" });
-    const activeStudent = get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [user.student_id]);
+    const activeStudent = await get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [user.student_id]);
     if (!activeStudent) return res.status(403).json({ error: "Student record inactive or deleted" });
   }
   // Ensure uuid is present for isolation context
   if (!user.uuid) {
     const gen = (typeof globalThis.crypto?.randomUUID === "function") ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`.replace(/\./g,"");
-    run("UPDATE users SET uuid=? WHERE id=?", [gen, user.id]);
-    user = get("SELECT * FROM users WHERE id = ?", [user.id]);
+    await run("UPDATE users SET uuid=? WHERE id=?", [gen, user.id]);
+    user = await get("SELECT * FROM users WHERE id = ?", [user.id]);
   }
   // Auto-link: if student account has no student_id but username looks like a Student ID (YYYY-NNNN) and such student exists, link it
   if (user.role === "student" && (!user.student_id || user.student_id === null)) {
     const isId = /^\d{4}-\d{4}$/.test(user.username);
     if (isId) {
-      const exists = get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [user.username]);
+      const exists = await get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [user.username]);
       if (exists) {
-        run("UPDATE users SET student_id=? WHERE id=?", [user.username, user.id]);
-        user = get("SELECT * FROM users WHERE id = ?", [user.id]);
-        logAction({ userId: user.id, action: "LINK_STUDENT_ID", entity: "user", entityId: String(user.id), details: { student_id: user.student_id } });
+        await run("UPDATE users SET student_id=? WHERE id=?", [user.username, user.id]);
+        user = await get("SELECT * FROM users WHERE id = ?", [user.id]);
+        await logAction({ userId: user.id, action: "LINK_STUDENT_ID", entity: "user", entityId: String(user.id), details: { student_id: user.student_id } });
       }
     }
   }
   const token = signToken(user);
-  logAction({ userId: user.id, action: "LOGIN", entity: "user", entityId: String(user.id), details: { username } });
+  await logAction({ userId: user.id, action: "LOGIN", entity: "user", entityId: String(user.id), details: { username } });
   
   // Fetch with potential student fallback
-  const finalUser = get(`
+  const finalUser = await get(`
     SELECT u.*, s.name as student_full_name 
     FROM users u 
     LEFT JOIN students s ON u.student_id = s.id 
@@ -174,55 +174,55 @@ export function loginHandler(req, res) {
   });
 }
 
-export function registerHandler(req, res) {
+export async function registerHandler(req, res) {
   const { username, password, role, user_type } = req.body || {};
   if (!username || !password || !role) return res.status(400).json({ error: "Missing fields" });
   
-  const existing = get("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
+  const existing = await get("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
   if (existing && role !== "student") {
     return res.status(409).json({ error: "Username exists" });
   }
 
   // Check if this specific username+password combo (or just username if we prefer) exists and is deleted
-  const deleted = get("SELECT * FROM users WHERE username = ? AND deleted_at IS NOT NULL", [username]);
+  const deleted = await get("SELECT * FROM users WHERE username = ? AND deleted_at IS NOT NULL", [username]);
   if (deleted) {
     const hash = bcrypt.hashSync(password, 10);
-    run("UPDATE users SET password_hash=?, role=?, user_type=?, deleted_at=NULL WHERE id=?", [hash, role, user_type || role, deleted.id]);
-    const revived = get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [deleted.id]);
+    await run("UPDATE users SET password_hash=?, role=?, user_type=?, deleted_at=NULL WHERE id=?", [hash, role, user_type || role, deleted.id]);
+    const revived = await get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [deleted.id]);
     return res.status(200).json({ id: revived.id, username: revived.username, role: revived.role, user_type: revived.user_type, revived: true, uuid: revived.uuid });
   }
 
   if (!["teacher","student","developer","saps","register","cashier"].includes(role)) return res.status(400).json({ error: "Invalid role" });
   const hash = bcrypt.hashSync(password, 10);
-  run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?)", [username, hash, role, user_type || role]);
-  const id = lastInsertId();
-  const revived = get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [id]);
+  await run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?)", [username, hash, role, user_type || role]);
+  const id = await lastInsertId();
+  const revived = await get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [id]);
   res.status(201).json({ id: revived.id, username: revived.username, role: revived.role, user_type: revived.user_type, uuid: revived.uuid });
 }
 
-export function studentSelfRegister(req, res) {
+export async function studentSelfRegister(req, res) {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: "Missing fields" });
-  const exists = get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
+  const exists = await get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
   if (exists) return res.status(409).json({ error: "Username exists" });
   const hash = bcrypt.hashSync(password, 10);
-  run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?)", [username, hash, "student", "student"]);
-  const id = lastInsertId();
+  await run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?)", [username, hash, "student", "student"]);
+  const id = await lastInsertId();
   res.status(201).json({ id, username, role: "student" });
 }
 
 // One-time bootstrap endpoint (requires env token and no owner yet). Not listed publicly.
-export function bootstrapOwner(req, res) {
+export async function bootstrapOwner(req, res) {
   const tokenEnv = process.env.OWNER_BOOTSTRAP_TOKEN || "";
   if (!tokenEnv) return res.status(404).json({ error: "Not available" });
-  const ownerExists = get("SELECT 1 as x FROM users WHERE role='owner' AND deleted_at IS NULL");
-  const initialized = get("SELECT value FROM settings WHERE key='owner_initialized'");
+  const ownerExists = await get("SELECT 1 as x FROM users WHERE role='owner' AND deleted_at IS NULL");
+  const initialized = await get("SELECT value FROM settings WHERE key='owner_initialized'");
   if (ownerExists || (initialized && initialized.value === "1")) return res.status(409).json({ error: "Owner already initialized" });
   const { token, username, password } = req.body || {};
   if (!token || token !== tokenEnv) return res.status(403).json({ error: "Forbidden" });
   if (!username || !password) return res.status(400).json({ error: "Missing fields" });
   const hash = bcrypt.hashSync(password, 12);
-  run("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'owner')", [username, hash]);
-  run("INSERT OR REPLACE INTO settings (key, value) VALUES ('owner_initialized','1')");
+  await run("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'owner')", [username, hash]);
+  await run("INSERT INTO settings (key, value) VALUES ('owner_initialized', '1') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value");
   res.status(201).json({ ok: true });
 }

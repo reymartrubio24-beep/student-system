@@ -6,7 +6,7 @@ import morgan from "morgan";
 import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
-import db, { tx, logAction, initDB, run, get, all, lastInsertId, dbFilePath } from "./db.js";
+import db, { tx, logAction, initDB, run, get, all, lastInsertId } from "./db.js";
 import {
   authRequired,
   requireRole,
@@ -20,7 +20,7 @@ import { z } from "zod";
 import { writeProfile, moveIfNeeded, markFilesDeleted } from "./userFiles.js";
 
 await initDB();
-ensureInitialAdmin();
+await ensureInitialAdmin();
 
 const app = express();
 app.use(helmet());
@@ -43,18 +43,18 @@ app.post("/auth/bootstrap-owner", bootstrapOwner);
 app.post(
   "/auth/change-password",
   authRequired,
-  (req, res) => {
+  async (req, res) => {
     const body = req.body || {};
     const pwd = typeof body.password === "string" ? body.password : "";
     if (!pwd || pwd.length < 6)
       return res.status(400).json({ error: "Invalid password" });
-    const me = get("SELECT id, deleted_at FROM users WHERE id=?", [req.user.id]);
+    const me = await get("SELECT id, deleted_at FROM users WHERE id=?", [req.user.id]);
     if (!me || me.deleted_at)
       return res.status(401).json({ error: "Unauthorized" });
     const hash = bcrypt.hashSync(pwd, 10);
-    tx(() => {
-      run("UPDATE users SET password_hash=? WHERE id=?", [hash, req.user.id]);
-      logAction({
+    await tx(async () => {
+      await run("UPDATE users SET password_hash=? WHERE id=?", [hash, req.user.id]);
+      await logAction({
         userId: req.user.id,
         action: "UPDATE",
         entity: "user_password",
@@ -66,16 +66,16 @@ app.post(
   },
 );
 
-function settingValue(key, fallback) {
-  const row = get("SELECT value FROM settings WHERE key=?", [key]);
+async function settingValue(key, fallback) {
+  const row = await get("SELECT value FROM settings WHERE key=?", [key]);
   return row?.value ?? fallback;
 }
-function intSetting(key, fallback) {
-  const v = Number(settingValue(key, fallback));
+async function intSetting(key, fallback) {
+  const v = Number(await settingValue(key, fallback));
   return Number.isFinite(v) ? v : Number(fallback);
 }
-function strSetting(key, fallback) {
-  const v = settingValue(key, fallback);
+async function strSetting(key, fallback) {
+  const v = await settingValue(key, fallback);
   return typeof v === "string" ? v : String(fallback);
 }
 
@@ -84,9 +84,9 @@ app.get(
   "/debug/user/:id",
   authRequired,
   requireRole("debug"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
-    const row = get(
+    const row = await get(
       "SELECT id, username, role, user_type, deleted_at, created_at FROM users WHERE id=?",
       [id],
     );
@@ -97,8 +97,8 @@ app.get(
   "/debug/users/raw",
   authRequired,
   requireRole("debug"),
-  (req, res) => {
-    const rows = all(
+  async (req, res) => {
+    const rows = await all(
       "SELECT rowid, id, username, role, user_type, deleted_at, created_at FROM users ORDER BY id",
     );
     res.json(rows);
@@ -108,9 +108,9 @@ app.get(
   "/debug/grade/:studentId/:subjectId",
   authRequired,
   requireRole("debug"),
-  (req, res) => {
+  async (req, res) => {
     const { studentId, subjectId } = req.params;
-    const row = get(
+    const row = await get(
       "SELECT * FROM grades WHERE student_id=? AND subject_id=?",
       [studentId, subjectId],
     );
@@ -121,10 +121,10 @@ app.get(
   "/users",
   authRequired,
   requireRole("users"),
-  (req, res) => {
+  async (req, res) => {
     const includeDeleted = String(req.query.include_deleted || "") === "1";
     const users = includeDeleted
-      ? all(
+      ? await all(
           "SELECT u.id, u.username, u.role, u.user_type, u.student_id, u.created_at, u.deleted_at, " +
           "CASE WHEN u.full_name IS NOT NULL AND u.full_name <> '' THEN u.full_name " +
           "     WHEN s.name IS NOT NULL AND s.name <> '' THEN s.name " +
@@ -132,7 +132,7 @@ app.get(
           "FROM users u LEFT JOIN students s ON u.student_id = s.id AND u.student_id <> '' " +
           "ORDER BY u.created_at DESC",
         )
-      : all(
+      : await all(
           "SELECT u.id, u.username, u.role, u.user_type, u.student_id, u.created_at, " +
           "CASE WHEN u.full_name IS NOT NULL AND u.full_name <> '' THEN u.full_name " +
           "     WHEN s.name IS NOT NULL AND s.name <> '' THEN s.name " +
@@ -147,7 +147,7 @@ app.post(
   "/users",
   authRequired,
   requireRole("users", "write"),
-  (req, res) => {
+  async (req, res) => {
     console.log(`[USER_CREATE] Attempt by ${req.user.username}:`, req.body);
     const body = req.body || {};
     const norm = {
@@ -188,12 +188,12 @@ app.post(
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields", details: parsed.error.flatten() });
     const { username, password, role, user_type, student_id } = parsed.data;
-    const exists = get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
+    const exists = await get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
     if (exists && role !== "student") return res.status(409).json({ error: "Username already taken (case-insensitive)" });
     const hash = bcrypt.hashSync(password, 10);
     try {
-      tx(() => {
-        run(
+      await tx(async () => {
+        await run(
           "INSERT INTO users (username, password_hash, role, user_type, student_id, full_name) VALUES (?, ?, ?, ?, ?, ?)",
           [
             username,
@@ -206,12 +206,12 @@ app.post(
         );
         // Fetch the specific user we just created. For students, use student_id for uniqueness.
         const row = role === "student" 
-          ? get("SELECT id, username, role, user_type, created_at FROM users WHERE student_id=? AND deleted_at IS NULL", [student_id])
-          : get("SELECT id, username, role, user_type, created_at FROM users WHERE username=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1", [username]);
+          ? await get("SELECT id, username, role, user_type, created_at FROM users WHERE student_id=? AND deleted_at IS NULL", [student_id])
+          : await get("SELECT id, username, role, user_type, created_at FROM users WHERE username=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1", [username]);
         
         if (row) {
           writeProfile(row);
-          logAction({
+          await logAction({
             userId: req.user.id,
             action: "CREATE",
             entity: "user",
@@ -232,7 +232,7 @@ app.put(
   "/users/:id",
   authRequired,
   requireRole(["developer", "owner"]),
-  (req, res) => {
+  async (req, res) => {
     const idRaw = req.params.id;
     const username =
       req.query.username || (req.body && req.body.username) || null;
@@ -284,27 +284,27 @@ app.put(
     if (/^\d+$/.test(String(idRaw))) {
       const id = Number(idRaw);
       prev =
-        get("SELECT * FROM users WHERE id=? AND deleted_at IS NULL", [id]) ||
-        get(
+        await get("SELECT * FROM users WHERE id=? AND deleted_at IS NULL", [id]) ||
+        await get(
           "SELECT * FROM users WHERE id=CAST(? AS INTEGER) AND deleted_at IS NULL",
           [String(id)],
         );
     }
     if (!prev && username) {
-      prev = get(
+      prev = await get(
         "SELECT * FROM users WHERE username=? AND deleted_at IS NULL",
         [username],
       );
     }
     if (!prev) return res.status(404).json({ error: "Not found" });
     if (parsed.data.username) {
-      const dup = get("SELECT 1 FROM users WHERE LOWER(username)=LOWER(?) AND id<>? AND deleted_at IS NULL", [
+      const dup = await get("SELECT 1 FROM users WHERE LOWER(username)=LOWER(?) AND id<>? AND deleted_at IS NULL", [
         parsed.data.username,
         prev.id,
       ]);
       if (dup) return res.status(409).json({ error: "Username already taken (case-insensitive)" });
     }
-    tx(() => {
+    await tx(async () => {
       const updates = [];
       const params = [];
       if (parsed.data.username) {
@@ -332,15 +332,15 @@ app.put(
         params.push(bcrypt.hashSync(parsed.data.password, 10));
       }
       if (updates.length) {
-        run(`UPDATE users SET ${updates.join(", ")} WHERE id=?`, [
+        await run(`UPDATE users SET ${updates.join(", ")} WHERE id=?`, [
           ...params,
           prev.id,
         ]);
       }
-      const next = get("SELECT * FROM users WHERE id=?", [prev.id]);
+      const next = await get("SELECT * FROM users WHERE id=?", [prev.id]);
       moveIfNeeded(prev, next);
       const details = parsed.data;
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "UPDATE",
         entity: "user",
@@ -348,7 +348,7 @@ app.put(
         details,
       });
       if (prev.role !== next.role) {
-        logAction({
+        await logAction({
           userId: req.user.id,
           action: "ROLE_CHANGE",
           entity: "user",
@@ -364,7 +364,7 @@ app.delete(
   "/users/:id",
   authRequired,
   requireRole(["developer", "owner"]),
-  (req, res) => {
+  async (req, res) => {
     const idRaw = req.params.id;
     const hard = String(req.query.hard || "") === "1";
     const username =
@@ -373,11 +373,11 @@ app.delete(
     if (/^\d+$/.test(String(idRaw))) {
       const idNum = Number(idRaw);
       prev =
-        get("SELECT * FROM users WHERE id=?", [idNum]) ||
-        get("SELECT * FROM users WHERE id=CAST(? AS INTEGER)", [String(idNum)]);
+        await get("SELECT * FROM users WHERE id=?", [idNum]) ||
+        await get("SELECT * FROM users WHERE id=CAST(? AS INTEGER)", [String(idNum)]);
     }
     if (!prev && username) {
-      prev = get("SELECT * FROM users WHERE username=?", [username]);
+      prev = await get("SELECT * FROM users WHERE username=?", [username]);
     }
     if (!prev) return res.status(404).json({ error: "Not found" });
     if (
@@ -385,10 +385,10 @@ app.delete(
       !(req.user.role === "owner" || req.user.role === "developer")
     )
       return res.status(403).json({ error: "Cannot delete owner" });
-    tx(() => {
+    await tx(async () => {
       if (hard) {
-        run("DELETE FROM users WHERE id=?", [prev.id]);
-        logAction({
+        await run("DELETE FROM users WHERE id=?", [prev.id]);
+        await logAction({
           userId: req.user.id,
           action: "HARD_DELETE",
           entity: "user",
@@ -397,10 +397,10 @@ app.delete(
       } else {
         if (prev.deleted_at)
           return res.status(200).json({ ok: true, alreadyDeleted: true });
-        run("UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [
+        await run("UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [
           prev.id,
         ]);
-        logAction({
+        await logAction({
           userId: req.user.id,
           action: "DELETE",
           entity: "user",
@@ -413,24 +413,24 @@ app.delete(
   },
 );
 
-app.get("/users/:id/permissions", authRequired, requireRole("users"), (req, res) => {
+app.get("/users/:id/permissions", authRequired, requireRole("users"), async (req, res) => {
   const id = Number(req.params.id);
-  const rows = all("SELECT * FROM user_permissions WHERE user_id=?", [id]);
+  const rows = await all("SELECT * FROM user_permissions WHERE user_id=?", [id]);
   res.json(rows);
 });
 
-app.post("/users/:id/permissions", authRequired, requireRole("users", "write"), (req, res) => {
+app.post("/users/:id/permissions", authRequired, requireRole("users", "write"), async (req, res) => {
   const userId = Number(req.params.id);
   const { module, can_read, can_write, can_delete } = req.body;
   if (!module) return res.status(400).json({ error: "Module required" });
   
-  tx(() => {
-    run(`
+  await tx(async () => {
+    await run(`
       INSERT OR REPLACE INTO user_permissions (user_id, module, can_read, can_write, can_delete)
       VALUES (?, ?, ?, ?, ?)
     `, [userId, module, can_read ? 1 : 0, can_write ? 1 : 0, can_delete ? 1 : 0]);
     
-    logAction({
+    await logAction({
       userId: req.user.id,
       action: "SET_PERMISSION",
       entity: "user_permission",
@@ -441,13 +441,13 @@ app.post("/users/:id/permissions", authRequired, requireRole("users", "write"), 
   res.json({ ok: true });
 });
 
-app.delete("/users/:id/permissions/:module", authRequired, requireRole("users", "write"), (req, res) => {
+app.delete("/users/:id/permissions/:module", authRequired, requireRole("users", "write"), async (req, res) => {
   const userId = Number(req.params.id);
   const module = req.params.module;
   
-  tx(() => {
-    run("DELETE FROM user_permissions WHERE user_id=? AND module=?", [userId, module]);
-    logAction({
+  await tx(async () => {
+    await run("DELETE FROM user_permissions WHERE user_id=? AND module=?", [userId, module]);
+    await logAction({
       userId: req.user.id,
       action: "DELETE_PERMISSION",
       entity: "user_permission",
@@ -461,7 +461,7 @@ app.patch(
   "/users/:id/disable",
   authRequired,
   requireRole("users", "write"),
-  (req, res) => {
+  async (req, res) => {
     const idRaw = req.params.id;
     const username =
       req.query.username || (req.body && req.body.username) || null;
@@ -469,11 +469,11 @@ app.patch(
     if (/^\d+$/.test(String(idRaw))) {
       const id = Number(idRaw);
       prev =
-        get("SELECT * FROM users WHERE id=?", [id]) ||
-        get("SELECT * FROM users WHERE id=CAST(? AS INTEGER)", [String(id)]);
+        await get("SELECT * FROM users WHERE id=?", [id]) ||
+        await get("SELECT * FROM users WHERE id=CAST(? AS INTEGER)", [String(id)]);
     }
     if (!prev && username) {
-      prev = get("SELECT * FROM users WHERE username=?", [username]);
+      prev = await get("SELECT * FROM users WHERE username=?", [username]);
     }
     if (!prev) return res.status(404).json({ error: "Not found" });
     if (
@@ -483,12 +483,12 @@ app.patch(
       return res.status(403).json({ error: "Cannot disable owner" });
     if (prev.deleted_at)
       return res.status(200).json({ ok: true, alreadyDisabled: true });
-    tx(() => {
-      run("UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [
+    await tx(async () => {
+      await run("UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [
         prev.id,
       ]);
       markFilesDeleted(prev.id);
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "DISABLE",
         entity: "user",
@@ -529,30 +529,30 @@ const gradeSchema = z.object({
   final: z.number().int().min(0).max(100).nullable().optional(),
 });
 
-app.get("/students", authRequired, requireRole("students"), (req, res) => {
+app.get("/students", authRequired, requireRole("students"), async (req, res) => {
   const { role } = req.user;
   if (role === "student") {
-    const row = get(
+    const row = await get(
       "SELECT * FROM students WHERE id=? AND deleted_at IS NULL",
       [req.user.student_id],
     );
     return res.json(row ? [row] : []);
   }
 
-  const rows = all("SELECT * FROM students WHERE deleted_at IS NULL");
+  const rows = await all("SELECT * FROM students WHERE deleted_at IS NULL");
   res.json(rows);
 });
 
-app.get("/dashboard-stats", authRequired, (req, res) => {
+app.get("/dashboard-stats", authRequired, async (req, res) => {
   const { role, student_id } = req.user;
   const stats = {};
 
   // Total students (Available to all roles)
-  const totalStudents = get("SELECT COUNT(*) as c FROM students WHERE deleted_at IS NULL");
+  const totalStudents = await get("SELECT COUNT(*) as c FROM students WHERE deleted_at IS NULL");
   stats.totalStudents = totalStudents?.c || 0;
 
   // Department / Course counts for the new bar graph
-  const deptCounts = all(`
+  const deptCounts = await all(`
     SELECT course as department, COUNT(*) as total 
     FROM students 
     WHERE deleted_at IS NULL 
@@ -562,30 +562,30 @@ app.get("/dashboard-stats", authRequired, (req, res) => {
 
   if (role === "student") {
     // Student Dashboard: own grades count, own subjects
-    const ownGrades = get("SELECT COUNT(*) as c FROM grades WHERE student_id=? AND deleted_at IS NULL", [student_id]);
+    const ownGrades = await get("SELECT COUNT(*) as c FROM grades WHERE student_id=? AND deleted_at IS NULL", [student_id]);
     stats.gradeRecords = ownGrades?.c || 0;
     
     // Own subjects count
-    const ownSubjects = get("SELECT COUNT(*) as c FROM grades WHERE student_id=? AND deleted_at IS NULL", [student_id]);
+    const ownSubjects = await get("SELECT COUNT(*) as c FROM grades WHERE student_id=? AND deleted_at IS NULL", [student_id]);
     stats.activeSubjects = ownSubjects?.c || 0;
     
     return res.json(stats);
   }
 
   // Staff Dashboard
-  const activeSubs = get("SELECT COUNT(*) as c FROM subjects WHERE deleted_at IS NULL");
+  const activeSubs = await get("SELECT COUNT(*) as c FROM subjects WHERE deleted_at IS NULL");
   stats.activeSubjects = activeSubs?.c || 0;
   
-  const gradeRecordsCount = get("SELECT COUNT(*) as c FROM grades WHERE deleted_at IS NULL");
+  const gradeRecordsCount = await get("SELECT COUNT(*) as c FROM grades WHERE deleted_at IS NULL");
   stats.gradeRecords = gradeRecordsCount?.c || 0;
 
   // At-risk students
-  const atRisk = all(`
+  const atRisk = await all(`
     SELECT student_id, AVG((prelim + midterm + prefinal + final) / 4.0) as avg_grade
     FROM grades
     WHERE deleted_at IS NULL
     GROUP BY student_id
-    HAVING avg_grade < 75
+    HAVING AVG((prelim + midterm + prefinal + final) / 4.0) < 75
   `);
   stats.atRiskCount = atRisk.length;
 
@@ -593,14 +593,14 @@ app.get("/dashboard-stats", authRequired, (req, res) => {
 });
 
 // GET dashboard extra content
-app.get("/dashboard/content", authRequired, (req, res) => {
-  const exam = get("SELECT value FROM settings WHERE key='next_examination'")?.value || "No exam scheduled.";
-  const staff = get("SELECT value FROM settings WHERE key='ybvc_staff'")?.value || "[]";
+app.get("/dashboard/content", authRequired, async (req, res) => {
+  const exam = (await get("SELECT value FROM settings WHERE key='next_examination'"))?.value || "No exam scheduled.";
+  const staff = (await get("SELECT value FROM settings WHERE key='ybvc_staff'"))?.value || "[]";
   res.json({ next_examination: exam, ybvc_staff: JSON.parse(staff) });
 });
 
 // UPDATE dashboard extra content
-app.post("/dashboard/content", authRequired, (req, res) => {
+app.post("/dashboard/content", authRequired, async (req, res) => {
   const { role, username } = req.user;
   const { type, value } = req.body;
   
@@ -615,9 +615,9 @@ app.post("/dashboard/content", authRequired, (req, res) => {
 
   try {
     if (type === "ybvc_staff") {
-      run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ybvc_staff', ?)", [JSON.stringify(value)]);
+      await run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ybvc_staff', ?)", [JSON.stringify(value)]);
     } else if (type === "next_examination") {
-      run("INSERT OR REPLACE INTO settings (key, value) VALUES ('next_examination', ?)", [String(value)]);
+      await run("INSERT OR REPLACE INTO settings (key, value) VALUES ('next_examination', ?)", [String(value)]);
     } else {
       console.error(`[DASHBOARD_CONTENT] Invalid type: ${type}`);
       return res.status(400).json({ error: "Invalid content type" });
@@ -630,12 +630,12 @@ app.post("/dashboard/content", authRequired, (req, res) => {
   }
 });
 // GET Audit Logs (developer/owner only)
-app.get("/audit-logs", authRequired, (req, res) => {
+app.get("/audit-logs", authRequired, async (req, res) => {
   const { role } = req.user;
   if (role !== "developer" && role !== "owner") {
     return res.status(403).json({ error: "Access denied" });
   }
-  const rows = all(`
+  const rows = await all(`
     SELECT a.*, u.username, u.role as user_role 
     FROM audit_log a 
     LEFT JOIN users u ON a.user_id = u.id 
@@ -649,7 +649,7 @@ app.post(
   "/students",
   authRequired,
   requireRole("students", "write"),
-  (req, res) => {
+  async (req, res) => {
     const body = req.body || {};
     const norm = {
       name: String(body.name || "").trim(),
@@ -689,28 +689,28 @@ app.post(
         });
 
     try {
-      run(
+      await run(
         "INSERT OR IGNORE INTO student_id_sequence (year,last) VALUES (?,?)",
         [birthYear, 0],
       );
       let assignedId = null;
       for (let attempts = 0; attempts < 1000; attempts++) {
-        run("UPDATE student_id_sequence SET last = last + 1 WHERE year = ?", [
+        await run("UPDATE student_id_sequence SET last = last + 1 WHERE year = ?", [
           birthYear,
         ]);
-        const row = get("SELECT last FROM student_id_sequence WHERE year=?", [
+        const row = await get("SELECT last FROM student_id_sequence WHERE year=?", [
           birthYear,
         ]);
         const next = Number(row?.last || 0);
         const candidate = `${birthYear}-${String(next).padStart(4, "0")}`; // user asked for YYYY-auto_increment, example 2006-0001
-        const exists = get(
+        const exists = await get(
           "SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL",
           [candidate],
         );
         if (exists) {
           continue;
         }
-        run(
+        await run(
           "INSERT INTO students (id,name,course,year,email,status,birth_year) VALUES (?,?,?,?,?,?,?)",
           [
             candidate,
@@ -723,7 +723,7 @@ app.post(
           ],
         );
         assignedId = candidate;
-        logAction({
+        await logAction({
           userId: req.user.id,
           action: "ID_GENERATE",
           entity: "student",
@@ -742,11 +742,11 @@ app.post(
         const hash = bcrypt.hashSync(password, 10);
         
         // Find if an account for this specific student already exists (e.g. was deleted)
-        const existingUser = get("SELECT * FROM users WHERE student_id=?", [assignedId]);
+        const existingUser = await get("SELECT * FROM users WHERE student_id=?", [assignedId]);
         
         if (existingUser) {
-          run("UPDATE users SET username=?, password_hash=?, role='student', user_type='student', deleted_at=NULL WHERE id=?", [username, hash, existingUser.id]);
-          logAction({
+          await run("UPDATE users SET username=?, password_hash=?, role='student', user_type='student', deleted_at=NULL WHERE id=?", [username, hash, existingUser.id]);
+          await logAction({
             userId: existingUser.id,
             action: "RESTORE",
             entity: "user",
@@ -754,12 +754,12 @@ app.post(
             details: { username, linked_student_id: assignedId, via: "AUTO_RELINK" },
           });
         } else {
-          run(
+          await run(
             "INSERT INTO users (username, password_hash, role, user_type, student_id) VALUES (?,?,?,?,?)",
             [username, hash, "student", "student", assignedId],
           );
-          const uidRow = get("SELECT id FROM users WHERE student_id=?", [assignedId]);
-          logAction({
+          const uidRow = await get("SELECT id FROM users WHERE student_id=?", [assignedId]);
+          await logAction({
             userId: uidRow?.id || req.user.id,
             action: "USER_CREATE",
             entity: "user",
@@ -780,27 +780,27 @@ app.put(
   "/students/:id",
   authRequired,
   requireRole("students", "write"),
-  (req, res) => {
+  async (req, res) => {
     const parsed = studentSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid data" });
     const id = req.params.id;
-    const s = get(
+    const s = await get(
       "SELECT * FROM students WHERE id = ? AND deleted_at IS NULL",
       [id],
     );
     if (!s) return res.status(404).json({ error: "Not found" });
-    tx(() => {
+    await tx(async () => {
       const fields = ["name", "course", "year", "email", "status"];
       const sets = fields
         .filter((f) => f in parsed.data)
         .map((f) => `${f}=?`)
         .join(", ");
       if (sets)
-        run(`UPDATE students SET ${sets} WHERE id=?`, [
+        await run(`UPDATE students SET ${sets} WHERE id=?`, [
           ...fields.filter((f) => f in parsed.data).map((f) => parsed.data[f]),
           id,
         ]);
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "UPDATE",
         entity: "student",
@@ -815,25 +815,25 @@ app.delete(
   "/students/:id",
   authRequired,
   requireRole("students", "delete"),
-  (req, res) => {
+  async (req, res) => {
     const id = req.params.id;
-    const s = get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [
+    const s = await get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [
       id,
     ]);
     if (!s) return res.status(404).json({ error: "Not found" });
-    tx(() => {
-      run("UPDATE students SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [id]);
-      run(
+    await tx(async () => {
+      await run("UPDATE students SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [id]);
+      await run(
         "UPDATE grades SET deleted_at=CURRENT_TIMESTAMP WHERE student_id=? AND deleted_at IS NULL",
         [id],
       );
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "DELETE",
         entity: "student",
         entityId: id,
       });
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "BULK_DELETE",
         entity: "grade",
@@ -850,8 +850,8 @@ app.get(
   "/semesters",
   authRequired,
   requireRole("permits", "read"),
-  (req, res) => {
-    const rows = all(
+  async (req, res) => {
+    const rows = await all(
       "SELECT * FROM semesters ORDER BY school_year DESC, term ASC",
     );
     res.json(rows);
@@ -861,11 +861,11 @@ app.get(
   "/semesters/:id/permits",
   authRequired,
   requireRole("permits", "read"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
-    const sem = get("SELECT 1 FROM semesters WHERE id=?", [id]);
+    const sem = await get("SELECT 1 FROM semesters WHERE id=?", [id]);
     if (!sem) return res.status(404).json({ error: "Semester not found" });
-    const rows = all(
+    const rows = await all(
       `
     SELECT sp.id, sp.student_id, sp.permit_period_id, sp.permit_number, sp.issue_date, sp.expiry_date, sp.status,
            sp.created_at, sp.updated_at, pp.name, pp.semester_id
@@ -884,7 +884,7 @@ app.post(
   "/semesters",
   authRequired,
   requireRole("permits", "write"),
-  (req, res) => {
+  async (req, res) => {
     const shape = z.object({
       school_year: z.string().min(4),
       term: z.string().min(1),
@@ -893,13 +893,13 @@ app.post(
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
     try {
-      tx(() => {
-        run("INSERT INTO semesters (school_year, term) VALUES (?,?)", [
+      await tx(async () => {
+        await run("INSERT INTO semesters (school_year, term) VALUES (?,?)", [
           parsed.data.school_year,
           parsed.data.term,
         ]);
         const id = lastInsertId();
-        logAction({
+        await logAction({
           userId: req.user.id,
           action: "CREATE",
           entity: "semester",
@@ -920,7 +920,7 @@ app.put(
   "/semesters/:id",
   authRequired,
   requireRole("permits", "write"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
     const shape = z.object({
       school_year: z.string().min(4).optional(),
@@ -929,10 +929,10 @@ app.put(
     const parsed = shape.safeParse(req.body || {});
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
-    const prev = get("SELECT 1 FROM semesters WHERE id=?", [id]);
+    const prev = await get("SELECT 1 FROM semesters WHERE id=?", [id]);
     if (!prev) return res.status(404).json({ error: "Not found" });
     try {
-      tx(() => {
+      await tx(async () => {
         const fields = [];
         const params = [];
         if (parsed.data.school_year) {
@@ -944,11 +944,11 @@ app.put(
           params.push(parsed.data.term);
         }
         if (fields.length)
-          run(`UPDATE semesters SET ${fields.join(",")} WHERE id=?`, [
+          await run(`UPDATE semesters SET ${fields.join(",")} WHERE id=?`, [
             ...params,
             id,
           ]);
-        logAction({
+        await logAction({
           userId: req.user.id,
           action: "UPDATE",
           entity: "semester",
@@ -969,13 +969,13 @@ app.delete(
   "/semesters/:id",
   authRequired,
   requireRole("permits", "delete"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
-    const prev = get("SELECT 1 FROM semesters WHERE id=?", [id]);
+    const prev = await get("SELECT 1 FROM semesters WHERE id=?", [id]);
     if (!prev) return res.status(404).json({ error: "Not found" });
-    tx(() => {
-      run("DELETE FROM semesters WHERE id=?", [id]);
-      logAction({
+    await tx(async () => {
+      await run("DELETE FROM semesters WHERE id=?", [id]);
+      await logAction({
         userId: req.user.id,
         action: "DELETE",
         entity: "semester",
@@ -989,9 +989,9 @@ app.get(
   "/semesters/:id/periods",
   authRequired,
   requireRole("permits", "read"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
-    const rows = all(
+    const rows = await all(
       "SELECT * FROM permit_periods WHERE semester_id=? ORDER BY sort_order ASC, name ASC",
       [id],
     );
@@ -1002,7 +1002,7 @@ app.post(
   "/semesters/:id/periods",
   authRequired,
   requireRole("permits", "write"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
     const shape = z.object({
       name: z.string().min(2),
@@ -1011,16 +1011,16 @@ app.post(
     const parsed = shape.safeParse(req.body || {});
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
-    const sem = get("SELECT 1 FROM semesters WHERE id=?", [id]);
+    const sem = await get("SELECT 1 FROM semesters WHERE id=?", [id]);
     if (!sem) return res.status(404).json({ error: "Semester not found" });
     try {
-      tx(() => {
-        run(
+      await tx(async () => {
+        await run(
           "INSERT INTO permit_periods (semester_id, name, sort_order) VALUES (?,?,?)",
           [id, parsed.data.name, parsed.data.sort_order],
         );
         const pid = lastInsertId();
-        logAction({
+        await logAction({
           userId: req.user.id,
           action: "CREATE",
           entity: "permit_period",
@@ -1041,7 +1041,7 @@ app.put(
   "/periods/:id",
   authRequired,
   requireRole("permits", "write"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
     const shape = z.object({
       name: z.string().min(2).optional(),
@@ -1050,10 +1050,10 @@ app.put(
     const parsed = shape.safeParse(req.body || {});
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
-    const prev = get("SELECT 1 FROM permit_periods WHERE id=?", [id]);
+    const prev = await get("SELECT 1 FROM permit_periods WHERE id=?", [id]);
     if (!prev) return res.status(404).json({ error: "Not found" });
     try {
-      tx(() => {
+      await tx(async () => {
         const fields = [];
         const params = [];
         if (parsed.data.name) {
@@ -1065,11 +1065,11 @@ app.put(
           params.push(parsed.data.sort_order);
         }
         if (fields.length)
-          run(`UPDATE permit_periods SET ${fields.join(",")} WHERE id=?`, [
+          await run(`UPDATE permit_periods SET ${fields.join(",")} WHERE id=?`, [
             ...params,
             id,
           ]);
-        logAction({
+        await logAction({
           userId: req.user.id,
           action: "UPDATE",
           entity: "permit_period",
@@ -1090,13 +1090,13 @@ app.delete(
   "/periods/:id",
   authRequired,
   requireRole("permits", "delete"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
-    const prev = get("SELECT 1 FROM permit_periods WHERE id=?", [id]);
+    const prev = await get("SELECT 1 FROM permit_periods WHERE id=?", [id]);
     if (!prev) return res.status(404).json({ error: "Not found" });
-    tx(() => {
-      run("DELETE FROM permit_periods WHERE id=?", [id]);
-      logAction({
+    await tx(async () => {
+      await run("DELETE FROM permit_periods WHERE id=?", [id]);
+      await logAction({
         userId: req.user.id,
         action: "DELETE",
         entity: "permit_period",
@@ -1110,9 +1110,9 @@ app.post(
   "/semesters/:id/bootstrap-default-periods",
   authRequired,
   requireRole("permits", "write"),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
-    const sem = get("SELECT 1 FROM semesters WHERE id=?", [id]);
+    const sem = await get("SELECT 1 FROM semesters WHERE id=?", [id]);
     if (!sem) return res.status(404).json({ error: "Semester not found" });
     const defaults = [
       { name: "First Prelim Permit", sort_order: 1 },
@@ -1121,19 +1121,19 @@ app.post(
       { name: "Semi-final Permit", sort_order: 4 },
       { name: "Final Permit", sort_order: 5 },
     ];
-    tx(() => {
+    await tx(async () => {
       for (const d of defaults) {
-        const exists = get(
+        const exists = await get(
           "SELECT 1 FROM permit_periods WHERE semester_id=? AND name=?",
           [id, d.name],
         );
         if (!exists)
-          run(
+          await run(
             "INSERT INTO permit_periods (semester_id, name, sort_order) VALUES (?,?,?)",
             [id, d.name, d.sort_order],
           );
       }
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "CREATE",
         entity: "permit_periods",
@@ -1148,22 +1148,22 @@ app.get(
   "/students/:id/permits",
   authRequired,
   requireRole("permits", "read"),
-  (req, res) => {
+  async (req, res) => {
     const id = String(req.params.id);
     const semesterId = req.query.semester_id
       ? Number(req.query.semester_id)
       : null;
-    const exists = get(
+    const exists = await get(
       "SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL",
       [id],
     );
     if (!exists) return res.status(404).json({ error: "Student not found" });
     const rows = semesterId
-      ? all(
+      ? await all(
           `SELECT sp.*, pp.name, pp.semester_id FROM student_permits sp JOIN permit_periods pp ON pp.id=sp.permit_period_id WHERE sp.student_id=? AND pp.semester_id=? ORDER BY pp.sort_order`,
           [id, semesterId],
         )
-      : all(
+      : await all(
           `SELECT sp.*, pp.name, pp.semester_id FROM student_permits sp JOIN permit_periods pp ON pp.id=sp.permit_period_id WHERE sp.student_id=? ORDER BY pp.semester_id, pp.sort_order`,
           [id],
         );
@@ -1174,7 +1174,7 @@ app.post(
   "/students/:id/permits",
   authRequired,
   requireRole("permits", "write"),
-  (req, res) => {
+  async (req, res) => {
     const id = String(req.params.id);
     const shape = z.object({
       permit_period_id: z.number().int().min(1),
@@ -1186,18 +1186,18 @@ app.post(
     const parsed = shape.safeParse(req.body || {});
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
-    const student = get(
+    const student = await get(
       "SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL",
       [id],
     );
     if (!student) return res.status(404).json({ error: "Student not found" });
-    const period = get("SELECT 1 FROM permit_periods WHERE id=?", [
+    const period = await get("SELECT 1 FROM permit_periods WHERE id=?", [
       parsed.data.permit_period_id,
     ]);
     if (!period) return res.status(404).json({ error: "Period not found" });
     try {
-      tx(() => {
-        const existing = get(
+      await tx(async () => {
+        const existing = await get(
           "SELECT id, permit_number FROM student_permits WHERE student_id=? AND permit_period_id=?",
           [id, parsed.data.permit_period_id],
         );
@@ -1205,7 +1205,7 @@ app.post(
           const nextNumber =
             (parsed.data.permit_number && parsed.data.permit_number.trim()) ||
             String(existing.permit_number);
-          run(
+          await run(
             "UPDATE student_permits SET permit_number=?, issue_date=COALESCE(?, issue_date), expiry_date=COALESCE(?, expiry_date), status=COALESCE(?, status), updated_at=CURRENT_TIMESTAMP WHERE id=?",
             [
               nextNumber,
@@ -1215,7 +1215,7 @@ app.post(
               existing.id,
             ],
           );
-          logAction({
+          await logAction({
             userId: req.user.id,
             action: "UPDATE",
             entity: "student_permit",
@@ -1223,13 +1223,13 @@ app.post(
             details: parsed.data,
           });
         } else {
-          const seq = get(
+          const seq = await get(
             "SELECT last FROM permit_number_sequence WHERE id=1",
           );
           const next = Number(seq?.last || 0) + 1;
-          run("UPDATE permit_number_sequence SET last=?", [next]);
+          await run("UPDATE permit_number_sequence SET last=?", [next]);
           const assignedNumber = String(next);
-          run(
+          await run(
             "INSERT INTO student_permits (student_id, permit_period_id, permit_number, issue_date, expiry_date, status) VALUES (?,?,?,?,?,?)",
             [
               id,
@@ -1241,7 +1241,7 @@ app.post(
             ],
           );
           const spid = lastInsertId();
-          logAction({
+          await logAction({
             userId: req.user.id,
             action: "CREATE",
             entity: "student_permit",
@@ -1264,7 +1264,7 @@ app.put(
   "/students/:id/permits/:periodId",
   authRequired,
   requireRole("permits", "write"),
-  (req, res) => {
+  async (req, res) => {
     const id = String(req.params.id);
     const periodId = Number(req.params.periodId);
     const shape = z.object({
@@ -1276,20 +1276,20 @@ app.put(
     const parsed = shape.safeParse(req.body || {});
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
-    const sp = get(
+    const sp = await get(
       "SELECT id FROM student_permits WHERE student_id=? AND permit_period_id=?",
       [id, periodId],
     );
     if (!sp) return res.status(404).json({ error: "Not found" });
-    tx(() => {
+    await tx(async () => {
       let nextNumber = parsed.data.permit_number || null;
       if (!nextNumber) {
-        const seq = get("SELECT last FROM permit_number_sequence WHERE id=1");
+        const seq = await get("SELECT last FROM permit_number_sequence WHERE id=1");
         const next = Number(seq?.last || 0) + 1;
-        run("UPDATE permit_number_sequence SET last=?", [next]);
+        await run("UPDATE permit_number_sequence SET last=?", [next]);
         nextNumber = String(next);
       }
-      run(
+      await run(
         "UPDATE student_permits SET permit_number=?, issue_date=COALESCE(?, issue_date), expiry_date=COALESCE(?, expiry_date), status=COALESCE(?, status), updated_at=CURRENT_TIMESTAMP WHERE id=?",
         [
           nextNumber,
@@ -1299,7 +1299,7 @@ app.put(
           sp.id,
         ],
       );
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "UPDATE",
         entity: "student_permit",
@@ -1314,17 +1314,17 @@ app.delete(
   "/students/:id/permits/:periodId",
   authRequired,
   requireRole("permits", "delete"),
-  (req, res) => {
+  async (req, res) => {
     const id = String(req.params.id);
     const periodId = Number(req.params.periodId);
-    const sp = get(
+    const sp = await get(
       "SELECT id FROM student_permits WHERE student_id=? AND permit_period_id=?",
       [id, periodId],
     );
     if (!sp) return res.status(404).json({ error: "Not found" });
-    tx(() => {
-      run("DELETE FROM student_permits WHERE id=?", [sp.id]);
-      logAction({
+    await tx(async () => {
+      await run("DELETE FROM student_permits WHERE id=?", [sp.id]);
+      await logAction({
         userId: req.user.id,
         action: "DELETE",
         entity: "student_permit",
@@ -1340,9 +1340,9 @@ app.get(
   "/students/:id/tuition-balance",
   authRequired,
   requireRole("payments", "read"),
-  (req, res) => {
+  async (req, res) => {
     const id = req.params.id;
-    const row = get(
+    const row = await get(
       "SELECT tuition_balance FROM students WHERE id=? AND deleted_at IS NULL",
       [id],
     );
@@ -1354,19 +1354,19 @@ app.put(
   "/students/:id/tuition-balance",
   authRequired,
   requireRole("payments", "write"),
-  (req, res) => {
+  async (req, res) => {
     const id = req.params.id;
     const amount = Number(req.body?.amount);
     if (!Number.isFinite(amount))
       return res.status(400).json({ error: "Invalid amount" });
-    const exists = get(
+    const exists = await get(
       "SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL",
       [id],
     );
     if (!exists) return res.status(404).json({ error: "Not found" });
-    tx(() => {
-      run("UPDATE students SET tuition_balance=? WHERE id=?", [amount, id]);
-      logAction({
+    await tx(async () => {
+      await run("UPDATE students SET tuition_balance=? WHERE id=?", [amount, id]);
+      await logAction({
         userId: req.user.id,
         action: "UPDATE",
         entity: "tuition_balance",
@@ -1383,7 +1383,7 @@ app.post(
   "/payments",
   authRequired,
   requireRole("payments", "write"),
-  (req, res) => {
+  async (req, res) => {
     const shape = z.object({
       student_id: z.string().min(1),
       amount: z.number().min(0.01),
@@ -1394,12 +1394,12 @@ app.post(
     const parsed = shape.safeParse(req.body || {});
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
-    const s = get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [
+    const s = await get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [
       parsed.data.student_id,
     ]);
     if (!s) return res.status(404).json({ error: "Student not found" });
-    tx(() => {
-      run(
+    await tx(async () => {
+      await run(
         "INSERT INTO payments (student_id, amount, method, reference, status) VALUES (?,?,?,?,?)",
         [
           parsed.data.student_id,
@@ -1410,15 +1410,15 @@ app.post(
         ],
       );
       // Decrease tuition balance automatically
-      const bal = get("SELECT tuition_balance FROM students WHERE id=?", [
+      const bal = await get("SELECT tuition_balance FROM students WHERE id=?", [
         parsed.data.student_id,
       ]);
       const next = Number(bal?.tuition_balance || 0) - parsed.data.amount;
-      run("UPDATE students SET tuition_balance=? WHERE id=?", [
+      await run("UPDATE students SET tuition_balance=? WHERE id=?", [
         next,
         parsed.data.student_id,
       ]);
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "CREATE",
         entity: "payment",
@@ -1433,7 +1433,7 @@ app.get(
   "/payments",
   authRequired,
   requireRole("payments", "read"),
-  (req, res) => {
+  async (req, res) => {
     const { role, student_id } = req.user;
     const from = req.query.from ? String(req.query.from) : null;
     const to = req.query.to ? String(req.query.to) : null;
@@ -1445,14 +1445,14 @@ app.get(
     if (method) { clauses.push("COALESCE(method,'') = ?"); params.push(method); }
     const where = clauses.length ? ` AND ${clauses.join(" AND ")}` : "";
     if (role === "student") {
-      const rows = all(
+      const rows = await all(
       "SELECT id, amount, method, reference, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
         [student_id, ...params],
       );
-      logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(student_id), details: { from, to, method } });
+      await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(student_id), details: { from, to, method } });
       return res.json(rows);
     }
-    const rows = all(
+    const rows = await all(
     "SELECT p.*, s.name FROM payments p JOIN students s ON s.id=p.student_id" + (where ? ` WHERE ${where.slice(5)}` : "") + " ORDER BY p.created_at DESC",
       params
     );
@@ -1463,7 +1463,7 @@ app.get(
   "/payments/:studentId",
   authRequired,
   requireRole("payments", "read"),
-  (req, res) => {
+  async (req, res) => {
     const sid = req.params.studentId;
     const from = req.query.from ? String(req.query.from) : null;
     const to = req.query.to ? String(req.query.to) : null;
@@ -1475,28 +1475,28 @@ app.get(
     if (method) { clauses.push("COALESCE(method,'') = ?"); params.push(method); }
     const where = clauses.length ? ` AND ${clauses.join(" AND ")}` : "";
     if (req.user.role === "student" && sid !== req.user.student_id) {
-       logAction({ userId: req.user.id, action: "ACCESS_DENIED", entity: "payment", entityId: sid, details: { path: "/payments/:studentId" } });
+       await logAction({ userId: req.user.id, action: "ACCESS_DENIED", entity: "payment", entityId: sid, details: { path: "/payments/:studentId" } });
        return res.status(403).json({ error: "Forbidden" });
     }
-    const rows = all(
+    const rows = await all(
       "SELECT id, amount, method, reference, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
       [sid, ...params],
     );
-    logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(sid), details: { from, to, method } });
+    await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(sid), details: { from, to, method } });
     res.json(rows);
   },
 );
 
-app.get("/subjects", authRequired, requireRole("subjects"), (req, res) => {
+app.get("/subjects", authRequired, requireRole("subjects"), async (req, res) => {
   const { role } = req.user;
   if (role === "teacher") {
-    const rows = all("SELECT * FROM subjects WHERE deleted_at IS NULL");
+    const rows = await all("SELECT * FROM subjects WHERE deleted_at IS NULL");
     return res.json(rows);
   }
   if (role === "student") {
     const sid = req.user.student_id;
     console.log(`[DEBUG] Fetching subjects for student_id: ${sid}`);
-    const rows = all(`
+    const rows = await all(`
       SELECT b.* FROM subjects b
       JOIN grades g ON g.subject_id = b.id
       WHERE g.student_id = ? 
@@ -1506,14 +1506,14 @@ app.get("/subjects", authRequired, requireRole("subjects"), (req, res) => {
     console.log(`[DEBUG] Found ${rows.length} subjects for ${sid}`);
     return res.json(rows);
   }
-  const rows = all("SELECT * FROM subjects WHERE deleted_at IS NULL");
+  const rows = await all("SELECT * FROM subjects WHERE deleted_at IS NULL");
   res.json(rows);
 });
 app.post(
   "/subjects",
   authRequired,
   requireRole("subjects", "write"),
-  (req, res) => {
+  async (req, res) => {
     const body = req.body || {};
     const norm = {
       id: String(body.id || "").trim(),
@@ -1532,10 +1532,10 @@ app.post(
         .status(400)
         .json({ error: "Invalid data", details: parsed.error.flatten() });
     try {
-      const existing = get("SELECT deleted_at FROM subjects WHERE id=?", [parsed.data.id]);
+      const existing = await get("SELECT deleted_at FROM subjects WHERE id=?", [parsed.data.id]);
       if (existing && existing.deleted_at) {
-        tx(() => {
-          run(
+        await tx(async () => {
+          await run(
             "UPDATE subjects SET name=?, units=?, professor=?, schedule=?, room=?, campus=?, time=?, semester_id=?, deleted_at=NULL WHERE id=?",
             [
               parsed.data.name,
@@ -1549,7 +1549,7 @@ app.post(
               parsed.data.id
             ],
           );
-          logAction({
+          await logAction({
             userId: req.user.id,
             action: "RESTORE",
             entity: "subject",
@@ -1559,8 +1559,8 @@ app.post(
         });
         return res.status(200).json({ ok: true, revived: true });
       }
-      tx(() => {
-        run(
+      await tx(async () => {
+        await run(
           "INSERT INTO subjects (id,name,units,professor,schedule,room,campus,time,semester_id) VALUES (?,?,?,?,?,?,?,?,?)",
           [
             parsed.data.id,
@@ -1574,7 +1574,7 @@ app.post(
             parsed.data.semester_id || null,
           ],
         );
-        logAction({
+        await logAction({
           userId: req.user.id,
           action: "CREATE",
           entity: "subject",
@@ -1587,10 +1587,10 @@ app.post(
       const isUnique =
         /UNIQUE constraint failed|UNIQUE constraint|ConstraintError/i.test(msg);
       if (isUnique) {
-        const soft = get("SELECT deleted_at FROM subjects WHERE id=?", [parsed.data.id]);
+        const soft = await get("SELECT deleted_at FROM subjects WHERE id=?", [parsed.data.id]);
         if (soft && soft.deleted_at) {
-          tx(() => {
-            run(
+          await tx(async () => {
+            await run(
               "UPDATE subjects SET name=?, units=?, professor=?, schedule=?, room=?, campus=?, time=?, semester_id=?, deleted_at=NULL WHERE id=?",
               [
                 parsed.data.name,
@@ -1604,7 +1604,7 @@ app.post(
                 parsed.data.id
               ],
             );
-            logAction({
+            await logAction({
               userId: req.user.id,
               action: "RESTORE",
               entity: "subject",
@@ -1624,27 +1624,27 @@ app.put(
   "/subjects/:id",
   authRequired,
   requireRole("subjects", "write"),
-  (req, res) => {
+  async (req, res) => {
     const parsed = subjectSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid data" });
     const id = req.params.id;
-    const s = get(
+    const s = await get(
       "SELECT * FROM subjects WHERE id = ? AND deleted_at IS NULL",
       [id],
     );
     if (!s) return res.status(404).json({ error: "Not found" });
-    tx(() => {
+    await tx(async () => {
       const fields = ["name", "units", "professor", "schedule", "room", "campus", "time", "semester_id"];
       const sets = fields
         .filter((f) => f in parsed.data)
         .map((f) => `${f}=?`)
         .join(", ");
       if (sets)
-        run(`UPDATE subjects SET ${sets} WHERE id=?`, [
+        await run(`UPDATE subjects SET ${sets} WHERE id=?`, [
           ...fields.filter((f) => f in parsed.data).map((f) => parsed.data[f]),
           id,
         ]);
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "UPDATE",
         entity: "subject",
@@ -1657,19 +1657,19 @@ app.put(
 );
 
 // Subjects assigned to a student (via grades), optional semester filter
-app.get("/students/:id/subjects", authRequired, requireRole("students"), (req, res) => {
+app.get("/students/:id/subjects", authRequired, requireRole("students"), async (req, res) => {
   const id = String(req.params.id);
   if (req.user.role === "student" && id !== req.user.student_id) {
     return res.status(403).json({ error: "Forbidden" });
   }
   const semesterId = req.query.semester_id ? Number(req.query.semester_id) : null;
   const rows = semesterId
-    ? all(`
+    ? await all(`
         SELECT b.* FROM subjects b
         JOIN grades g ON g.subject_id=b.id AND g.deleted_at IS NULL
         WHERE g.student_id=? AND b.deleted_at IS NULL AND b.semester_id=?
       `, [id, semesterId])
-    : all(`
+    : await all(`
         SELECT b.* FROM subjects b
         JOIN grades g ON g.subject_id=b.id AND g.deleted_at IS NULL
         WHERE g.student_id=? AND b.deleted_at IS NULL
@@ -1680,25 +1680,25 @@ app.delete(
   "/subjects/:id",
   authRequired,
   requireRole("subjects", "delete"),
-  (req, res) => {
+  async (req, res) => {
     const id = req.params.id;
-    const s = get("SELECT 1 FROM subjects WHERE id=? AND deleted_at IS NULL", [
+    const s = await get("SELECT 1 FROM subjects WHERE id=? AND deleted_at IS NULL", [
       id,
     ]);
     if (!s) return res.status(404).json({ error: "Not found" });
-    tx(() => {
-      run("UPDATE subjects SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [id]);
-      run(
+    await tx(async () => {
+      await run("UPDATE subjects SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [id]);
+      await run(
         "UPDATE grades SET deleted_at=CURRENT_TIMESTAMP WHERE subject_id=? AND deleted_at IS NULL",
         [id],
       );
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "DELETE",
         entity: "subject",
         entityId: id,
       });
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "BULK_DELETE",
         entity: "grade",
@@ -1709,40 +1709,40 @@ app.delete(
   },
 );
 
-app.get("/grades/:studentId", authRequired, requireRole("grades"), (req, res) => {
+app.get("/grades/:studentId", authRequired, requireRole("grades"), async (req, res) => {
   const sid = req.params.studentId;
   if (req.user.role === "student" && sid !== req.user.student_id) {
-    logAction({ userId: req.user.id, action: "ACCESS_DENIED", entity: "grade", entityId: sid, details: { path: "/grades/:studentId", ip: req.ip } });
+    await logAction({ userId: req.user.id, action: "ACCESS_DENIED", entity: "grade", entityId: sid, details: { path: "/grades/:studentId", ip: req.ip } });
     return res.status(403).json({ error: "Forbidden" });
   }
   const semesterId = req.query.semester_id ? Number(req.query.semester_id) : null;
-  const rows = all(
+  const rows = await all(
     `SELECT g.* FROM grades g
      JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
      JOIN subjects b ON b.id = g.subject_id AND b.deleted_at IS NULL
      WHERE g.student_id = ? AND g.deleted_at IS NULL` + (semesterId ? ` AND b.semester_id = ?` : ``),
     semesterId ? [sid, semesterId] : [sid],
   );
-  logAction({ userId: req.user.id, action: "READ", entity: "grade", entityId: sid, details: { semester_id: semesterId || null, ip: req.ip } });
+  await logAction({ userId: req.user.id, action: "READ", entity: "grade", entityId: sid, details: { semester_id: semesterId || null, ip: req.ip } });
   res.json(rows);
 });
-app.get("/grades", authRequired, requireRole("grades"), (req, res) => {
+app.get("/grades", authRequired, requireRole("grades"), async (req, res) => {
   // Student privacy: students can only see their own grades
   if (req.user.role === "student") {
     const sid = req.user.student_id;
     if (!sid) return res.status(403).json({ error: "Forbidden" });
     const semesterId = req.query.semester_id ? Number(req.query.semester_id) : null;
-    const bySelf = all(
+    const bySelf = await all(
       `SELECT g.* FROM grades g
        JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
        JOIN subjects b ON b.id = g.subject_id AND b.deleted_at IS NULL
        WHERE g.deleted_at IS NULL AND g.student_id = ?` + (semesterId ? ` AND b.semester_id = ?` : ``),
       semesterId ? [sid, semesterId] : [sid],
     );
-    logAction({ userId: req.user.id, action: "READ", entity: "grade", entityId: sid, details: { semester_id: semesterId || null, ip: req.ip } });
+    await logAction({ userId: req.user.id, action: "READ", entity: "grade", entityId: sid, details: { semester_id: semesterId || null, ip: req.ip } });
     return res.json(bySelf);
   }
-  const rows = all(
+  const rows = await all(
     `SELECT g.* FROM grades g
      JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
      JOIN subjects b ON b.id = g.subject_id AND b.deleted_at IS NULL
@@ -1754,7 +1754,7 @@ app.post(
   "/grades",
   authRequired,
   requireRole("grades", "write"),
-  (req, res) => {
+  async (req, res) => {
     const body = req.body || {};
     const norm = {
       student_id: String(body.student_id || "").trim(),
@@ -1771,29 +1771,29 @@ app.post(
         .json({ error: "Invalid data", details: parsed.error.flatten() });
     try {
       // Ensure both student and subject are active (not soft-deleted)
-      const activeStudent = get(
+      const activeStudent = await get(
         "SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL",
         [parsed.data.student_id],
       );
       if (!activeStudent)
         return res.status(404).json({ error: "Student not found or inactive" });
-      const activeSubject = get(
+      const activeSubject = await get(
         "SELECT 1 FROM subjects WHERE id=? AND deleted_at IS NULL",
         [parsed.data.subject_id],
       );
       if (!activeSubject)
         return res.status(404).json({ error: "Subject not found or inactive" });
       const key = [parsed.data.student_id, parsed.data.subject_id];
-      const existing = get(
+      const existing = await get(
         "SELECT deleted_at FROM grades WHERE student_id=? AND subject_id=?",
         key,
       );
       if (existing && !existing.deleted_at) {
         return res.status(409).json({ error: "Grade exists" });
       }
-      tx(() => {
+      await tx(async () => {
         if (existing && existing.deleted_at) {
-          run(
+          await run(
             "UPDATE grades SET prelim=?, midterm=?, prefinal=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=?",
             [
               parsed.data.prelim ?? null,
@@ -1803,7 +1803,7 @@ app.post(
               ...key,
             ],
           );
-          logAction({
+          await logAction({
             userId: req.user.id,
             action: "RESTORE",
             entity: "grade",
@@ -1811,7 +1811,7 @@ app.post(
             details: { via: "POST_UPSERT" },
           });
         } else {
-          run(
+          await run(
             "INSERT INTO grades (student_id,subject_id,prelim,midterm,prefinal,final) VALUES (?,?,?,?,?,?)",
             [
               parsed.data.student_id,
@@ -1822,7 +1822,7 @@ app.post(
               parsed.data.final ?? null,
             ],
           );
-          logAction({
+          await logAction({
             userId: req.user.id,
             action: "CREATE",
             entity: "grade",
@@ -1837,13 +1837,13 @@ app.post(
         /UNIQUE constraint failed|UNIQUE constraint|ConstraintError/i.test(msg);
       if (isUnique) {
         const { student_id, subject_id } = parsed.data;
-        const soft = get(
+        const soft = await get(
           "SELECT deleted_at FROM grades WHERE student_id=? AND subject_id=?",
           [student_id, subject_id],
         );
         if (soft && soft.deleted_at) {
-          tx(() => {
-            run(
+          await tx(async () => {
+            await run(
               "UPDATE grades SET prelim=?, midterm=?, prefinal=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=?",
               [
                 parsed.data.prelim ?? null,
@@ -1854,7 +1854,7 @@ app.post(
                 subject_id,
               ],
             );
-            logAction({
+            await logAction({
               userId: req.user.id,
               action: "RESTORE",
               entity: "grade",
@@ -1874,31 +1874,31 @@ app.put(
   "/grades/:studentId/:subjectId",
   authRequired,
   requireRole("grades", "write"),
-  (req, res) => {
+  async (req, res) => {
     const parsed = gradeSchema
       .pick({ prelim: true, midterm: true, prefinal: true, final: true })
       .partial()
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid data" });
     const { studentId, subjectId } = req.params;
-    const g = get(
+    const g = await get(
       "SELECT 1 FROM grades WHERE student_id=? AND subject_id=? AND deleted_at IS NULL",
       [studentId, subjectId],
     );
     if (!g) return res.status(404).json({ error: "Not found" });
-    tx(() => {
+    await tx(async () => {
       const fields = ["prelim", "midterm", "prefinal", "final"];
       const sets = fields
         .filter((f) => f in parsed.data)
         .map((f) => `${f}=?`)
         .join(", ");
       if (sets)
-        run(`UPDATE grades SET ${sets} WHERE student_id=? AND subject_id=?`, [
+        await run(`UPDATE grades SET ${sets} WHERE student_id=? AND subject_id=?`, [
           ...fields.filter((f) => f in parsed.data).map((f) => parsed.data[f]),
           studentId,
           subjectId,
         ]);
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "UPDATE",
         entity: "grade",
@@ -1913,19 +1913,19 @@ app.delete(
   "/grades/:studentId/:subjectId",
   authRequired,
   requireRole("grades", "delete"),
-  (req, res) => {
+  async (req, res) => {
     const { studentId, subjectId } = req.params;
-    const g = get(
+    const g = await get(
       "SELECT 1 FROM grades WHERE student_id=? AND subject_id=? AND deleted_at IS NULL",
       [studentId, subjectId],
     );
     if (!g) return res.status(404).json({ error: "Not found" });
-    tx(() => {
-      run(
+    await tx(async () => {
+      await run(
         "UPDATE grades SET deleted_at=CURRENT_TIMESTAMP WHERE student_id=? AND subject_id=?",
         [studentId, subjectId],
       );
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "DELETE",
         entity: "grade",
@@ -1940,14 +1940,14 @@ app.post(
   "/admin/backup",
   authRequired,
   requireRole("settings", "write"),
-  (req, res) => {
+  async (req, res) => {
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
     const backupsDir = "server/data/backups";
     if (!fs.existsSync(backupsDir))
       fs.mkdirSync(backupsDir, { recursive: true });
     const dest = path.join(backupsDir, `app-${ts}.db`);
     fs.copyFileSync(dbFilePath, dest);
-    logAction({
+    await logAction({
       userId: req.user.id,
       action: "BACKUP",
       entity: "system",
@@ -1963,8 +1963,8 @@ app.post(
   "/admin/cleanup-orphan-grades",
   authRequired,
   requireRole("settings", "write"),
-  (req, res) => {
-    const orphans = all(`
+  async (req, res) => {
+    const orphans = await all(`
     SELECT g.student_id, g.subject_id
     FROM grades g
     LEFT JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
@@ -1972,15 +1972,15 @@ app.post(
     WHERE g.deleted_at IS NULL AND (s.id IS NULL OR b.id IS NULL)
   `);
     if (orphans.length === 0) return res.json({ ok: true, updated: 0 });
-    tx(() => {
-      run(`
+    await tx(async () => {
+      await run(`
       UPDATE grades SET deleted_at=CURRENT_TIMESTAMP
       WHERE deleted_at IS NULL AND (
         NOT EXISTS (SELECT 1 FROM students s WHERE s.id=grades.student_id AND s.deleted_at IS NULL)
         OR NOT EXISTS (SELECT 1 FROM subjects b WHERE b.id=grades.subject_id AND b.deleted_at IS NULL)
       )
     `);
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "CLEANUP",
         entity: "grade",
@@ -1993,7 +1993,7 @@ app.post(
 );
 
 // Owner-only restore within 30-day window
-app.post("/admin/restore", authRequired, requireRole("settings", "write"), (req, res) => {
+app.post("/admin/restore", authRequired, requireRole("settings", "write"), async (req, res) => {
   const shape = z.object({
     entity: z.enum(["user", "student", "subject", "grade"]),
     id: z.string().min(1),
@@ -2001,40 +2001,40 @@ app.post("/admin/restore", authRequired, requireRole("settings", "write"), (req,
   const parsed = shape.safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: "Invalid fields" });
   const { entity, id } = parsed.data;
-  const within = (table, where, params) => {
-    const row = get(`SELECT deleted_at FROM ${table} WHERE ${where}`, params);
+  const within = async (table, where, params) => {
+    const row = await get(`SELECT deleted_at FROM ${table} WHERE ${where}`, params);
     if (!row || !row.deleted_at) return { ok: false, error: "Not deleted" };
     const del = new Date(row.deleted_at);
     const diff = (Date.now() - del.getTime()) / (1000 * 60 * 60 * 24);
     if (diff > 30) return { ok: false, error: "Restore window expired" };
     return { ok: true };
   };
-  tx(() => {
+  await tx(async () => {
     if (entity === "user") {
-      const chk = within("users", "id=?", [id]);
+      const chk = await within("users", "id=?", [id]);
       if (!chk.ok) return res.status(400).json({ error: chk.error });
-      run("UPDATE users SET deleted_at=NULL WHERE id=?", [id]);
-      logAction({
+      await run("UPDATE users SET deleted_at=NULL WHERE id=?", [id]);
+      await logAction({
         userId: req.user.id,
         action: "RESTORE",
         entity: "user",
         entityId: id,
       });
     } else if (entity === "student") {
-      const chk = within("students", "id=?", [id]);
+      const chk = await within("students", "id=?", [id]);
       if (!chk.ok) return res.status(400).json({ error: chk.error });
-      run("UPDATE students SET deleted_at=NULL WHERE id=?", [id]);
-      logAction({
+      await run("UPDATE students SET deleted_at=NULL WHERE id=?", [id]);
+      await logAction({
         userId: req.user.id,
         action: "RESTORE",
         entity: "student",
         entityId: id,
       });
     } else if (entity === "subject") {
-      const chk = within("subjects", "id=?", [id]);
+      const chk = await within("subjects", "id=?", [id]);
       if (!chk.ok) return res.status(400).json({ error: chk.error });
-      run("UPDATE subjects SET deleted_at=NULL WHERE id=?", [id]);
-      logAction({
+      await run("UPDATE subjects SET deleted_at=NULL WHERE id=?", [id]);
+      await logAction({
         userId: req.user.id,
         action: "RESTORE",
         entity: "subject",
@@ -2042,16 +2042,16 @@ app.post("/admin/restore", authRequired, requireRole("settings", "write"), (req,
       });
     } else if (entity === "grade") {
       const [sid, subid] = id.split(":");
-      const chk = within("grades", "student_id=? AND subject_id=?", [
+      const chk = await within("grades", "student_id=? AND subject_id=?", [
         sid,
         subid,
       ]);
       if (!chk.ok) return res.status(400).json({ error: chk.error });
-      run(
+      await run(
         "UPDATE grades SET deleted_at=NULL WHERE student_id=? AND subject_id=?",
         [sid, subid],
       );
-      logAction({
+      await logAction({
         userId: req.user.id,
         action: "RESTORE",
         entity: "grade",
@@ -2063,19 +2063,19 @@ app.post("/admin/restore", authRequired, requireRole("settings", "write"), (req,
 });
 
 // Teacher-specific permit view endpoints
-app.get("/teacher/rooms", authRequired, requireRole("students"), (req, res) => {
+app.get("/teacher/rooms", authRequired, requireRole("students"), async (req, res) => {
   const { role, username } = req.user;
   if (role !== "teacher" && role !== "developer" && role !== "owner") {
     return res.status(403).json({ error: "Forbidden" });
   }
-  const rows = all("SELECT DISTINCT room FROM subjects WHERE professor=? AND deleted_at IS NULL", [username]);
+  const rows = await all("SELECT DISTINCT room FROM subjects WHERE professor=? AND deleted_at IS NULL", [username]);
   res.json(rows);
 });
 
-app.get("/teacher/rooms/:room/students", authRequired, requireRole("students"), (req, res) => {
+app.get("/teacher/rooms/:room/students", authRequired, requireRole("students"), async (req, res) => {
     const { room } = req.params;
     const { username } = req.user;
-    const students = all(`
+    const students = await all(`
         SELECT DISTINCT s.* 
         FROM students s
         JOIN grades g ON g.student_id = s.id
@@ -2084,22 +2084,22 @@ app.get("/teacher/rooms/:room/students", authRequired, requireRole("students"), 
     `, [room, username]);
 
     // For each student, check their latest permit status
-    const result = students.map(s => {
-        const permit = get(`
+    const result = await Promise.all(students.map(async s => {
+        const permit = await get(`
             SELECT status FROM student_permits 
             WHERE student_id = ? 
             ORDER BY created_at DESC LIMIT 1
         `, [s.id]);
         return { ...s, has_active_permit: permit?.status === "active" };
-    });
+    }));
     res.json(result);
 });
 
 // Student Permit filtering
-app.get("/my-permits", authRequired, (req, res) => {
+app.get("/my-permits", authRequired, async (req, res) => {
   if (req.user.role !== "student") return res.status(403).json({ error: "Forbidden" });
   const sid = req.user.student_id;
-  const rows = all(`
+  const rows = await all(`
     SELECT sp.*, pp.name as period_name, pp.sort_order, s.school_year, s.term
     FROM student_permits sp
     JOIN permit_periods pp ON pp.id = sp.permit_period_id
@@ -2107,7 +2107,7 @@ app.get("/my-permits", authRequired, (req, res) => {
     WHERE sp.student_id = ?
     ORDER BY s.school_year DESC, s.term DESC, pp.sort_order ASC
   `, [sid]);
-  logAction({ userId: req.user.id, action: "READ", entity: "student_permit", entityId: String(sid) });
+  await logAction({ userId: req.user.id, action: "READ", entity: "student_permit", entityId: String(sid) });
   res.json(rows);
 });
 
@@ -2140,45 +2140,45 @@ function today() {
 }
 
 // List tables (accessible by teacher [own only] or owner/dev [all])
-app.get("/attendance/tables", authRequired, requireRole("attendance"), (req, res) => {
+app.get("/attendance/tables", authRequired, requireRole("attendance"), async (req, res) => {
   const { role } = req.user;
   const uuid = teacherUUID(req);
   let rows;
   if (role === "owner" || role === "developer") {
-    rows = all("SELECT * FROM attendance_tables ORDER BY created_at DESC");
+    rows = await all("SELECT * FROM attendance_tables ORDER BY created_at DESC");
   } else {
-    rows = all("SELECT * FROM attendance_tables WHERE created_by_teacher_id = ? ORDER BY created_at DESC", [uuid]);
+    rows = await all("SELECT * FROM attendance_tables WHERE created_by_teacher_id = ? ORDER BY created_at DESC", [uuid]);
   }
   res.json(rows);
 });
 
 // Legacy support for TeacherAttendanceDashboard which might call /attendance
-app.get("/attendance", authRequired, requireRole("attendance"), (req, res) => {
+app.get("/attendance", authRequired, requireRole("attendance"), async (req, res) => {
   const { role } = req.user;
   const uuid = teacherUUID(req);
-  const rows = all("SELECT * FROM attendance_tables WHERE created_by_teacher_id = ? ORDER BY created_at DESC", [uuid]);
+  const rows = await all("SELECT * FROM attendance_tables WHERE created_by_teacher_id = ? ORDER BY created_at DESC", [uuid]);
   res.json(rows);
 });
 
-app.post("/attendance", authRequired, requireRole("attendance", "write"), (req, res) => {
+app.post("/attendance", authRequired, requireRole("attendance", "write"), async (req, res) => {
   const uuid = teacherUUID(req);
   const parsed = attendanceCreateSchema.safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: "Invalid fields", details: parsed.error.errors.map(e => e.message) });
   
-  const subjectExists = get("SELECT 1 FROM subjects WHERE id=? AND deleted_at IS NULL", [parsed.data.subject_id]);
+  const subjectExists = await get("SELECT 1 FROM subjects WHERE id=? AND deleted_at IS NULL", [parsed.data.subject_id]);
   if (!subjectExists) return res.status(400).json({ error: "Invalid subject_id" });
   
-  const semesterExists = get("SELECT 1 FROM semesters WHERE id=?", [parsed.data.semester_id]);
+  const semesterExists = await get("SELECT 1 FROM semesters WHERE id=?", [parsed.data.semester_id]);
   if (!semesterExists) return res.status(400).json({ error: "Invalid semester_id" });
 
   try {
-    tx(() => {
-      run(`
+    await tx(async () => {
+      await run(`
         INSERT INTO attendance_tables (course_name, block_number, subject_id, semester_id, time_slot, term_period, created_by_teacher_id)
         VALUES (?,?,?,?,?,?,?)
       `, [parsed.data.course_name, parsed.data.block_number, parsed.data.subject_id, parsed.data.semester_id, parsed.data.time_slot, parsed.data.term_period || null, uuid]);
-      const id = String(get("SELECT last_insert_rowid() AS id").id);
-      logAction({ userId: req.user.id, action: "CREATE", entity: "attendance_table", entityId: id, details: { created_by: uuid, payload: parsed.data } });
+      const id = String(await get("SELECT last_insert_rowid() AS id").id);
+      await logAction({ userId: req.user.id, action: "CREATE", entity: "attendance_table", entityId: id, details: { created_by: uuid, payload: parsed.data } });
     });
     res.status(201).json({ ok: true });
   } catch (e) {
@@ -2186,27 +2186,27 @@ app.post("/attendance", authRequired, requireRole("attendance", "write"), (req, 
   }
 });
 
-app.delete("/attendance/tables/:id", authRequired, requireRole("attendance", "delete"), (req, res) => {
+app.delete("/attendance/tables/:id", authRequired, requireRole("attendance", "delete"), async (req, res) => {
   const uuid = teacherUUID(req);
   const id = Number(req.params.id);
-  const row = get("SELECT * FROM attendance_tables WHERE id=?", [id]);
+  const row = await get("SELECT * FROM attendance_tables WHERE id=?", [id]);
   if (!row) return res.status(404).json({ error: "Not found" });
   if (req.user.role === "teacher" && !isOwnerMatch(row, uuid)) return res.status(403).json({ error: "Forbidden" });
   
-  tx(() => {
-    run("DELETE FROM attendance_tables WHERE id=?", [id]);
-    logAction({ userId: req.user.id, action: "DELETE", entity: "attendance_table", entityId: String(id) });
+  await tx(async () => {
+    await run("DELETE FROM attendance_tables WHERE id=?", [id]);
+    await logAction({ userId: req.user.id, action: "DELETE", entity: "attendance_table", entityId: String(id) });
   });
   res.json({ ok: true });
 });
 
 // Enrollment management
-app.get("/attendance/tables/:id/enrollments", authRequired, requireRole("attendance"), (req, res) => {
+app.get("/attendance/tables/:id/enrollments", authRequired, requireRole("attendance"), async (req, res) => {
   const id = Number(req.params.id);
-  const table = get("SELECT * FROM attendance_tables WHERE id=?", [id]);
+  const table = await get("SELECT * FROM attendance_tables WHERE id=?", [id]);
   if (!table) return res.status(404).json({ error: "Not found" });
   
-  const rows = all(`
+  const rows = await all(`
     SELECT e.student_id, s.name, s.course, s.year, s.status
     FROM attendance_enrollments e
     JOIN students s ON s.id = e.student_id
@@ -2216,10 +2216,10 @@ app.get("/attendance/tables/:id/enrollments", authRequired, requireRole("attenda
   res.json(rows);
 });
 
-app.post("/attendance/tables/:id/enroll", authRequired, requireRole("attendance", "write"), (req, res) => {
+app.post("/attendance/tables/:id/enroll", authRequired, requireRole("attendance", "write"), async (req, res) => {
   const id = Number(req.params.id);
   const uuid = teacherUUID(req);
-  const table = get("SELECT * FROM attendance_tables WHERE id=?", [id]);
+  const table = await get("SELECT * FROM attendance_tables WHERE id=?", [id]);
   if (!table) return res.status(404).json({ error: "Not found" });
   
   const shape = z.object({ student_id: z.string().min(1) });
@@ -2227,16 +2227,16 @@ app.post("/attendance/tables/:id/enroll", authRequired, requireRole("attendance"
   if (!parsed.success) return res.status(400).json({ error: "Invalid fields" });
   
   const sid = parsed.data.student_id;
-  const stud = get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [sid]);
+  const stud = await get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [sid]);
   if (!stud) return res.status(404).json({ error: "Student not found" });
 
   try {
-    tx(() => {
-      const already = get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
+    await tx(async () => {
+      const already = await get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
       if (!already) {
-        run("INSERT INTO attendance_enrollments (table_id, student_id, created_by_teacher_id) VALUES (?,?,?)", [id, sid, uuid]);
+        await run("INSERT INTO attendance_enrollments (table_id, student_id, created_by_teacher_id) VALUES (?,?,?)", [id, sid, uuid]);
       }
-      logAction({ userId: req.user.id, action: "ENROLL", entity: "attendance", entityId: String(id), details: { student_id: sid } });
+      await logAction({ userId: req.user.id, action: "ENROLL", entity: "attendance", entityId: String(id), details: { student_id: sid } });
     });
     res.status(201).json({ ok: true });
   } catch (e) {
@@ -2244,27 +2244,27 @@ app.post("/attendance/tables/:id/enroll", authRequired, requireRole("attendance"
   }
 });
 
-app.delete("/attendance/tables/:id/enroll/:studentId", authRequired, requireRole("attendance", "delete"), (req, res) => {
+app.delete("/attendance/tables/:id/enroll/:studentId", authRequired, requireRole("attendance", "delete"), async (req, res) => {
   const id = Number(req.params.id);
   const sid = String(req.params.studentId);
-  const exists = get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
+  const exists = await get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
   if (!exists) return res.status(404).json({ error: "Not found" });
   
-  tx(() => {
-    run("DELETE FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
-    logAction({ userId: req.user.id, action: "UNENROLL", entity: "attendance", entityId: String(id), details: { student_id: sid } });
+  await tx(async () => {
+    await run("DELETE FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
+    await logAction({ userId: req.user.id, action: "UNENROLL", entity: "attendance", entityId: String(id), details: { student_id: sid } });
   });
   res.json({ ok: true });
 });
 
 // Attendance records
-app.get("/attendance/tables/:id/attendance", authRequired, requireRole("attendance"), (req, res) => {
+app.get("/attendance/tables/:id/attendance", authRequired, requireRole("attendance"), async (req, res) => {
   const id = Number(req.params.id);
   const date = typeof req.query.date === "string" ? req.query.date : today();
-  const table = get("SELECT 1 FROM attendance_tables WHERE id=?", [id]);
+  const table = await get("SELECT 1 FROM attendance_tables WHERE id=?", [id]);
   if (!table) return res.status(404).json({ error: "Not found" });
   
-  const rows = all(`
+  const rows = await all(`
     SELECT s.id as student_id, s.name, s.course, s.year, s.status,
            COALESCE(ar.status, '') as attendance_status
     FROM attendance_enrollments e
@@ -2276,7 +2276,7 @@ app.get("/attendance/tables/:id/attendance", authRequired, requireRole("attendan
   res.json({ date, rows });
 });
 
-app.put("/attendance/tables/:id/attendance/:studentId", authRequired, requireRole("attendance", "write"), (req, res) => {
+app.put("/attendance/tables/:id/attendance/:studentId", authRequired, requireRole("attendance", "write"), async (req, res) => {
   const id = Number(req.params.id);
   const sid = String(req.params.studentId);
   const uuid = teacherUUID(req);
@@ -2285,18 +2285,18 @@ app.put("/attendance/tables/:id/attendance/:studentId", authRequired, requireRol
   if (!parsed.success) return res.status(400).json({ error: "Invalid fields" });
   
   const date = parsed.data.date || today();
-  const enrolled = get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
+  const enrolled = await get("SELECT 1 FROM attendance_enrollments WHERE table_id=? AND student_id=?", [id, sid]);
   if (!enrolled) return res.status(404).json({ error: "Not enrolled" });
 
   try {
-    tx(() => {
-      const existing = get("SELECT id FROM attendance_records WHERE table_id=? AND student_id=? AND date=?", [id, sid, date]);
+    await tx(async () => {
+      const existing = await get("SELECT id FROM attendance_records WHERE table_id=? AND student_id=? AND date=?", [id, sid, date]);
       if (existing) {
-        run("UPDATE attendance_records SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [parsed.data.status, existing.id]);
+        await run("UPDATE attendance_records SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [parsed.data.status, existing.id]);
       } else {
-        run("INSERT INTO attendance_records (table_id, student_id, date, status, created_by_teacher_id) VALUES (?,?,?,?,?)", [id, sid, date, parsed.data.status, uuid]);
+        await run("INSERT INTO attendance_records (table_id, student_id, date, status, created_by_teacher_id) VALUES (?,?,?,?,?)", [id, sid, date, parsed.data.status, uuid]);
       }
-      logAction({ userId: req.user.id, action: "ATTENDANCE_SET", entity: "attendance", entityId: `${id}:${sid}:${date}`, details: { status: parsed.data.status } });
+      await logAction({ userId: req.user.id, action: "ATTENDANCE_SET", entity: "attendance", entityId: `${id}:${sid}:${date}`, details: { status: parsed.data.status } });
     });
     res.json({ ok: true });
   } catch (e) {
@@ -2304,25 +2304,25 @@ app.put("/attendance/tables/:id/attendance/:studentId", authRequired, requireRol
   }
 });
 
-app.post("/attendance/tables/:id/attendance/present-all", authRequired, requireRole("attendance", "write"), (req, res) => {
+app.post("/attendance/tables/:id/attendance/present-all", authRequired, requireRole("attendance", "write"), async (req, res) => {
   const id = Number(req.params.id);
   const uuid = teacherUUID(req);
   const date = typeof req.body?.date === "string" ? req.body.date : today();
-  const table = get("SELECT 1 FROM attendance_tables WHERE id=?", [id]);
+  const table = await get("SELECT 1 FROM attendance_tables WHERE id=?", [id]);
   if (!table) return res.status(404).json({ error: "Not found" });
   
-  const students = all("SELECT student_id FROM attendance_enrollments WHERE table_id=?", [id]).map(r => r.student_id);
+  const students = await all("SELECT student_id FROM attendance_enrollments WHERE table_id=?", [id]).map(r => r.student_id);
   try {
-    tx(() => {
+    await tx(async () => {
       for (const sid of students) {
-        const existing = get("SELECT id FROM attendance_records WHERE table_id=? AND student_id=? AND date=?", [id, sid, date]);
+        const existing = await get("SELECT id FROM attendance_records WHERE table_id=? AND student_id=? AND date=?", [id, sid, date]);
         if (existing) {
-          run("UPDATE attendance_records SET status='present', updated_at=CURRENT_TIMESTAMP WHERE id=?", [existing.id]);
+          await run("UPDATE attendance_records SET status='present', updated_at=CURRENT_TIMESTAMP WHERE id=?", [existing.id]);
         } else {
-          run("INSERT INTO attendance_records (table_id, student_id, date, status, created_by_teacher_id) VALUES (?,?,?,?,?)", [id, sid, date, "present", uuid]);
+          await run("INSERT INTO attendance_records (table_id, student_id, date, status, created_by_teacher_id) VALUES (?,?,?,?,?)", [id, sid, date, "present", uuid]);
         }
       }
-      logAction({ userId: req.user.id, action: "ATTENDANCE_BULK", entity: "attendance", entityId: String(id), details: { date, count: students.length, status: "present_all" } });
+      await logAction({ userId: req.user.id, action: "ATTENDANCE_BULK", entity: "attendance", entityId: String(id), details: { date, count: students.length, status: "present_all" } });
     });
     res.json({ ok: true, count: students.length });
   } catch (e) {
@@ -2331,12 +2331,12 @@ app.post("/attendance/tables/:id/attendance/present-all", authRequired, requireR
 });
 
 // Student: view-only attendance
-app.get("/attendance/my", authRequired, (req, res) => {
+app.get("/attendance/my", authRequired, async (req, res) => {
   if (req.user.role !== "student") return res.status(403).json({ error: "Forbidden" });
   const sid = req.user.student_id;
   const date = typeof req.query.date === "string" ? req.query.date : null;
   const rows = date
-    ? all(`
+    ? await all(`
         SELECT at.id as table_id, at.course_name, at.block_number, at.time_slot,
                ar.date, ar.status
         FROM attendance_records ar
@@ -2344,7 +2344,7 @@ app.get("/attendance/my", authRequired, (req, res) => {
         WHERE ar.student_id = ? AND ar.date = ?
         ORDER BY at.course_name
       `, [sid, date])
-    : all(`
+    : await all(`
         SELECT at.id as table_id, at.course_name, at.block_number, at.time_slot,
                ar.date, ar.status
         FROM attendance_records ar
@@ -2352,7 +2352,7 @@ app.get("/attendance/my", authRequired, (req, res) => {
         WHERE ar.student_id = ?
         ORDER BY ar.date DESC
       `, [sid]);
-  logAction({ userId: req.user.id, action: "READ", entity: "attendance", entityId: String(sid), details: { date: date || null } });
+  await logAction({ userId: req.user.id, action: "READ", entity: "attendance", entityId: String(sid), details: { date: date || null } });
   res.json(rows);
 });
 
