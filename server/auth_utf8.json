@@ -1,0 +1,212 @@
+﻿[
+  {
+    "role": "register",
+    "module": "students",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "register",
+    "module": "subjects",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "register",
+    "module": "grades",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "register",
+    "module": "payments",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "register",
+    "module": "search",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "cashier",
+    "module": "students",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "cashier",
+    "module": "permits",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "cashier",
+    "module": "payments",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "cashier",
+    "module": "search",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "saps",
+    "module": "students",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "saps",
+    "module": "subjects",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "saps",
+    "module": "grades",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "saps",
+    "module": "permits",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "saps",
+    "module": "payments",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "saps",
+    "module": "search",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "teacher",
+    "module": "dashboard",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "teacher",
+    "module": "students",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "teacher",
+    "module": "subjects",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 0
+  },
+  {
+    "role": "teacher",
+    "module": "grades",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "teacher",
+    "module": "search",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "teacher",
+    "module": "permits",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "teacher",
+    "module": "attendance",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "student",
+    "module": "dashboard",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "student",
+    "module": "grades",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "student",
+    "module": "permits",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "student",
+    "module": "payments",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "student",
+    "module": "profile",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 0
+  },
+  {
+    "role": "student",
+    "module": "attendance",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  },
+  {
+    "role": "developer",
+    "module": "*",
+    "can_read": 1,
+    "can_write": 1,
+    "can_delete": 1
+  },
+  {
+    "role": "student",
+    "module": "subjects",
+    "can_read": 1,
+    "can_write": 0,
+    "can_delete": 0
+  }
+]

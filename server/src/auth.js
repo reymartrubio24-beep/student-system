@@ -194,8 +194,8 @@ export async function registerHandler(req, res) {
 
   if (!["teacher","student","developer","saps","register","cashier"].includes(role)) return res.status(400).json({ error: "Invalid role" });
   const hash = bcrypt.hashSync(password, 10);
-  await run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?)", [username, hash, role, user_type || role]);
-  const id = await lastInsertId();
+  const insertRes = await run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?) RETURNING id", [username, hash, role, user_type || role]);
+  const id = insertRes.rows[0].id;
   const revived = await get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [id]);
   res.status(201).json({ id: revived.id, username: revived.username, role: revived.role, user_type: revived.user_type, uuid: revived.uuid });
 }
@@ -206,8 +206,8 @@ export async function studentSelfRegister(req, res) {
   const exists = await get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
   if (exists) return res.status(409).json({ error: "Username exists" });
   const hash = bcrypt.hashSync(password, 10);
-  await run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?)", [username, hash, "student", "student"]);
-  const id = await lastInsertId();
+  const insertRes2 = await run("INSERT INTO users (username, password_hash, role, user_type) VALUES (?, ?, ?, ?) RETURNING id", [username, hash, "student", "student"]);
+  const id = insertRes2.rows[0].id;
   res.status(201).json({ id, username, role: "student" });
 }
 

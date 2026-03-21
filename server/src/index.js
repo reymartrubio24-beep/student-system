@@ -426,8 +426,10 @@ app.post("/users/:id/permissions", authRequired, requireRole("users", "write"), 
   
   await tx(async () => {
     await run(`
-      INSERT OR REPLACE INTO user_permissions (user_id, module, can_read, can_write, can_delete)
+      INSERT INTO user_permissions (user_id, module, can_read, can_write, can_delete)
       VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, module) DO UPDATE SET
+      can_read = EXCLUDED.can_read, can_write = EXCLUDED.can_write, can_delete = EXCLUDED.can_delete
     `, [userId, module, can_read ? 1 : 0, can_write ? 1 : 0, can_delete ? 1 : 0]);
     
     await logAction({
@@ -615,9 +617,9 @@ app.post("/dashboard/content", authRequired, async (req, res) => {
 
   try {
     if (type === "ybvc_staff") {
-      await run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ybvc_staff', ?)", [JSON.stringify(value)]);
+      await run("INSERT INTO settings (key, value) VALUES ('ybvc_staff', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [JSON.stringify(value)]);
     } else if (type === "next_examination") {
-      await run("INSERT OR REPLACE INTO settings (key, value) VALUES ('next_examination', ?)", [String(value)]);
+      await run("INSERT INTO settings (key, value) VALUES ('next_examination', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [String(value)]);
     } else {
       console.error(`[DASHBOARD_CONTENT] Invalid type: ${type}`);
       return res.status(400).json({ error: "Invalid content type" });
@@ -690,7 +692,7 @@ app.post(
 
     try {
       await run(
-        "INSERT OR IGNORE INTO student_id_sequence (year,last) VALUES (?,?)",
+        "INSERT INTO student_id_sequence (year,last) VALUES (?,?) ON CONFLICT (year) DO NOTHING",
         [birthYear, 0],
       );
       let assignedId = null;
@@ -1229,8 +1231,8 @@ app.post(
           const next = Number(seq?.last || 0) + 1;
           await run("UPDATE permit_number_sequence SET last=?", [next]);
           const assignedNumber = String(next);
-          await run(
-            "INSERT INTO student_permits (student_id, permit_period_id, permit_number, issue_date, expiry_date, status) VALUES (?,?,?,?,?,?)",
+          const pRes = await run(
+            "INSERT INTO student_permits (student_id, permit_period_id, permit_number, issue_date, expiry_date, status) VALUES (?,?,?,?,?,?) RETURNING id",
             [
               id,
               parsed.data.permit_period_id,
@@ -1240,7 +1242,7 @@ app.post(
               parsed.data.status || "active",
             ],
           );
-          const spid = lastInsertId();
+          const spid = pRes.rows[0].id;
           await logAction({
             userId: req.user.id,
             action: "CREATE",
@@ -1453,7 +1455,7 @@ app.get(
       return res.json(rows);
     }
     const rows = await all(
-    "SELECT p.*, s.name FROM payments p JOIN students s ON s.id=p.student_id" + (where ? ` WHERE ${where.slice(5)}` : "") + " ORDER BY p.created_at DESC",
+    "SELECT p.*, s.name AS student_name FROM payments p JOIN students s ON s.id=p.student_id" + (where ? ` WHERE ${where.slice(5)}` : "") + " ORDER BY p.created_at DESC",
       params
     );
     res.json(rows);

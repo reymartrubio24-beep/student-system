@@ -1,0 +1,109 @@
+function Payments({ token, role, studentIdFromAuth }) {
+  const [studentId, setStudentId] = useState("");
+  const [balance, setBalance] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("");
+  const [reference, setReference] = useState("");
+  const [msg, setMsg] = useState("");
+  const [payments, setPayments] = useState([]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [filterMethod, setFilterMethod] = useState("");
+
+  useEffect(() => {
+    if (role === "student" && studentIdFromAuth) {
+      setStudentId(studentIdFromAuth);
+    }
+  }, [role, studentIdFromAuth]);
+
+  const loadBalance = useCallback(async () => {
+    try {
+      const r = await api(`/students/${encodeURIComponent(studentId)}/tuition-balance`, {}, token);
+      setBalance(r.tuition_balance);
+      const qs = [];
+      if (fromDate) qs.push(`from=${encodeURIComponent(fromDate)}`);
+      if (toDate) qs.push(`to=${encodeURIComponent(toDate)}`);
+      if (filterMethod) qs.push(`method=${encodeURIComponent(filterMethod)}`);
+      const p = await api(`/payments/${encodeURIComponent(studentId)}${qs.length ? "?" + qs.join("&") : ""}`, {}, token);
+      setPayments(p);
+    } catch (e) {
+      setMsg(e.message);
+    }
+  }, [studentId, token, fromDate, toDate, filterMethod]);
+
+  useEffect(() => {
+    if (studentId) loadBalance();
+  }, [studentId, loadBalance]);
+  const submitPayment = async () => {
+    try {
+      const data = { student_id: studentId.trim(), amount: parseFloat(amount), method: method.trim(), reference: reference.trim() };
+      await api("/payments", { method: "POST", body: data }, token);
+      setMsg("Payment recorded.");
+      setAmount(""); setMethod(""); setReference("");
+      loadBalance();
+    } catch (e) {
+      setMsg(e.message);
+    }
+  };
+  return (
+    <div>
+      <PageHeader title="💳 Payments" sub={role === "student" ? "View your tuition balance and history" : "Record tuition payments"} />
+      {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", color: "var(--neon-blue)", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
+      
+      {role !== "student" && (
+        <Card title="Record Payment">
+          <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 10 }}>
+            <Input label="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} />
+            <Input label="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
+            <Input label="Method" value={method} onChange={e => setMethod(e.target.value)} />
+            <Input label="Reference" value={reference} onChange={e => setReference(e.target.value)} />
+            <Btn variant="primary" onClick={submitPayment} disabled={!studentId || !amount}>Record</Btn>
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+            <Btn variant="outline" onClick={loadBalance} disabled={!studentId}>Load Balance & History</Btn>
+          </div>
+        </Card>
+      )}
+
+      <Card title="Filter Transactions">
+        <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: role === 'student' ? "1fr 1fr 1fr" : "2fr 1fr 1fr 1fr", gap: 10 }}>
+          {role !== "student" && <Input label="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} />}
+          <Input label="From (YYYY-MM-DD)" value={fromDate} onChange={e => setFromDate(e.target.value)} placeholder="2026-01-01" />
+          <Input label="To (YYYY-MM-DD)" value={toDate} onChange={e => setToDate(e.target.value)} placeholder="2026-12-31" />
+          <Input label="Method" value={filterMethod} onChange={e => setFilterMethod(e.target.value)} placeholder="e.g. Cash, GCash, Card" />
+        </div>
+        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+          <Btn variant="outline" onClick={() => { if (studentId) loadBalance(); }} disabled={role === "student" && !studentId}>Apply Filters</Btn>
+          <Btn variant="ghost" onClick={() => { setFromDate(""); setToDate(""); setFilterMethod(""); if (studentId) loadBalance(); }}>Clear</Btn>
+        </div>
+      </Card>
+
+      {balance !== null && (
+        <Card title={role === "student" ? "My Balance" : `Account Balance: ${studentId}`}>
+          <div className="glow-text" style={{ fontSize: 32, fontWeight: 900, color: "var(--neon-blue)", marginBottom: 4 }}>₱{balance.toFixed(2)}</div>
+          <div style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 500 }}>Remaining balance for current semester.</div>
+        </Card>
+      )}
+
+      {payments.length > 0 && (
+        <Card title={role === "student" ? "Payment History" : (studentId ? `Recent Payments for ${studentId}` : "All Payments")}>
+          <div className="table-container">
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr><Th>Date</Th><Th>Amount</Th><Th>Method</Th><Th>Reference</Th></tr></thead>
+              <tbody>
+                {payments.map(p => (
+                  <tr key={p.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                    <Td>{new Date(p.created_at).toLocaleString()}</Td>
+                    <Td>₱{Number(p.amount).toFixed(2)}</Td>
+                    <Td>{p.method || "-"}</Td>
+                    <Td>{p.reference || "-"}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
