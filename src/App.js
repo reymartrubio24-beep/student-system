@@ -47,7 +47,11 @@ const INITIAL_GRADES = {
 
 function computeGrade(g) {
   if (!g) return null;
-  return Math.round(((g.prelim + g.midterm + g.prefinal + g.final) / 4) * 100) / 100;
+  const vals = [g.prelim1, g.prelim2, g.midterm, g.semi_final, g.final];
+  const present = vals.filter(v => v !== null && v !== undefined && v !== "");
+  if (present.length === 0) return null;
+  const sum = present.reduce((a, b) => a + Number(b), 0);
+  return Math.round((sum / present.length) * 100) / 100;
 }
 function toGPA(avg) {
   if (avg >= 97) return "1.00";
@@ -470,9 +474,10 @@ export default function App() {
         const map = rows.reduce((acc, r) => {
           if (!acc[r.student_id]) acc[r.student_id] = {};
           acc[r.student_id][r.subject_id] = {
-            prelim: r.prelim,
+            prelim1: r.prelim1,
+            prelim2: r.prelim2,
             midterm: r.midterm,
-            prefinal: r.prefinal,
+            semi_final: r.semi_final,
             final: r.final,
           };
           return acc;
@@ -506,9 +511,10 @@ export default function App() {
         const map = rows.reduce((acc, r) => {
           if (!acc[r.student_id]) acc[r.student_id] = {};
           acc[r.student_id][r.subject_id] = {
-            prelim: r.prelim,
+            prelim1: r.prelim1,
+            prelim2: r.prelim2,
             midterm: r.midterm,
-            prefinal: r.prefinal,
+            semi_final: r.semi_final,
             final: r.final,
           };
           return acc;
@@ -746,6 +752,9 @@ export { Dashboard };
 function Dashboard({ token, role, username, full_name }) {
   const [stats, setStats] = useState(null);
   const [content, setContent] = useState({ next_examination: "No examination scheduled.", ybvc_staff: [] });
+  const [editLeaderOpen, setEditLeaderOpen] = useState(false);
+  const [leaderForm, setLeaderForm] = useState({ founder: "Dr. Grace B. Talpis, MPA", evp: "Lito Talpis", quote: "Dedicated to academic excellence and student success at YBVC." });
+
   const [editExamOpen, setEditExamOpen] = useState(false);
   const [examValue, setExamValue] = useState("");
   const [editStaffOpen, setEditStaffOpen] = useState(false);
@@ -763,6 +772,9 @@ function Dashboard({ token, role, username, full_name }) {
       setContent(c);
       setExamValue(c.next_examination);
       setStaffList(c.ybvc_staff || []);
+      if (c.school_leadership) {
+        setLeaderForm(c.school_leadership);
+      }
     } catch {}
   }, [token]);
 
@@ -796,6 +808,14 @@ function Dashboard({ token, role, username, full_name }) {
 
   const removeStaffItem = (index) => {
     setStaffList(staffList.filter((_, i) => i !== index));
+  };
+
+  const saveLeadership = async () => {
+    try {
+      await api("/dashboard/content", { method: "POST", body: { type: "school_leadership", value: leaderForm } }, token);
+      setEditLeaderOpen(false);
+      loadData();
+    } catch (e) { alert(e.message); }
   };
 
   if (!stats) return <div style={{ color: "var(--neon-blue)", fontWeight: 800, padding: 40 }} className="glow-text">LOADING STUDENT SYSTEM...</div>;
@@ -842,18 +862,18 @@ function Dashboard({ token, role, username, full_name }) {
           </div>
         </Card>
 
-        <Card title="School Founder & Leadership" action={canEditFounder && <Btn variant="outline" style={{ fontSize: 11, padding: "4px 8px" }}>Edit</Btn>}>
+        <Card title="School Founder & Leadership" action={canEditFounder && <Btn variant="outline" onClick={() => setEditLeaderOpen(true)} style={{ fontSize: 11, padding: "4px 8px" }}>Edit</Btn>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div>
               <div style={{ fontSize: 11, color: "var(--neon-blue)", fontWeight: 800, textTransform: "uppercase", marginBottom: 4 }}>Owner / Founder</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "white" }}>Dr. Grace B. Talpis, MPA</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "white" }}>{leaderForm.founder}</div>
             </div>
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 16 }}>
               <div style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 800, textTransform: "uppercase", marginBottom: 4 }}>Executive Vice President</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "white" }}>Lito Talpis</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "white" }}>{leaderForm.evp}</div>
             </div>
             <div style={{ marginTop: 10, background: "rgba(68, 215, 255, 0.05)", padding: 12, borderRadius: 10, border: "1px dashed rgba(68, 215, 255, 0.2)" }}>
-              <div style={{ fontSize: 11, color: "var(--text-dim)", fontStyle: "italic" }}>"Dedicated to academic excellence and student success at YBVC."</div>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", fontStyle: "italic" }}>"{leaderForm.quote}"</div>
             </div>
           </div>
         </Card>
@@ -883,6 +903,35 @@ function Dashboard({ token, role, username, full_name }) {
           </div>
         </Card>
       </div>
+
+      <Modal show={editLeaderOpen} title="🏫 School Founder & Leadership" onClose={() => setEditLeaderOpen(false)} width={500}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Input 
+            label="Owner / Founder" 
+            value={leaderForm.founder} 
+            onChange={e => setLeaderForm({ ...leaderForm, founder: e.target.value })} 
+            placeholder="e.g. Dr. Grace B. Talpis, MPA" 
+          />
+          <Input 
+            label="Executive Vice President" 
+            value={leaderForm.evp} 
+            onChange={e => setLeaderForm({ ...leaderForm, evp: e.target.value })} 
+            placeholder="e.g. Lito Talpis" 
+          />
+          <div style={{ marginBottom: 16 }}>
+             <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>Leadership Quote</label>
+             <textarea 
+               value={leaderForm.quote} 
+               onChange={e => setLeaderForm({ ...leaderForm, quote: e.target.value })} 
+               style={{ width: "100%", height: 80, padding: 14, borderRadius: 10, background: "#0f172a", color: "white", border: "1px solid var(--border-color)", outline: "none", fontSize: 14 }}
+             />
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn style={{ flex: 1 }} onClick={saveLeadership}>Save Changes</Btn>
+            <Btn variant="ghost" onClick={() => setEditLeaderOpen(false)}>Cancel</Btn>
+          </div>
+        </div>
+      </Modal>
 
       <Modal show={editExamOpen} title="📢 Edit Examination Message" onClose={() => setEditExamOpen(false)} width={500}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -2375,7 +2424,7 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
                 <div className="table-container">
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
-                      <tr>{["Code","Subject","Prelim","Midterm","Pre-Final","Final","Average","GPA","Remarks"]
+                      <tr>{["Code","Subject","1st Prelim","2nd Prelim","Midterm","Semi-Final","Final","Average","GPA","Remarks"]
                         .map(h => <Th key={h}>{h}</Th>)}</tr>
                     </thead>
                     <tbody>
@@ -2389,14 +2438,17 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
                             <Td><div style={{ fontWeight: 600 }}>{subj.name}</div>
                               <div style={{ fontSize: 11, color: "#6b7280" }}>{subj.professor}</div>
                               <div style={{ fontSize: 10, color: "#94a3b8" }}>{subj.campus || "-"} · {subj.room || "-"}</div></Td>
-                            <Td><GradeCell val={g.prelim} /></Td>
+                            <Td><GradeCell val={g.prelim1} /></Td>
+                            <Td><GradeCell val={g.prelim2} /></Td>
                             <Td><GradeCell val={g.midterm} /></Td>
-                            <Td><GradeCell val={g.prefinal} /></Td>
+                            <Td><GradeCell val={g.semi_final} /></Td>
                             <Td><GradeCell val={g.final} /></Td>
-                            <Td><strong style={{ color: gradeColor(avg) }}>{avg}%</strong></Td>
-                            <Td><strong style={{ color: gradeColor(avg) }}>{toGPA(avg)}</strong></Td>
-                            <Td><Badge text={avg >= 75 ? "PASSED" : "FAILED"}
-                              type={avg >= 75 ? "green" : "red"} /></Td>
+                            <Td><strong style={{ color: avg !== null ? gradeColor(avg) : "var(--text-dim)" }}>{avg !== null ? `${avg}%` : "—"}</strong></Td>
+                            <Td><strong style={{ color: avg !== null ? gradeColor(avg) : "var(--text-dim)" }}>{avg !== null ? toGPA(avg) : "—"}</strong></Td>
+                            <Td>{avg !== null ? (
+                               <Badge text={avg >= 75 ? "PASSED" : "FAILED"}
+                                 type={avg >= 75 ? "green" : "red"} />
+                            ) : "—"}</Td>
                           </tr>
                         );
                       })}
@@ -2918,7 +2970,9 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
       const allRows = await api("/grades", {}, token);
       const map = allRows.reduce((acc, r) => {
         if (!acc[r.student_id]) acc[r.student_id] = {};
-        acc[r.student_id][r.subject_id] = { prelim: r.prelim, midterm: r.midterm, prefinal: r.prefinal, final: r.final };
+        acc[r.student_id][r.subject_id] = {
+          prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final
+        };
         return acc;
       }, {});
       setGrades(map);
@@ -3082,7 +3136,7 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
   const [selectedStudent, setSelectedStudent] = useState("");
   const [modal, setModal] = useState(null);
   const [editingSubj, setEditingSubj] = useState(null);
-  const [form, setForm] = useState({ subjectId: "", prelim: "", midterm: "", prefinal: "", final: "" });
+  const [form, setForm] = useState({ subjectId: "", prelim1: "", prelim2: "", midterm: "", semi_final: "", final: "" });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [msg, setMsg] = useState("");
   const [searchStu, setSearchStu] = useState("");
@@ -3121,24 +3175,26 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
   );
 
   const handleSave = async () => {
-    const { subjectId, prelim, midterm, prefinal, final: fin } = form;
+    const { subjectId, prelim1, prelim2, midterm, semi_final, final: fin } = form;
     if (!subjectId) return alert("Select a subject.");
-    const nums = [prelim, midterm, prefinal, fin].map(Number);
+    const nums = [prelim1, prelim2, midterm, semi_final, fin].map(v => (v === "" || v === null) ? null : Number(v));
     try {
       if (!editingSubj) {
         await api("/grades", { method: "POST", body: {
           student_id: selectedStudent, subject_id: subjectId,
-          prelim: nums[0], midterm: nums[1], prefinal: nums[2], final: nums[3]
+          prelim1: nums[0], prelim2: nums[1], midterm: nums[2], semi_final: nums[3], final: nums[4]
         } }, token);
       } else {
         await api(`/grades/${selectedStudent}/${subjectId}`, { method: "PUT", body: {
-          prelim: nums[0], midterm: nums[1], prefinal: nums[2], final: nums[3]
+          prelim1: nums[0], prelim2: nums[1], midterm: nums[2], semi_final: nums[3], final: nums[4]
         } }, token);
       }
       const allRows = await api("/grades", {}, token);
       const map = allRows.reduce((acc, r) => {
         if (!acc[r.student_id]) acc[r.student_id] = {};
-        acc[r.student_id][r.subject_id] = { prelim: r.prelim, midterm: r.midterm, prefinal: r.prefinal, final: r.final };
+        acc[r.student_id][r.subject_id] = {
+          prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final
+        };
         return acc;
       }, {});
       setGrades(map);
@@ -3210,9 +3266,9 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                     </div>
                   )}
                   {(role === "teacher" || role === "register" || role === "developer" || role === "owner") && (
-                    <Btn variant="success" onClick={() => {
+                      <Btn variant="success" onClick={() => {
                         if (availableSubjects.length === 0) return;
-                        setForm({ subjectId: availableSubjects[0].id, prelim: "", midterm: "", prefinal: "", final: "" });
+                        setForm({ subjectId: availableSubjects[0].id, prelim1: "", prelim2: "", midterm: "", semi_final: "", final: "" });
                         setEditingSubj(null); setModal("form");
                     }} disabled={availableSubjects.length === 0}>+ Add Grade</Btn>
                   )}
@@ -3223,7 +3279,7 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                 <div className="table-container">
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
-                    <tr>{["Code","Subject","Prelim","Midterm","Pre-Final","Final","Average","GPA","Remarks", ...(role !== "student" ? ["Actions"] : [])].map(h => <Th key={h}>{h}</Th>)}</tr>
+                    <tr>{["Code","Subject","1st Prelim","2nd Prelim","Midterm","Semi-Final","Final","Average","GPA","Remarks", ...(role !== "student" ? ["Actions"] : [])].map(h => <Th key={h}>{h}</Th>)}</tr>
                   </thead>
                   <tbody>
                     {enrolledSubjects.map(subj => {
@@ -3238,18 +3294,21 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                               📍 {subj.room || "-"} | 🏢 {subj.campus || "-"}
                             </div>
                           </Td>
-                          <Td><GradeCell val={g.prelim} /></Td>
+                          <Td><GradeCell val={g.prelim1} /></Td>
+                          <Td><GradeCell val={g.prelim2} /></Td>
                           <Td><GradeCell val={g.midterm} /></Td>
-                          <Td><GradeCell val={g.prefinal} /></Td>
+                          <Td><GradeCell val={g.semi_final} /></Td>
                           <Td><GradeCell val={g.final} /></Td>
-                          <Td><strong>{avg}%</strong></Td>
-                          <Td><strong>{toGPA(avg)}</strong></Td>
-                          <Td><Badge text={avg >= 75 ? "PASSED" : "FAILED"} type={avg >= 75 ? "green" : "red"} /></Td>
+                          <Td><strong>{avg !== null ? `${avg}%` : "—"}</strong></Td>
+                          <Td><strong>{avg !== null ? toGPA(avg) : "—"}</strong></Td>
+                          <Td>{avg !== null ? (
+                            <Badge text={avg >= 75 ? "PASSED" : "FAILED"} type={avg >= 75 ? "green" : "red"} />
+                          ) : "—"}</Td>
                           {(role === "teacher" || role === "register" || role === "developer" || role === "owner") ? (
                             <Td>
                               <div style={{ display: "flex", gap: 5 }}>
                                 <Btn variant="outline" onClick={() => {
-                                    setForm({ subjectId: subj.id, prelim: g.prelim, midterm: g.midterm, prefinal: g.prefinal, final: g.final });
+                                    setForm({ subjectId: subj.id, prelim1: g.prelim1, prelim2: g.prelim2, midterm: g.midterm, semi_final: g.semi_final, final: g.final });
                                     setEditingSubj(subj.id); setModal("form");
                                 }} style={{ fontSize: 10, padding: "3px 8px" }}>✏️</Btn>
                                 <Btn variant="danger" onClick={() => setDeleteConfirm(subj.id)} style={{ fontSize: 10, padding: "3px 8px" }}>🗑️</Btn>
@@ -3278,9 +3337,10 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
             ) : availableSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Input label="Prelim" type="number" value={form.prelim} onChange={e => setForm({...form, prelim: e.target.value})} />
+            <Input label="1st Prelim" type="number" value={form.prelim1} onChange={e => setForm({...form, prelim1: e.target.value})} />
+            <Input label="2nd Prelim" type="number" value={form.prelim2} onChange={e => setForm({...form, prelim2: e.target.value})} />
             <Input label="Midterm" type="number" value={form.midterm} onChange={e => setForm({...form, midterm: e.target.value})} />
-            <Input label="Pre-Final" type="number" value={form.prefinal} onChange={e => setForm({...form, prefinal: e.target.value})} />
+            <Input label="Semi-Final" type="number" value={form.semi_final} onChange={e => setForm({...form, semi_final: e.target.value})} />
             <Input label="Final" type="number" value={form.final} onChange={e => setForm({...form, final: e.target.value})} />
           </div>
           <Btn variant="primary" onClick={handleSave} style={{ width: "100%", marginTop: 10 }}>Save Grade</Btn>
@@ -3296,7 +3356,9 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                 const allRows = await api("/grades", {}, token);
                 const map = allRows.reduce((acc, r) => {
                   if (!acc[r.student_id]) acc[r.student_id] = {};
-                  acc[r.student_id][r.subject_id] = { prelim: r.prelim, midterm: r.midterm, prefinal: r.prefinal, final: r.final };
+                  acc[r.student_id][r.subject_id] = {
+                    prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final
+                  };
                   return acc;
                 }, {});
                 setGrades(map);

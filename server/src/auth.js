@@ -1,4 +1,10 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname_auth = dirname(__filename);
+config({ path: resolve(__dirname_auth, "../../.env") });
+config({ path: resolve(__dirname_auth, "../.env") });
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import db, { logAction, run, get, all, lastInsertId } from "./db.js";
@@ -178,18 +184,20 @@ export async function registerHandler(req, res) {
   const { username, password, role, user_type } = req.body || {};
   if (!username || !password || !role) return res.status(400).json({ error: "Missing fields" });
   
-  const existing = await get("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND deleted_at IS NULL", [username]);
-  if (existing && role !== "student") {
-    return res.status(409).json({ error: "Username exists" });
-  }
-
-  // Check if this specific username+password combo (or just username if we prefer) exists and is deleted
-  const deleted = await get("SELECT * FROM users WHERE username = ? AND deleted_at IS NOT NULL", [username]);
-  if (deleted) {
-    const hash = bcrypt.hashSync(password, 10);
-    await run("UPDATE users SET password_hash=?, role=?, user_type=?, deleted_at=NULL WHERE id=?", [hash, role, user_type || role, deleted.id]);
-    const revived = await get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [deleted.id]);
-    return res.status(200).json({ id: revived.id, username: revived.username, role: revived.role, user_type: revived.user_type, revived: true, uuid: revived.uuid });
+  // Search for ANY existing user with same username (case-insensitive)
+  const existing = await get("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", [username]);
+  
+  if (existing) {
+    if (!existing.deleted_at) {
+       if (role !== "student") return res.status(409).json({ error: "Username exists" });
+       // For students, maybe fall through or handle specifically
+    } else {
+       // Revive deleted user
+       const hash = bcrypt.hashSync(password, 10);
+       await run("UPDATE users SET password_hash=?, role=?, user_type=?, deleted_at=NULL WHERE id=?", [hash, role, user_type || role, existing.id]);
+       const revived = await get("SELECT id, username, role, user_type, uuid FROM users WHERE id=?", [existing.id]);
+       return res.status(200).json({ id: revived.id, username: revived.username, role: revived.role, user_type: revived.user_type, revived: true, uuid: revived.uuid });
+    }
   }
 
   if (!["teacher","student","developer","saps","register","cashier"].includes(role)) return res.status(400).json({ error: "Invalid role" });

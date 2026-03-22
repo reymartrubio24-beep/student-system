@@ -1,4 +1,10 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname_idx = dirname(__filename);
+config({ path: resolve(__dirname_idx, "../../.env") });
+config({ path: resolve(__dirname_idx, "../.env") });
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -446,11 +452,20 @@ app.delete(
           entityId: String(prev.id),
         });
       } else {
-        if (prev.deleted_at)
-          return res.status(200).json({ ok: true, alreadyDeleted: true });
         await run("UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [
           prev.id,
         ]);
+        // Also soft-delete the linked student if this user is a student
+        if (prev.student_id) {
+          await run("UPDATE students SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", [prev.student_id]);
+          await logAction({
+            userId: req.user.id,
+            action: "DELETE",
+            entity: "student",
+            entityId: prev.student_id,
+            details: { reason: "Linked user deleted" }
+          });
+        }
         await logAction({
           userId: req.user.id,
           action: "DELETE",
@@ -576,9 +591,10 @@ const subjectSchema = z.object({
 const gradeSchema = z.object({
   student_id: z.string().min(1),
   subject_id: z.string().min(1),
-  prelim: z.number().int().min(0).max(100).nullable().optional(),
+  prelim1: z.number().int().min(0).max(100).nullable().optional(),
+  prelim2: z.number().int().min(0).max(100).nullable().optional(),
   midterm: z.number().int().min(0).max(100).nullable().optional(),
-  prefinal: z.number().int().min(0).max(100).nullable().optional(),
+  semi_final: z.number().int().min(0).max(100).nullable().optional(),
   final: z.number().int().min(0).max(100).nullable().optional(),
 });
 
@@ -602,7 +618,7 @@ app.get("/dashboard-stats", authRequired, async (req, res) => {
 
   // Total students (Available to all roles)
   const totalStudents = await get("SELECT COUNT(*) as c FROM students WHERE deleted_at IS NULL");
-  stats.totalStudents = totalStudents?.c || 0;
+  stats.totalStudents = parseInt(totalStudents?.c || 0);
 
   // Department / Course counts for the new bar graph
   const deptCounts = await all(`
@@ -611,34 +627,63 @@ app.get("/dashboard-stats", authRequired, async (req, res) => {
     WHERE deleted_at IS NULL 
     GROUP BY course
   `);
-  stats.departmentCounts = deptCounts;
+  stats.departmentCounts = deptCounts.map(d => ({ ...d, total: parseInt(d.total) }));
 
   if (role === "student") {
     // Student Dashboard: own grades count, own subjects
-    const ownGrades = await get("SELECT COUNT(*) as c FROM grades WHERE student_id=? AND deleted_at IS NULL", [student_id]);
-    stats.gradeRecords = ownGrades?.c || 0;
+    const ownGrades = await get(`
+      SELECT COUNT(*) as c FROM grades g
+      JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
+      WHERE g.student_id=? AND g.deleted_at IS NULL`, [student_id]);
+    stats.gradeRecords = parseInt(ownGrades?.c || 0);
     
     // Own subjects count
-    const ownSubjects = await get("SELECT COUNT(*) as c FROM grades WHERE student_id=? AND deleted_at IS NULL", [student_id]);
-    stats.activeSubjects = ownSubjects?.c || 0;
+    const ownSubjects = await get(`
+      SELECT COUNT(*) as c FROM grades g 
+      JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
+      WHERE g.student_id=? AND g.deleted_at IS NULL`, [student_id]);
+    stats.activeSubjects = parseInt(ownSubjects?.c || 0);
     
     return res.json(stats);
   }
 
   // Staff Dashboard
   const activeSubs = await get("SELECT COUNT(*) as c FROM subjects WHERE deleted_at IS NULL");
-  stats.activeSubjects = activeSubs?.c || 0;
+  stats.activeSubjects = parseInt(activeSubs?.c || 0);
   
-  const gradeRecordsCount = await get("SELECT COUNT(*) as c FROM grades WHERE deleted_at IS NULL");
-  stats.gradeRecords = gradeRecordsCount?.c || 0;
+  const gradeRecordsCount = await get(`
+    SELECT COUNT(*) as c FROM grades g
+    JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
+    WHERE g.deleted_at IS NULL
+  `);
+  stats.gradeRecords = parseInt(gradeRecordsCount?.c || 0);
 
   // At-risk students
+  // Calculation: 
+  // 1. Only join with active students.
+  // 2. Only consider grade entries that have at least one numeric grade (prelim1, prelim2, etc. IS NOT NULL).
+  // 3. For each subject, average only the present grades.
+  // 4. Then average those subject averages per student.
   const atRisk = await all(`
-    SELECT student_id, AVG((prelim + midterm + prefinal + final) / 4.0) as avg_grade
-    FROM grades
-    WHERE deleted_at IS NULL
+    WITH subject_avgs AS (
+      SELECT 
+        student_id,
+        ( (COALESCE(prelim1,0) + COALESCE(prelim2,0) + COALESCE(midterm,0) + COALESCE(semi_final,0) + COALESCE(final,0))::FLOAT / 
+          NULLIF((CASE WHEN prelim1 IS NULL THEN 0 ELSE 1 END) + 
+                 (CASE WHEN prelim2 IS NULL THEN 0 ELSE 1 END) + 
+                 (CASE WHEN midterm IS NULL THEN 0 ELSE 1 END) + 
+                 (CASE WHEN semi_final IS NULL THEN 0 ELSE 1 END) + 
+                 (CASE WHEN final IS NULL THEN 0 ELSE 1 END), 0)
+        ) as subj_avg
+      FROM grades
+      WHERE deleted_at IS NULL
+        AND (prelim1 IS NOT NULL OR prelim2 IS NOT NULL OR midterm IS NOT NULL OR semi_final IS NOT NULL OR final IS NOT NULL)
+    )
+    SELECT student_id, AVG(subj_avg) as final_avg
+    FROM subject_avgs sa
+    JOIN students s ON s.id = sa.student_id AND s.deleted_at IS NULL
     GROUP BY student_id
-    HAVING AVG((prelim + midterm + prefinal + final) / 4.0) < 75
+    HAVING AVG(subj_avg) < 75
   `);
   stats.atRiskCount = atRisk.length;
 
@@ -671,6 +716,9 @@ app.post("/dashboard/content", authRequired, async (req, res) => {
       await run("INSERT INTO settings (key, value) VALUES ('ybvc_staff', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [JSON.stringify(value)]);
     } else if (type === "next_examination") {
       await run("INSERT INTO settings (key, value) VALUES ('next_examination', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [String(value)]);
+    } else if (type === "school_leadership") {
+      // value should be { founder, evp, quote }
+      await run("INSERT INTO settings (key, value) VALUES ('school_leadership', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [JSON.stringify(value)]);
     } else {
       console.error(`[DASHBOARD_CONTENT] Invalid type: ${type}`);
       return res.status(400).json({ error: "Invalid content type" });
@@ -744,20 +792,20 @@ app.post(
     try {
       await run(
         "INSERT INTO student_id_sequence (year,last) VALUES (?,?) ON CONFLICT (year) DO NOTHING",
-        [birthYear, 0],
+        ["global", 0],
       );
       let assignedId = null;
       for (let attempts = 0; attempts < 1000; attempts++) {
         await run("UPDATE student_id_sequence SET last = last + 1 WHERE year = ?", [
-          birthYear,
+          "global",
         ]);
         const row = await get("SELECT last FROM student_id_sequence WHERE year=?", [
-          birthYear,
+          "global",
         ]);
         const next = Number(row?.last || 0);
-        const candidate = `${birthYear}-${String(next).padStart(4, "0")}`; // user asked for YYYY-auto_increment, example 2006-0001
+        const candidate = `${birthYear}-${String(next).padStart(4, "0")}`; // user asked for (birth)-(padded_sequence)
         const exists = await get(
-          "SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL",
+          "SELECT 1 FROM students WHERE id=?",
           [candidate],
         );
         if (exists) {
@@ -790,7 +838,15 @@ app.post(
           return parts[parts.length - 1] || "student";
         })().toLowerCase();
 
-        const username = baseLast;
+        let username = baseLast;
+        let suffix = 1;
+        while (true) {
+          // Check ALL users, including deleted ones because of index constraint
+          const exists = await get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?)", [username]);
+          if (!exists) break;
+          username = `${baseLast}${suffix++}`;
+        }
+
         const password = assignedId; // Student ID as password
         const hash = bcrypt.hashSync(password, 10);
         
@@ -880,6 +936,9 @@ app.delete(
         "UPDATE grades SET deleted_at=CURRENT_TIMESTAMP WHERE student_id=? AND deleted_at IS NULL",
         [id],
       );
+      // Also soft-delete the corresponding user
+      await run("UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE student_id=?", [id]);
+      
       await logAction({
         userId: req.user.id,
         action: "DELETE",
@@ -891,6 +950,13 @@ app.delete(
         action: "BULK_DELETE",
         entity: "grade",
         entityId: `student:${id}`,
+      });
+      await logAction({
+        userId: req.user.id,
+        action: "DELETE",
+        entity: "user",
+        entityId: `student_id:${id}`,
+        details: { reason: "Linked student deleted" }
       });
     });
     res.json({ ok: true });
@@ -1268,6 +1334,8 @@ app.post(
               existing.id,
             ],
           );
+          // Sync to student base table for management view summary
+          await run("UPDATE students SET permit_number=? WHERE id=?", [nextNumber, id]);
           await logAction({
             userId: req.user.id,
             action: "UPDATE",
@@ -1294,6 +1362,8 @@ app.post(
             ],
           );
           const spid = pRes.rows[0].id;
+          // Sync to student base table for management view summary
+          await run("UPDATE students SET permit_number=? WHERE id=?", [assignedNumber, id]);
           await logAction({
             userId: req.user.id,
             action: "CREATE",
@@ -1812,9 +1882,10 @@ app.post(
     const norm = {
       student_id: String(body.student_id || "").trim(),
       subject_id: String(body.subject_id || "").trim(),
-      prelim: (body.prelim === undefined || body.prelim === "" || body.prelim === null) ? null : Number(body.prelim),
+      prelim1: (body.prelim1 === undefined || body.prelim1 === "" || body.prelim1 === null) ? null : Number(body.prelim1),
+      prelim2: (body.prelim2 === undefined || body.prelim2 === "" || body.prelim2 === null) ? null : Number(body.prelim2),
       midterm: (body.midterm === undefined || body.midterm === "" || body.midterm === null) ? null : Number(body.midterm),
-      prefinal: (body.prefinal === undefined || body.prefinal === "" || body.prefinal === null) ? null : Number(body.prefinal),
+      semi_final: (body.semi_final === undefined || body.semi_final === "" || body.semi_final === null) ? null : Number(body.semi_final),
       final: (body.final === undefined || body.final === "" || body.final === null) ? null : Number(body.final),
     };
     const parsed = gradeSchema.safeParse(norm);
@@ -1847,11 +1918,12 @@ app.post(
       await tx(async () => {
         if (existing && existing.deleted_at) {
           await run(
-            "UPDATE grades SET prelim=?, midterm=?, prefinal=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=?",
+            "UPDATE grades SET prelim1=?, prelim2=?, midterm=?, semi_final=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=?",
             [
-              parsed.data.prelim ?? null,
+              parsed.data.prelim1 ?? null,
+              parsed.data.prelim2 ?? null,
               parsed.data.midterm ?? null,
-              parsed.data.prefinal ?? null,
+              parsed.data.semi_final ?? null,
               parsed.data.final ?? null,
               ...key,
             ],
@@ -1865,13 +1937,14 @@ app.post(
           });
         } else {
           await run(
-            "INSERT INTO grades (student_id,subject_id,prelim,midterm,prefinal,final) VALUES (?,?,?,?,?,?)",
+            "INSERT INTO grades (student_id,subject_id,prelim1,prelim2,midterm,semi_final,final) VALUES (?,?,?,?,?,?,?)",
             [
               parsed.data.student_id,
               parsed.data.subject_id,
-              parsed.data.prelim ?? null,
+              parsed.data.prelim1 ?? null,
+              parsed.data.prelim2 ?? null,
               parsed.data.midterm ?? null,
-              parsed.data.prefinal ?? null,
+              parsed.data.semi_final ?? null,
               parsed.data.final ?? null,
             ],
           );
@@ -1897,11 +1970,12 @@ app.post(
         if (soft && soft.deleted_at) {
           await tx(async () => {
             await run(
-              "UPDATE grades SET prelim=?, midterm=?, prefinal=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=?",
+              "UPDATE grades SET prelim1=?, prelim2=?, midterm=?, semi_final=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=?",
               [
-                parsed.data.prelim ?? null,
+                parsed.data.prelim1 ?? null,
+                parsed.data.prelim2 ?? null,
                 parsed.data.midterm ?? null,
-                parsed.data.prefinal ?? null,
+                parsed.data.semi_final ?? null,
                 parsed.data.final ?? null,
                 student_id,
                 subject_id,
@@ -1929,7 +2003,7 @@ app.put(
   requireRole("grades", "write"),
   async (req, res) => {
     const parsed = gradeSchema
-      .pick({ prelim: true, midterm: true, prefinal: true, final: true })
+      .pick({ prelim1: true, prelim2: true, midterm: true, semi_final: true, final: true })
       .partial()
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid data" });
@@ -1940,7 +2014,7 @@ app.put(
     );
     if (!g) return res.status(404).json({ error: "Not found" });
     await tx(async () => {
-      const fields = ["prelim", "midterm", "prefinal", "final"];
+      const fields = ["prelim1", "prelim2", "midterm", "semi_final", "final"];
       const sets = fields
         .filter((f) => f in parsed.data)
         .map((f) => `${f}=?`)
@@ -2066,7 +2140,11 @@ app.post("/admin/restore", authRequired, requireRole("settings", "write"), async
     if (entity === "user") {
       const chk = await within("users", "id=?", [id]);
       if (!chk.ok) return res.status(400).json({ error: chk.error });
+      const row = await get("SELECT student_id FROM users WHERE id=?", [id]);
       await run("UPDATE users SET deleted_at=NULL WHERE id=?", [id]);
+      if (row?.student_id) {
+        await run("UPDATE students SET deleted_at=NULL WHERE id=?", [row.student_id]);
+      }
       await logAction({
         userId: req.user.id,
         action: "RESTORE",
@@ -2077,6 +2155,7 @@ app.post("/admin/restore", authRequired, requireRole("settings", "write"), async
       const chk = await within("students", "id=?", [id]);
       if (!chk.ok) return res.status(400).json({ error: chk.error });
       await run("UPDATE students SET deleted_at=NULL WHERE id=?", [id]);
+      await run("UPDATE users SET deleted_at=NULL WHERE student_id=?", [id]);
       await logAction({
         userId: req.user.id,
         action: "RESTORE",
@@ -2140,7 +2219,7 @@ const attendanceCreateSchema = z.object({
   subject_id: z.string().min(1),
   semester_id: z.number().int(),
   time_slot: z.enum(["Morning Class", "Afternoon Class", "Evening Class"]),
-  term_period: z.enum(["1st prelim", "2nd prelim", "midterm", "semi-final", "final prelim"]).optional()
+  term_period: z.enum(["1st prelim", "2nd prelim", "midterm", "semi-final", "final"]).optional()
 });
 
 function teacherUUID(req) {

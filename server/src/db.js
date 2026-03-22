@@ -1,4 +1,11 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Load .env from server directory regardless of CWD
+config({ path: resolve(__dirname, "../../.env") });
+config({ path: resolve(__dirname, "../.env") }); // fallback: server/.env
 import pg from "pg";
 const { Pool } = pg;
 
@@ -76,9 +83,10 @@ export async function initDB() {
     CREATE TABLE IF NOT EXISTS grades (
       student_id TEXT NOT NULL,
       subject_id TEXT NOT NULL,
-      prelim INTEGER,
+      prelim1 INTEGER,
+      prelim2 INTEGER,
       midterm INTEGER,
-      prefinal INTEGER,
+      semi_final INTEGER,
       final INTEGER,
       deleted_at TIMESTAMP WITH TIME ZONE,
       PRIMARY KEY (student_id, subject_id),
