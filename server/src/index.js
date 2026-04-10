@@ -37,6 +37,35 @@ app.use(morgan("dev"));
 
 app.get("/health", (_, res) => res.json({ ok: true }));
 app.post("/auth/login", loginHandler);
+app.get("/auth/session", authRequired, async (req, res) => {
+  const { id } = req.user;
+  try {
+    const finalUser = await get("SELECT * FROM users WHERE id = ?", [id]);
+    if (!finalUser || finalUser.deleted_at) {
+      return res.status(401).json({ error: "Session invalid or disabled" });
+    }
+    const authRecords = await all('SELECT module, can_read, can_write, can_delete FROM "authorization" WHERE role=?', [finalUser.role]);
+    const userPerms = await all("SELECT module, can_read, can_write, can_delete FROM user_permissions WHERE user_id=?", [finalUser.id]);
+    
+    const permissions = {};
+    if (authRecords) {
+      for (const p of authRecords) {
+        permissions[p.module] = { can_read: !!p.can_read, can_write: !!p.can_write, can_delete: !!p.can_delete };
+      }
+    }
+    if (userPerms) {
+      for (const p of userPerms) {
+        if (!permissions[p.module]) permissions[p.module] = { can_read: false, can_write: false, can_delete: false };
+        if (p.can_read !== null) permissions[p.module].can_read = !!p.can_read;
+        if (p.can_write !== null) permissions[p.module].can_write = !!p.can_write;
+        if (p.can_delete !== null) permissions[p.module].can_delete = !!p.can_delete;
+      }
+    }
+    res.json({ permissions, role: finalUser.role });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
 app.post(
   "/auth/register",
   authRequired,
@@ -525,10 +554,69 @@ app.delete("/users/:id/permissions/:module", authRequired, requireRole("users", 
   res.json({ ok: true });
 });
 
+// ─── Role-level permissions (authorization table) ─────────────────────────────
+app.get("/authorization", authRequired, requireRole("users"), async (req, res) => {
+  try {
+    const rows = await all(`SELECT role, module, can_read, can_write, can_delete FROM "authorization" ORDER BY role, module`, []);
+    // Group by role
+    const grouped = {};
+    for (const r of rows) {
+      if (!grouped[r.role]) grouped[r.role] = { role: r.role, permissions: {} };
+      grouped[r.role].permissions[r.module] = {
+        can_read: r.can_read,
+        can_write: r.can_write,
+        can_delete: r.can_delete
+      };
+    }
+    res.json(Object.values(grouped));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put("/authorization/:role/:module", authRequired, requireRole("users", "write"), async (req, res) => {
+  const { role, module } = req.params;
+  const { can_read, can_write, can_delete } = req.body;
+  try {
+    // Upsert with COALESCE to avoid overwriting unspecified fields with NULL
+    await run(
+      `INSERT INTO "authorization" (role, module, can_read, can_write, can_delete)
+       VALUES ($1, $2, COALESCE($3, 0), COALESCE($4, 0), COALESCE($5, 0))
+       ON CONFLICT (role, module) DO UPDATE SET
+         can_read = COALESCE($3, "authorization".can_read),
+         can_write = COALESCE($4, "authorization".can_write),
+         can_delete = COALESCE($5, "authorization".can_delete)`,
+      [
+        role,
+        module,
+        can_read !== undefined ? (can_read ? 1 : 0) : null,
+        can_write !== undefined ? (can_write ? 1 : 0) : null,
+        can_delete !== undefined ? (can_delete ? 1 : 0) : null
+      ]
+    );
+    await logAction({ userId: req.user.id, action: "UPDATE_ROLE_PERMISSION", entity: "authorization", entityId: `${role}:${module}` });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/authorization/reset", authRequired, requireRole("users", "write"), async (req, res) => {
+  try {
+    const { seedRBAC } = await import("./seedRBAC.js");
+    await seedRBAC();
+    await logAction({ userId: req.user.id, action: "RESET_PERMISSIONS", entity: "authorization", entityId: "all" });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.patch(
   "/users/:id/disable",
   authRequired,
   requireRole("users", "write"),
+
   async (req, res) => {
     const idRaw = req.params.id;
     const username =

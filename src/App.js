@@ -351,6 +351,15 @@ export default function App() {
     }
   };
 
+  const syncAuth = a => {
+    setAuth(a);
+    if (a) {
+      localStorage.setItem("auth", JSON.stringify(a));
+    } else {
+      localStorage.removeItem("auth");
+    }
+  };
+
   const navigate = (p) => {
     setPage(p);
     if (auth?.username) {
@@ -398,31 +407,49 @@ export default function App() {
     };
   }, [auth]);
 
+  const hasPerm = useCallback((module, action = "read") => {
+    if (role === "developer" || role === "owner") return true;
+    if (role === "student") {
+      if (module === "dashboard" || module === "profile" || module === "mypermits") return true;
+    }
+    const perms = auth?.permissions || {};
+    if (perms["*"] && !!perms["*"][`can_${action}`]) return true;
+    if (perms[module] && !!perms[module][`can_${action}`]) return true;
+    return false;
+  }, [role, auth?.permissions]);
+
   const navItems = [
-    { id: "dashboard", icon: "📊", label: "Dashboard" },
-    ...((role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
-       ? [{ id: "search",    icon: "🔍", label: "Student Search" }] : []),
-    ...((role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
-       ? [{ id: "students",  icon: "👤", label: "Students" }] : []),
-    ...((role === "register" || role === "saps" || role === "developer" || role === "owner")
-       ? [{ id: "studentmgmt", icon: "🧭", label: "Student Management" }] : []),
-    ...((role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
-       ? [{ id: "subjects",  icon: "📚", label: role === "student" ? "My Schedule" : "Subjects" }] : []),
-    ...((role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
-       ? [{ id: "grades",    icon: "📝", label: "Grades" }] : []),
-    ...((role === "teacher" || role === "developer" || role === "owner")
-       ? [{ id: "attendance", icon: "🗓️", label: "Attendance" }] : []),
+    ...(hasPerm("dashboard") ? [{ id: "dashboard", icon: "📊", label: "Dashboard" }] : []),
+    ...(hasPerm("search") ? [{ id: "search", icon: "🔍", label: "Student Search" }] : []),
+    ...(hasPerm("students") ? [{ id: "students", icon: "👤", label: "Students" }] : []),
+    ...(hasPerm("students") ? [{ id: "studentmgmt", icon: "🧭", label: "Student Management" }] : []),
+    ...(hasPerm("subjects") ? [{ id: "subjects", icon: "📚", label: role === "student" ? "My Schedule" : "Subjects" }] : []),
+    ...(hasPerm("grades") ? [{ id: "grades", icon: "📝", label: "Grades" }] : []),
+    ...(hasPerm("attendance") ? [{ id: "attendance", icon: "🗓️", label: "Attendance" }] : []),
     ...(role === "student" ? [{ id: "mypermits", icon: "🎫", label: "My Permits" }] : []),
-    ...((role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner")
-       ? [{ id: "permits", icon: "🎫", label: "Student Permits" }] : []),
-    ...((role === "student" || role === "register" || role === "cashier" || role === "saps" || role === "developer" || role === "owner")
-       ? [{ id: "payments", icon: "💳", label: "Payments" }] : []),
+    ...(hasPerm("permits") ? [{ id: "permits", icon: "🎫", label: "Student Permits" }] : []),
+    ...(hasPerm("payments") ? [{ id: "payments", icon: "💳", label: "Payments" }] : []),
     ...(role === "student" ? [{ id: "profile", icon: "👤", label: "My Profile" }] : []),
-    ...((role === "developer" || role === "owner")
-       ? [{ id: "users",    icon: "👥", label: "Users Admin" }] : []),
-    ...((role === "developer" || role === "owner")
-       ? [{ id: "logs",     icon: "📜", label: "System Logs" }] : []),
+    ...(hasPerm("users") ? [{ id: "users", icon: "👥", label: "Users Admin" }] : []),
+    ...(hasPerm("logs") ? [{ id: "logs", icon: "📜", label: "System Logs" }] : []),
+    ...(hasPerm("rolepermissions") ? [{ id: "rolepermissions", icon: "🔐", label: "Role Permissions" }] : []),
   ];
+
+  useEffect(() => {
+    let timer;
+    if (auth?.token) {
+      const syncPermissions = async () => {
+        try {
+          const session = await api("/auth/session", {}, auth.token);
+          if (JSON.stringify(session.permissions) !== JSON.stringify(auth.permissions)) {
+            syncAuth({ ...auth, permissions: session.permissions, role: session.role });
+          }
+        } catch (e) {}
+      };
+      timer = setInterval(syncPermissions, 10000);
+    }
+    return () => clearInterval(timer);
+  }, [auth?.token, auth?.permissions]);
 
   useEffect(() => {
     let mounted = true;
@@ -616,6 +643,9 @@ export default function App() {
             </div>
           )}
           <div style={{ marginTop: "auto", padding: "16px 24px 24px", borderTop: "1px solid var(--border-color)" }}>
+            <div style={{ fontSize: 9, color: "var(--neon-blue)", opacity: 0.5, marginBottom: 8, wordBreak: "break-all" }}>
+              DEBUG PERMS: {Object.keys(auth?.permissions || {}).length > 0 ? Object.keys(auth.permissions).map(k => `${k}:${auth.permissions[k].can_read?1:0}`).join(" ") : "EMPTY"}
+            </div>
              {sidebarExpanded && (
                <>
                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
@@ -710,22 +740,23 @@ export default function App() {
                 ⚠️ {gradesError}
               </div>
             )}
-            {page === "dashboard" && <Dashboard token={auth.token} role={role} username={auth.username} full_name={auth.full_name} />}
-            {page === "search"    && <StudentSearch students={students} subjects={subjects} grades={grades}
+            {page === "dashboard" && <Dashboard token={auth.token} role={role} username={auth.username} full_name={auth.full_name} canWrite={hasPerm("dashboard", "write")} hasPerm={hasPerm} />}
+            {page === "search"    && hasPerm("search") && <StudentSearch students={students} subjects={subjects} grades={grades}
                 searchId={searchId} setSearchId={setSearchId} searchResult={searchResult}
                 setSearchResult={setSearchResult} searchDone={searchDone} setSearchDone={setSearchDone} />}
-            {page === "students"  && (role === "register" || role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Students students={students} setStudents={setStudents} subjects={subjects} token={auth.token} role={role} />}
-            {page === "studentmgmt" && (role === "register" || role === "saps" || role === "developer" || role === "owner") && <StudentManagement token={auth.token} role={role} students={students} allSubjects={subjects} grades={grades} setGrades={setGrades} />}
-            {page === "subjects"  && (role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} />}
-            {page === "grades"    && (role === "student" || role === "register" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} />}
-            {page === "attendance" && (role === "teacher" || role === "developer" || role === "owner") && <AttendanceManage token={auth.token} role={role} students={students} subjects={subjects} />}
+            {page === "students"  && hasPerm("students") && <Students students={students} setStudents={setStudents} subjects={subjects} token={auth.token} role={role} canWrite={hasPerm("students", "write")} canDelete={hasPerm("students", "delete")} />}
+            {page === "studentmgmt" && hasPerm("students") && <StudentManagement token={auth.token} role={role} students={students} allSubjects={subjects} grades={grades} setGrades={setGrades} canWrite={hasPerm("students", "write")} canDelete={hasPerm("students", "delete")} />}
+            {page === "subjects"  && hasPerm("subjects") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} canWrite={hasPerm("subjects", "write")} canDelete={hasPerm("subjects", "delete")} />}
+            {page === "grades"    && hasPerm("grades") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("grades", "write")} canDelete={hasPerm("grades", "delete")} />}
+            {page === "attendance" && hasPerm("attendance") && <AttendanceManage token={auth.token} role={role} students={students} subjects={subjects} canWrite={hasPerm("attendance", "write")} canDelete={hasPerm("attendance", "delete")} />}
             {page === "attendance" && role === "teacher" && <TeacherAttendanceDashboard token={auth.token} teacherUuid={auth?.uuid} subjects={subjects} />}
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
-            {page === "permits"   && (role === "cashier" || role === "saps" || role === "teacher" || role === "developer" || role === "owner") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} />}
-            {page === "payments"  && (role === "student" || role === "register" || role === "cashier" || role === "saps" || role === "developer" || role === "owner") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} />}
+            {page === "permits"   && hasPerm("permits") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
+            {page === "payments"  && hasPerm("payments") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("payments", "write")} canDelete={hasPerm("payments", "delete")} />}
             {page === "profile"   && <Profile token={auth.token} username={auth.username} />}
-            {page === "users"     && (role === "developer" || role === "owner") && <UsersAdmin token={auth.token} />}
-            {page === "logs"      && (role === "developer" || role === "owner") && <LogsView token={auth.token} />}
+            {page === "users"     && hasPerm("users") && <UsersAdmin token={auth.token} />}
+            {page === "logs"      && hasPerm("logs") && <LogsView token={auth.token} />}
+            {page === "rolepermissions" && hasPerm("rolepermissions") && <RolePermissionsView token={auth.token} auth={auth} syncAuth={syncAuth} />}
           </div>
         </div>
       </div>)}
@@ -749,7 +780,7 @@ export default function App() {
 
 export { Dashboard };
 
-function Dashboard({ token, role, username, full_name }) {
+function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
   const [stats, setStats] = useState(null);
   const [content, setContent] = useState({ next_examination: "No examination scheduled.", ybvc_staff: [] });
   const [editLeaderOpen, setEditLeaderOpen] = useState(false);
@@ -760,9 +791,9 @@ function Dashboard({ token, role, username, full_name }) {
   const [editStaffOpen, setEditStaffOpen] = useState(false);
   const [staffList, setStaffList] = useState([]);
 
-  const canEditExam = role === "saps" || role === "developer";
-  const canEditStaff = role === "saps" || role === "developer";
-  const canEditFounder = role === "developer";
+  const canEditExam = canWrite || role === "developer";
+  const canEditStaff = canWrite || role === "developer";
+  const canEditFounder = canWrite || role === "developer";
 
   const loadData = useCallback(async () => {
     try {
@@ -846,21 +877,23 @@ function Dashboard({ token, role, username, full_name }) {
       </div>
 
       <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, marginBottom: 32 }}>
-        <Card title="Department Statistics (Student Population)">
-          <div style={{ height: 260, display: "flex", alignItems: "flex-end", gap: 20, paddingBottom: 20 }}>
-            {(stats.departmentCounts || []).length > 0 ? stats.departmentCounts.slice(0, 6).map((d, i) => {
-              const max = Math.max(...stats.departmentCounts.map(x => x.total), 1);
-              const height = (d.total / max) * 180;
-              return (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--neon-blue)" }}>{d.total}</div>
-                  <div style={{ width: "100%", height, background: "var(--accent-gradient)", borderRadius: "8px 8px 0 0", boxShadow: "0 4px 15px rgba(68,215,255,0.2)" }} />
-                  <div style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 700, textAlign: "center", height: 30 }}>{d.department}</div>
-                </div>
-              );
-            }) : <div style={{ color: "var(--text-dim)", width: "100%", textAlign: "center" }}>No department data available.</div>}
-          </div>
-        </Card>
+        {hasPerm("students", "read") ? (
+          <Card title="Department Statistics (Student Population)">
+            <div style={{ height: 260, display: "flex", alignItems: "flex-end", gap: 20, paddingBottom: 20 }}>
+              {(stats.departmentCounts || []).length > 0 ? stats.departmentCounts.slice(0, 6).map((d, i) => {
+                const max = Math.max(...stats.departmentCounts.map(x => x.total), 1);
+                const height = (d.total / max) * 180;
+                return (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "var(--neon-blue)" }}>{d.total}</div>
+                    <div style={{ width: "100%", height, background: "var(--accent-gradient)", borderRadius: "8px 8px 0 0", boxShadow: "0 4px 15px rgba(68,215,255,0.2)" }} />
+                    <div style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 700, textAlign: "center", height: 30 }}>{d.department}</div>
+                  </div>
+                );
+              }) : <div style={{ color: "var(--text-dim)", width: "100%", textAlign: "center" }}>No department data available.</div>}
+            </div>
+          </Card>
+        ) : <div />}
 
         <Card title="School Founder & Leadership" action={canEditFounder && <Btn variant="outline" onClick={() => setEditLeaderOpen(true)} style={{ fontSize: 11, padding: "4px 8px" }}>Edit</Btn>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -1004,7 +1037,7 @@ function Dashboard({ token, role, username, full_name }) {
   );
 }
 
-function AttendanceManage({ token, role, students, subjects }) {
+function AttendanceManage({ token, role, students, subjects, canWrite, canDelete }) {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -1362,7 +1395,7 @@ function AttendanceManage({ token, role, students, subjects }) {
 
                 <div style={{ display: "flex", gap: 8 }}>
                   <Btn onClick={() => openTable(t.id)} style={{ flex: 1 }}>📂 Open Tracker</Btn>
-                  {(role === "developer" || role === "owner") && (
+                  {canDelete && (
                     <Btn variant="danger" onClick={() => deleteTable(t.id)} style={{ padding: "10px 14px" }}>🗑️</Btn>
                   )}
                 </div>
@@ -1916,7 +1949,7 @@ function PermitsSidebar({ token, onSelectSemester, selectedSemester }) {
     </div>
   );
 }
-function PermitsView({ token, semesterId, role, username }) {
+function PermitsView({ token, semesterId, role, username, canWrite, canDelete }) {
   // All roles share the same state
   const [students, setStudents] = useState([]);
   const [searchStu, setSearchStu] = useState("");
@@ -2033,7 +2066,7 @@ function PermitsView({ token, semesterId, role, username }) {
                     <option value="">All Semesters</option>
                     {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
                   </Select>
-                  {role !== "teacher" && <Btn variant="success" onClick={() => setAssignModal(true)}>+ Add Permit</Btn>}
+                  {canWrite && <Btn variant="success" onClick={() => setAssignModal(true)}>+ Add Permit</Btn>}
                 </div>
               </div>
               <Card title={`Permits (${studentPermits.length})`}>
@@ -2051,10 +2084,10 @@ function PermitsView({ token, semesterId, role, username }) {
                           <Td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</Td>
                           <Td><Badge text={p.status || "active"} type={(p.status || "active") === "active" ? "green" : ((p.status || "") === "expired" ? "red" : "yellow")} /></Td>
                           <Td>
-                            {role !== "teacher" ? (
+                            {(canWrite || canDelete) ? (
                             <div style={{ display: "flex", gap: 6 }}>
-                              <Btn variant="outline" onClick={() => setEditPermit({ ...p })} style={{ fontSize: 11, padding: "3px 8px" }}>✏️ Edit</Btn>
-                              <Btn variant="danger" onClick={() => setDeletePermit(p)} style={{ fontSize: 11, padding: "3px 8px" }}>🗑️ Delete</Btn>
+                              {canWrite && <Btn variant="outline" onClick={() => setEditPermit({ ...p })} style={{ fontSize: 11, padding: "3px 8px" }}>✏️ Edit</Btn>}
+                              {canDelete && <Btn variant="danger" onClick={() => setDeletePermit(p)} style={{ fontSize: 11, padding: "3px 8px" }}>🗑️ Delete</Btn>}
                             </div>
                             ) : <span style={{ fontSize: 12, color: "#64748b" }}>View Only</span>}
                           </Td>
@@ -2118,7 +2151,7 @@ function PermitsView({ token, semesterId, role, username }) {
     </div>
   );
 }
-function Payments({ token, role, studentIdFromAuth }) {
+function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   const [studentId, setStudentId] = useState("");
   const [balance, setBalance] = useState(null);
   const [amount, setAmount] = useState("");
@@ -2170,7 +2203,7 @@ function Payments({ token, role, studentIdFromAuth }) {
       <PageHeader title="💳 Payments" sub={role === "student" ? "View your tuition balance and history" : "Record tuition payments"} />
       {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", color: "var(--neon-blue)", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
       
-      {role !== "student" && (
+      {canWrite && (
         <Card title="Record Payment">
           <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 10 }}>
             <Input label="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} />
@@ -2410,7 +2443,7 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
   );
 }
 
-function Students({ students, setStudents, subjects, token, role }) {
+function Students({ students, setStudents, subjects, token, role, canWrite, canDelete }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [termFilter, setTermFilter] = useState("All");
@@ -2540,7 +2573,7 @@ function Students({ students, setStudents, subjects, token, role }) {
             <option style={{ background: "#0f172a" }} value="1st Semester">1st Semester</option>
             <option style={{ background: "#0f172a" }} value="2nd Semester">2nd Semester</option>
           </select>
-          {(role === "register" || role === "developer" || role === "owner") && (
+          {canWrite && (
             <Btn variant="primary" onClick={openAdd}>+ Add Student</Btn>
           )}
         </div>
@@ -2573,7 +2606,7 @@ function Students({ students, setStudents, subjects, token, role }) {
                         <Td>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <code style={{ background: "#f1f5f9", color: "#111827", padding: "2px 7px", borderRadius: 5, fontWeight: 800 }}>{s.permit_number || "—"}</code>
-                            {(role === "saps" || role === "developer" || role === "owner") && (
+                            {canWrite && (
                               <Btn variant="outline" onClick={() => setModal({ type: "permit", student: s })} style={{ fontSize: 11, padding: "3px 8px" }}>Assign</Btn>
                             )}
                           </div>
@@ -2581,7 +2614,7 @@ function Students({ students, setStudents, subjects, token, role }) {
                         <Td>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             ₱{Number(s.tuition_balance || 0).toFixed(2)}
-                            {(role === "saps" || role === "register" || role === "cashier" || role === "developer" || role === "owner") && (
+                            {canWrite && (
                               <Btn variant="outline" onClick={async () => {
                                 const val = prompt("Set Tuition Balance (₱)", Number(s.tuition_balance || 0));
                                 if (val === null) return;
@@ -2600,12 +2633,12 @@ function Students({ students, setStudents, subjects, token, role }) {
                     )}
                     <Td>
                       <div style={{ display: "flex", gap: 6 }}>
-                        {(role === "register" || role === "developer" || role === "owner") ? (
+                        {canWrite || canDelete ? (
                           <>
-                            <Btn variant="outline" onClick={() => openEdit(s)}
-                              style={{ fontSize: 11, padding: "4px 10px" }}>✏️ Edit</Btn>
-                            <Btn variant="danger" onClick={() => setDeleteConfirm(s.id)}
-                              style={{ fontSize: 11, padding: "4px 10px" }}>🗑️ Delete</Btn>
+                            {canWrite && <Btn variant="outline" onClick={() => openEdit(s)}
+                              style={{ fontSize: 11, padding: "4px 10px" }}>✏️ Edit</Btn>}
+                            {canDelete && <Btn variant="danger" onClick={() => setDeleteConfirm(s.id)}
+                              style={{ fontSize: 11, padding: "4px 10px", marginLeft: 6 }}>🗑️ Delete</Btn>}
                           </>
                         ) : (
                           <span style={{ fontSize: 11, color: "#94a3b8" }}>Read-only</span>
@@ -2691,7 +2724,7 @@ function Students({ students, setStudents, subjects, token, role }) {
   );
 }
 
-function Subjects({ subjects, setSubjects, token, role }) {
+function Subjects({ subjects, setSubjects, token, role, canWrite, canDelete }) {
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -2760,7 +2793,7 @@ function Subjects({ subjects, setSubjects, token, role }) {
             value={search} onChange={e => setSearch(e.target.value)}
             style={{ flex: 1, padding: "9px 13px", border: "1px solid #d1d5db",
               borderRadius: 8, fontSize: 13, outline: "none" }} />
-          {(role === "register" || role === "developer" || role === "owner") && (
+          {canWrite && (
             <Btn variant="primary" onClick={openAdd}>+ Add Subject</Btn>
           )}
         </div>
@@ -2782,12 +2815,12 @@ function Subjects({ subjects, setSubjects, token, role }) {
               <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 4 }}>🏢 <span style={{ color: "white" }}>{s.campus}</span></div>
               <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 12 }}>📍 <span style={{ color: "white" }}>{s.room}</span></div>
               <div style={{ display: "flex", gap: 7, marginTop: "auto" }}>
-                {(role === "register" || role === "developer" || role === "owner") ? (
+                {(canWrite || canDelete) ? (
                   <>
-                    <Btn variant="outline" onClick={() => openEdit(s)}
-                      style={{ flex: 1, fontSize: 11, padding: "5px 8px", justifyContent: "center" }}>✏️ Edit</Btn>
-                    <Btn variant="danger" onClick={() => setDeleteConfirm(s.id)}
-                      style={{ flex: 1, fontSize: 11, padding: "5px 8px", justifyContent: "center" }}>🗑️ Delete</Btn>
+                    {canWrite && <Btn variant="outline" onClick={() => openEdit(s)}
+                      style={{ flex: 1, fontSize: 11, padding: "5px 8px", justifyContent: "center" }}>✏️ Edit</Btn>}
+                    {canDelete && <Btn variant="danger" onClick={() => setDeleteConfirm(s.id)}
+                      style={{ flex: 1, fontSize: 11, padding: "5px 8px", justifyContent: "center" }}>🗑️ Delete</Btn>}
                   </>
                 ) : (
                   <div style={{ fontSize: 12, color: "var(--neon-blue)", fontWeight: 800, textAlign: "center", width: "100%", padding: "8px", background: "rgba(68, 215, 255, 0.1)", borderRadius: 8, border: "1px dashed var(--border-color)" }}>
@@ -2875,7 +2908,7 @@ function Subjects({ subjects, setSubjects, token, role }) {
   );
 }
 
-function StudentManagement({ token, role, students, allSubjects, grades, setGrades }) {
+function StudentManagement({ token, role, students, allSubjects, grades, setGrades, canWrite, canDelete }) {
   const [selectedStudent, setSelectedStudent] = useState("");
   const [assigned, setAssigned] = useState([]);
   const [searchStu, setSearchStu] = useState("");
@@ -3001,7 +3034,7 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
                     {available.map(s => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>)}
                   </Select>
                   <div>
-                    <Btn variant="primary" onClick={assignSubject} disabled={!assignId}>+ Assign</Btn>
+                    <Btn variant="primary" onClick={assignSubject} disabled={!assignId || !canWrite}>+ Assign</Btn>
                   </div>
                 </div>
               </Card>
@@ -3027,8 +3060,8 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
                             <Td>{s.room || "-"}</Td>
                             <Td>
                               <div style={{ display: "flex", gap: 6 }}>
-                                <Btn variant="outline" onClick={() => openEdit(s)} style={{ fontSize: 11, padding: "4px 8px" }}>✏️ Edit</Btn>
-                                <Btn variant="danger" disabled={role === "teacher"} onClick={() => removeSubject(s.id)} style={{ fontSize: 11, padding: "4px 8px" }}>🗑️ Remove</Btn>
+                                {canWrite && <Btn variant="outline" onClick={() => openEdit(s)} style={{ fontSize: 11, padding: "4px 8px" }}>✏️ Edit</Btn>}
+                                {canDelete && <Btn variant="danger" onClick={() => removeSubject(s.id)} style={{ fontSize: 11, padding: "4px 8px" }}>🗑️ Remove</Btn>}
                               </div>
                             </Td>
                           </tr>
@@ -3077,7 +3110,7 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
   );
 }
 
-function Grades({ students, subjects, grades, setGrades, token, role, studentIdFromAuth }) {
+function Grades({ students, subjects, grades, setGrades, token, role, studentIdFromAuth, canWrite, canDelete }) {
   const [selectedStudent, setSelectedStudent] = useState("");
   const [modal, setModal] = useState(null);
   const [editingSubj, setEditingSubj] = useState(null);
@@ -3210,7 +3243,7 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                       <div style={{ fontSize: 22, fontWeight: 900 }}>{toGPA(parseFloat(gpa))}</div>
                     </div>
                   )}
-                  {(role === "teacher" || role === "register" || role === "developer" || role === "owner") && (
+                  {canWrite && (
                       <Btn variant="success" onClick={() => {
                         if (availableSubjects.length === 0) return;
                         setForm({ subjectId: availableSubjects[0].id, prelim1: "", prelim2: "", midterm: "", semi_final: "", final: "" });
@@ -3249,14 +3282,14 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                           <Td>{avg !== null ? (
                             <Badge text={avg >= 75 ? "PASSED" : "FAILED"} type={avg >= 75 ? "green" : "red"} />
                           ) : "—"}</Td>
-                          {(role === "teacher" || role === "register" || role === "developer" || role === "owner") ? (
+                          {(canWrite || canDelete) ? (
                             <Td>
                               <div style={{ display: "flex", gap: 5 }}>
-                                <Btn variant="outline" onClick={() => {
+                                {canWrite && <Btn variant="outline" onClick={() => {
                                     setForm({ subjectId: subj.id, prelim1: g.prelim1, prelim2: g.prelim2, midterm: g.midterm, semi_final: g.semi_final, final: g.final });
                                     setEditingSubj(subj.id); setModal("form");
-                                }} style={{ fontSize: 10, padding: "3px 8px" }}>✏️</Btn>
-                                <Btn variant="danger" onClick={() => setDeleteConfirm(subj.id)} style={{ fontSize: 10, padding: "3px 8px" }}>🗑️</Btn>
+                                }} style={{ fontSize: 10, padding: "3px 8px" }}>✏️</Btn>}
+                                {canDelete && <Btn variant="danger" onClick={() => setDeleteConfirm(subj.id)} style={{ fontSize: 10, padding: "3px 8px" }}>🗑️</Btn>}
                               </div>
                             </Td>
                           ) : role !== "student" ? (
@@ -3330,7 +3363,7 @@ function AuthScreen({ onAuthed, logo }) {
     setLoading(true); setMsg("");
     try {
       const r = await api("/auth/login", { method: "POST", body: { username: u, password: p } });
-      onAuthed({ token: r.token, role: r.role, username: r.username, student_id: r.student_id || null, full_name: r.full_name || null });
+      onAuthed({ token: r.token, role: r.role, username: r.username, student_id: r.student_id || null, full_name: r.full_name || null, permissions: r.permissions });
     } catch (e) {
       setMsg(e.message);
     } finally {
@@ -3701,6 +3734,120 @@ function LogsView({ token }) {
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function RolePermissionsView({ token, auth, syncAuth }) {
+  const [data, setData] = useState([]);
+  const [msg, setMsg] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const res = await api("/authorization", {}, token);
+      setData(res);
+    } catch (e) { setMsg(e.message); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const flash = m => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+
+    const toggle = async (r, m, p, currentVal) => {
+    try {
+      const payload = {
+        can_read: p === "can_read" ? !currentVal : !!r.permissions[m].can_read,
+        can_write: p === "can_write" ? !currentVal : !!r.permissions[m].can_write,
+        can_delete: p === "can_delete" ? !currentVal : !!r.permissions[m].can_delete
+      };
+      await api(`/authorization/${encodeURIComponent(r.role)}/${encodeURIComponent(m)}`, {
+        method: "PUT", body: payload
+      }, token);
+      
+      const newPermissions = {
+        ...r.permissions,
+        [m]: {
+          ...r.permissions[m],
+          [p]: !currentVal
+        }
+      };
+
+      setData(prev => prev.map(rol => {
+        if (rol.role === r.role) {
+          return {
+            ...rol,
+            permissions: newPermissions
+          };
+        }
+        return rol;
+      }));
+
+      if (auth && auth.role === r.role && syncAuth) {
+        syncAuth({
+          ...auth,
+          permissions: newPermissions
+        });
+      }
+
+      flash(`✅ Updated ${m} ${p} for ${r.role}`);
+    } catch (e) {
+      alert(e.message);
+    }
+  };;
+
+  const resetAll = async () => {
+    if (!window.confirm("Are you sure you want to restore all role permissions to their factory defaults?")) return;
+    try {
+      await api("/authorization/reset", { method: "POST" }, token);
+      flash("✅ Factory defaults restored.");
+      load();
+    } catch (e) { alert(e.message); }
+  };
+
+  return (
+    <div>
+      <PageHeader title="🔐 Role Permissions" sub="Manage access control for all roles dynamically" />
+      {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "var(--neon-blue)", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
+      
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <Btn variant="danger" onClick={resetAll}>🔄 Restore Defaults</Btn>
+      </div>
+
+      <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 16 }}>
+        {data.map(r => (
+          <Card key={r.role} title={r.role.toUpperCase()}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", padding: "6px" }}>Module</th>
+                  <th style={{ textAlign: "center", padding: "6px" }}>Read</th>
+                  <th style={{ textAlign: "center", padding: "6px" }}>Write</th>
+                  <th style={{ textAlign: "center", padding: "6px" }}>Delete</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(r.permissions).map(m => {
+                  const p = r.permissions[m];
+                  return (
+                    <tr key={m} style={{ borderBottom: "1px solid var(--border-color)", transition: "background 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <td style={{ padding: "8px", fontWeight: "600", color: "var(--text-main)" }}>{m}</td>
+                      <td style={{ padding: "8px", textAlign: "center" }}>
+                        <Btn variant="ghost" onClick={() => toggle(r, m, "can_read", p.can_read)} style={{ padding: "4px 8px", fontSize: 10, background: p.can_read ? "rgba(34, 197, 94, 0.15)" : "transparent", color: p.can_read ? "#22c55e" : "#555" }}>{p.can_read ? "ON" : "OFF"}</Btn>
+                      </td>
+                      <td style={{ padding: "8px", textAlign: "center" }}>
+                        <Btn variant="ghost" onClick={() => toggle(r, m, "can_write", p.can_write)} style={{ padding: "4px 8px", fontSize: 10, background: p.can_write ? "rgba(234, 179, 8, 0.15)" : "transparent", color: p.can_write ? "#eab308" : "#555" }}>{p.can_write ? "ON" : "OFF"}</Btn>
+                      </td>
+                      <td style={{ padding: "8px", textAlign: "center" }}>
+                        <Btn variant="ghost" onClick={() => toggle(r, m, "can_delete", p.can_delete)} style={{ padding: "4px 8px", fontSize: 10, background: p.can_delete ? "rgba(239, 68, 68, 0.15)" : "transparent", color: p.can_delete ? "#ef4444" : "#555" }}>{p.can_delete ? "ON" : "OFF"}</Btn>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

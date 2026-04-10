@@ -170,13 +170,40 @@ export async function loginHandler(req, res) {
     WHERE u.id = ?
   `, [user.id]);
   
+  const authRecords = await all("SELECT module, can_read, can_write, can_delete FROM \"authorization\" WHERE role=?", [finalUser.role]);
+  const userPerms = await all("SELECT module, can_read, can_write, can_delete FROM user_permissions WHERE user_id=?", [finalUser.id]);
+  
+  const permissions = {};
+  if (authRecords) {
+    for (const p of authRecords) {
+      permissions[p.module] = { 
+        can_read: !!p.can_read, 
+        can_write: !!p.can_write, 
+        can_delete: !!p.can_delete 
+      };
+    }
+  }
+  if (userPerms) {
+    for (const p of userPerms) {
+      if (!permissions[p.module]) permissions[p.module] = { can_read: false, can_write: false, can_delete: false };
+      if (p.can_read !== null) permissions[p.module].can_read = !!p.can_read;
+      if (p.can_write !== null) permissions[p.module].can_write = !!p.can_write;
+      if (p.can_delete !== null) permissions[p.module].can_delete = !!p.can_delete;
+    }
+  }
+
+  console.log("[LOGIN] DEBUG for user", finalUser.username, "role:", finalUser.role);
+  console.log("[LOGIN] DEBUG authRecords count:", authRecords ? authRecords.length : 0);
+  console.log("[LOGIN] DEBUG permissions object keys:", Object.keys(permissions));
+
   res.json({ 
     token, 
     role: finalUser.role, 
     username: finalUser.username, 
     student_id: finalUser.student_id, 
     uuid: finalUser.uuid,
-    full_name: finalUser.full_name || finalUser.student_full_name || null
+    full_name: finalUser.full_name || finalUser.student_full_name || null,
+    permissions
   });
 }
 
