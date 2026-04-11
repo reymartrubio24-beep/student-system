@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+﻿import { useState, useMemo, useEffect, useCallback } from "react";
 
 /*
 const INITIAL_STUDENTS = [
@@ -152,6 +152,70 @@ function SettingsModal({ title, logo, onClose, onSave }) {
           <Btn variant="primary" onClick={save} disabled={uploading} style={{ flex: 1 }}>Save</Btn>
           <Btn variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Btn>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ManageSemestersModal({ show, onClose, token }) {
+  const [sems, setSems] = useState([]);
+  const [sy, setSy] = useState("");
+  const [term, setTerm] = useState("1st Semester");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (show && token) {
+      api("/semesters", {}, token).then(setSems).catch();
+    }
+  }, [show, token]);
+
+  const handleAdd = async () => {
+    if (!sy) return setErr("School year required (e.g. 2026-2027)");
+    try {
+      setLoading(true);
+      await api("/semesters", { method: "POST", body: { school_year: sy, term } }, token);
+      setSy(""); setErr("");
+      const rows = await api("/semesters", {}, token);
+      setSems(rows);
+    } catch (e) { setErr(e.message); } finally { setLoading(false); }
+  };
+
+  const handleDel = async (id) => {
+    if (!window.confirm("Delete this semester?")) return;
+    try {
+      await api(`/semesters/${id}`, { method: "DELETE" }, token);
+      const rows = await api("/semesters", {}, token);
+      setSems(rows);
+    } catch (e) { setErr(e.message); }
+  };
+
+  if (!show) return null;
+  return (    <Modal show={true} title="⚙️ Manage Semesters & School Years" onClose={() => { window.location.reload(); }} width={550}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <Input placeholder="E.g. 2026-2027" value={sy} onChange={e=>setSy(e.target.value)} />
+        <Select value={term} onChange={e=>setTerm(e.target.value)}>
+          <option value="1st Semester">1st Semester</option>
+          <option value="2nd Semester">2nd Semester</option>
+          <option value="Summer">Summer</option>
+        </Select>
+        <Btn variant="primary" onClick={handleAdd} disabled={loading} style={{ whiteSpace: "nowrap" }}>Add</Btn>
+      </div>
+      {err && <div style={{ color: "#fca5a5", fontSize: 13, marginBottom: 16, background: "rgba(239, 68, 68, 0.1)", padding: 8, borderRadius: 6 }}>{err}</div>}
+      
+      <div style={{ maxHeight: 350, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+        {sems.length === 0 && <div style={{ color: "var(--text-dim)", fontSize: 13 }}>No semesters found.</div>}
+        {sems.map(s => (
+          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>
+              {s.school_year} <span style={{ color: "var(--text-dim)", marginLeft: 6, fontWeight: 500 }}>• {s.term}</span>
+            </div>
+            <button onClick={()=>handleDel(s.id)} style={{ background: "transparent", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7, padding: 4 }} title="Delete Semester" onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.7}>🗑️</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 16, fontSize: 12, color: "var(--text-dim)", textAlign: "center" }}>
+        Closing this window will refresh the app to update the dropdowns everywhere.
       </div>
     </Modal>
   );
@@ -335,6 +399,7 @@ export default function App() {
   const [title, setTitle] = useState(() => localStorage.getItem("appTitle") || "Student Subject Management & Tracking System");
   const [logo, setLogo] = useState(() => localStorage.getItem("appLogo") || "");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [semesterMgmtOpen, setSemesterMgmtOpen] = useState(false);
   const [changePassOpen, setChangePassOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -790,6 +855,18 @@ export default function App() {
 }
 
 export { Dashboard };
+
+function renderSemesterOptions(semesters) {
+  const groups = semesters.reduce((acc, s) => {
+    (acc[s.school_year] = acc[s.school_year] || []).push(s);
+    return acc;
+  }, {});
+  return Object.entries(groups).map(([sy, sems]) => (
+    <optgroup key={sy} label={sy} style={{ color: "var(--neon-blue)", fontWeight: 800 }}>
+      {sems.map(s => <option key={s.id} value={s.id} style={{ background: "#0f172a", color: "white", fontWeight: 500 }}>{s.term}</option>)}
+    </optgroup>
+  ));
+}
 
 function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
   const [stats, setStats] = useState(null);
@@ -1344,7 +1421,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
           </Select>
           <Select label="Semester" value={form.semester_id} onChange={e => setForm(f => ({ ...f, semester_id: e.target.value }))}>
             <option value="">-- Choose Semester --</option>
-            {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
+            {renderSemesterOptions(semesters)}
           </Select>
           <Select label="Class Time Slot" value={form.time_slot} onChange={e => setForm(f => ({ ...f, time_slot: e.target.value }))}>
             <option value="">-- Choose Time Slot --</option>
@@ -1658,7 +1735,7 @@ function TeacherAttendanceDashboard({ token, teacherUuid, subjects }) {
             <select value={filterSem} onChange={e => { setFilterSem(e.target.value); setPage(1); }}
               style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10, background: "#0f172a", color: "#ffffff", outline: "none" }}>
               <option value="">All Semesters</option>
-              {semesters.map(s => <option key={s.id} value={s.id} style={{ background: "#0f172a" }}>{s.school_year} · {s.term}</option>)}
+              {renderSemesterOptions(semesters)}
             </select>
           </div>
         </div>
@@ -1701,7 +1778,7 @@ function TeacherAttendanceDashboard({ token, teacherUuid, subjects }) {
           </Select>
           <Select label="Semester" value={form.semester_id} onChange={e => setForm(f => ({ ...f, semester_id: e.target.value }))}>
             <option value="">-- Choose Semester --</option>
-            {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
+            {renderSemesterOptions(semesters)}
           </Select>
           <Select label="Class Time Slot" value={form.time_slot} onChange={e => setForm(f => ({ ...f, time_slot: e.target.value }))}>
             <option value="">-- Choose Time Slot --</option>
@@ -1810,8 +1887,6 @@ function ChangePasswordModal({ show, onClose, token, username }) {
 function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
   const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState("");
-  const [syInput, setSyInput] = useState("");
-  const [termInput, setTermInput] = useState("");
   const [periods, setPeriods] = useState([]);
   const [periodId, setPeriodId] = useState("");
   const [number, setNumber] = useState("");
@@ -1821,12 +1896,6 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
     if (!show || !token) return;
     api("/semesters", {}, token).then(setSemesters).catch(console.error);
   }, [show, token]);
-
-  useEffect(() => {
-    const match = semesters.find(s => s.school_year === syInput && s.term === termInput);
-    if (match) setSemesterId(match.id);
-    else setSemesterId("");
-  }, [syInput, termInput, semesters]);
 
   useEffect(() => {
     if (!semesterId || !token) { setPeriods([]); setPeriodId(""); return; }
@@ -1858,37 +1927,10 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
   return (
     <Modal show={show} title={`🎫 Assign Permit to ${student?.name}`} onClose={onClose} width={450}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-        <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1 }}>
-            <Input 
-              label="School Year" 
-              placeholder="e.g. 2026-2027" 
-              value={syInput} 
-              onChange={e => setSyInput(e.target.value)} 
-              list="sy-list-permit"
-            />
-            <datalist id="sy-list-permit">
-              {[...new Set(semesters.map(s => s.school_year))].map(y => <option key={y} value={y} />)}
-            </datalist>
-          </div>
-          <div style={{ flex: 1 }}>
-            <Select 
-              label="Select Semester" 
-              value={termInput} 
-              onChange={e => setTermInput(e.target.value)}
-            >
-              <option value="">-- Choose Term --</option>
-              <option value="1st Semester">1st Semester</option>
-              <option value="2nd Semester">2nd Semester</option>
-              <option value="Summer">Summer</option>
-            </Select>
-          </div>
-        </div>
-        {!semesterId && syInput && termInput && (
-           <div style={{ fontSize: 11, color: "#f87171", marginTop: -8 }}>
-             ⚠️ This semester doesn't exist in the database. Please add it via Settings &gt; Manage Semesters.
-           </div>
-        )}
+        <Select id="assign-semester" label="Select Semester" value={semesterId} onChange={e => setSemesterId(e.target.value)}>
+          <option value="">-- Choose Semester --</option>
+          {renderSemesterOptions(semesters)}
+        </Select>
         <Select id="assign-period" label="Select Period" value={periodId} onChange={e => setPeriodId(e.target.value)} disabled={!semesterId}>
           <option value="">-- Choose Period --</option>
           {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2113,7 +2155,7 @@ function PermitsView({ token, semesterId, role, username, canWrite, canDelete })
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <Select label="Semester" value={semesterFilter} onChange={e => setSemesterFilter(e.target.value)}>
                     <option value="">All Semesters</option>
-                    {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
+                    {renderSemesterOptions(semesters)}
                   </Select>
                   {canWrite && <Btn variant="success" onClick={() => setAssignModal(true)}>+ Add Permit</Btn>}
                 </div>
@@ -2495,14 +2537,6 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
 function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [printTerm, setPrintTerm] = useState("Second Semester");
-  const [printSy, setPrintSy] = useState("2025-2026");
-  const [printAssessor, setPrintAssessor] = useState(() => localStorage.getItem("printAssessor") || "Manrey C. Almario Jr.");
-  const [printChecker, setPrintChecker] = useState(() => localStorage.getItem("printChecker") || "Sherwin D. Maghuyop");
-
-  useEffect(() => { localStorage.setItem("printAssessor", printAssessor); }, [printAssessor]);
-  useEffect(() => { localStorage.setItem("printChecker", printChecker); }, [printChecker]);
-
   const [payments, setPayments] = useState([]);
   const [ledger, setLedger] = useState({
     petition_class: "", regular_units: "", total_units: "", tuition_fee: "", misc_fee: "", internship_fee: "",
@@ -2620,7 +2654,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
   <div class="page">
     <div class="center bold" style="font-size:13px">${studentName} ${studentCourse} ${studentYear}</div>
     <div class="center bold" style="font-size:15px;margin:8px 0">PERMIT</div>
-    <div class="center" style="font-style:italic;font-size:11px">${printTerm}; SY: ${printSy}</div>
+    <div class="center" style="font-style:italic;font-size:11px">Second Semester; SY: 2025-2026</div>
     <div class="exam-boxes">
       <div class="exam-box">1st Prelim</div>
       <div class="exam-box">2nd Prelim</div>
@@ -2635,7 +2669,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
         <li>Attached your 1x1 picture in the box provided and affix your signature on the space provided.</li>
         <li>This card is valid for one (1) semester only.</li>
         <li>Please keep this card away from deteriorated.</li>
-        <li>duplicate card will be issued only upon due payment of one hundred pesos (Php 100.00).</li>
+        <li>A duplicate card will be issued only upon due payment of one hundred pesos (Php 100.00).</li>
       </ol>
       <div class="footer-row">
         <i>Printed in YBVC, Pagadian City</i>
@@ -2645,15 +2679,15 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
   </div>
   <!-- RIGHT: Account Card Cover -->
   <div class="page">
-    <div class="center bold" style="font-size:17px">YLLANBAY VIEW COLLEGE, INC.</div>
+    <div class="center bold" style="font-size:17px">YLLANA BAY VIEW COLLEGE, INC.</div>
     <div class="center bold" style="color:darkgreen;font-size:13px;margin-top:4px">COLLEGE DEPARTMENT</div>
     <div class="center" style="font-size:11px">Enerio St., Balangasan Dist., Pagadian City</div>
-    <div class="center" style="font-size:11px">Tel. N✅ (062) 2154-176</div>
+    <div class="center" style="font-size:11px">Tel. No. (062) 2154-176</div>
     <div class="center" style="font-style:italic;font-size:11px">"The Builder of Future Leaders"</div>
     <img class="logo" src="${window.location.origin}/123.png" alt="Logo"/>
     <div class="center bold" style="font-size:12px;margin-top:8px">STUDENT ACCOUNT AND PERMIT SECTION</div>
     <div class="center bold" style="color:darkgreen;font-size:15px">STUDENT'S ACCOUNT CARD</div>
-    <div class="center" style="font-style:italic;font-size:11px">${printTerm}; SY: ${printSy}</div>
+    <div class="center" style="font-style:italic;font-size:11px">Second Semester; SY: 2025-2026</div>
     <div class="id-box">Not Valid Without<br/>RECENT 1x1 ID<br/>Picture.<br/>Do Not staple,<br/>Paste it!</div>
     <div style="margin-top:16px;font-size:12px;font-weight:bold">I'm, <span class="underline">${studentName} ${studentCourse} ${studentYear}</span></div>
     <div style="font-size:11px;margin-top:4px;text-align:justify;text-indent:18px">I hereby promise and pledge to abide by and comply with all the rules and regulations of Yllana Bay View College.</div>
@@ -2687,11 +2721,11 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
     </table>
     <div class="assessed-by">
       <div class="bold">Assessed by:</div>
-      <div class="sig">${printAssessor}</div>
+      <div class="sig">Manrey C. Almario Jr.</div>
       <div class="role">Student Account Officer III</div>
     </div>
     <div class="checked-by" style="margin-top:12px">
-      <div class="sig">${printChecker}</div>
+      <div class="sig">Sherwin D. Maghuyop</div>
       <div class="role">Student Account Chief</div>
       <div style="display:inline-block"><strong>Checked by:</strong></div>
     </div>
@@ -2836,24 +2870,12 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
           .paper-input-left { text-align: left; }
         `}</style>
 
-        <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20, alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <Select value={printTerm} onChange={e => setPrintTerm(e.target.value)} style={{ width: 160 }}>
-              <option value="First Semester">First Semester</option>
-              <option value="Second Semester">Second Semester</option>
-              <option value="Summer">Summer</option>
-            </Select>
-            <Input placeholder="SY: e.g. 2026-2027" value={printSy} onChange={e => setPrintSy(e.target.value)} style={{ width: 140 }} />
-            <Input placeholder="Assessed by" value={printAssessor} onChange={e => setPrintAssessor(e.target.value)} style={{ width: 180 }} />
-            <Input placeholder="Checked by" value={printChecker} onChange={e => setPrintChecker(e.target.value)} style={{ width: 180 }} />
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button style={{ background: page === 1 ? '#3b82f6' : '#374151', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setPage(1)}>📖 PAGE 1 (Cover / Permit)</button>
-            <button style={{ background: page === 2 ? '#3b82f6' : '#374151', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setPage(2)}>📖 PAGE 2 (Ledger / Payments)</button>
-            
-            <button style={{ background: '#10b981', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold', marginLeft: 20 }} onClick={handleSave}>💾 Save Booklet</button>
-            <button style={{ background: '#8b5cf6', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={handlePrint}>🖨️ Print Page</button>
-          </div>
+        <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 20, justifyContent: 'center' }}>
+          <button style={{ background: page === 1 ? '#3b82f6' : '#374151', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setPage(1)}>📖 PAGE 1 (Cover / Permit)</button>
+          <button style={{ background: page === 2 ? '#3b82f6' : '#374151', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setPage(2)}>📖 PAGE 2 (Ledger / Payments)</button>
+          
+          <button style={{ background: '#10b981', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold', marginLeft: 20 }} onClick={handleSave}>💾 Save Booklet</button>
+          <button style={{ background: '#8b5cf6', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={handlePrint}>🖨️ Print Page</button>
         </div>
 
         <div className="ledger-printable" style={{ position: "relative" }}>
@@ -2864,7 +2886,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
                     {(student?.name||"").toUpperCase()} {(student?.course||"").toUpperCase()} {parsedYear}
                  </div>
                  <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 16, margin: '10px 0' }}>PERMIT</div>
-                 <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>{printTerm}; SY: {printSy}</div>
+                 <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>Second Semester; SY: 2025-2026</div>
                  
                  <div className="exam-boxes">
                    <div className="exam-box">1st Prelim</div>
@@ -2881,7 +2903,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
                      <li>Attached your 1x1 picture in the box provided and affix your signature on the space provided.</li>
                      <li>This card is valid for one (1) semester only.</li>
                      <li>Please keep this card away from deteriorated.</li>
-                     <li>duplicate card will be issued only upon due payment of one hundred pesos (Php 100.00).</li>
+                     <li>A duplicate card will be issued only upon due payment of one hundred pesos (Php 100.00).</li>
                    </ol>
                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 20 }}>
                      <i>Printed in YBVC, Pagadian City</i>
@@ -2891,17 +2913,17 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
               </div>
               
               <div className="booklet-page right-page">
-                 <div style={{ textAlign: 'center', fontSize: 18, fontFamily: 'serif', fontWeight: 'bold' }}>YLLANBAY VIEW COLLEGE, INC.</div>
+                 <div style={{ textAlign: 'center', fontSize: 18, fontFamily: 'serif', fontWeight: 'bold' }}>YLLANA BAY VIEW COLLEGE, INC.</div>
                  <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'darkgreen', fontSize: 14, marginTop: 5 }}>COLLEGE DEPARTMENT</div>
                  <div style={{ textAlign: 'center', fontSize: 12 }}>Enerio St., Balangasan Dist., Pagadian City</div>
-                 <div style={{ textAlign: 'center', fontSize: 12 }}>Tel. N✅ (062) 2154-176</div>
+                 <div style={{ textAlign: 'center', fontSize: 12 }}>Tel. No. (062) 2154-176</div>
                  <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>"The Builder of Future Leaders"</div>
                  
                  <img className="cover-logo" src="/123.png" alt="College Logo" style={{ objectFit: 'contain', background: 'transparent', border: 'none' }} />
                  
                  <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 13, marginTop: 10 }}>STUDENT ACCOUNT AND PERMIT SECTION</div>
                  <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'darkgreen', fontSize: 16 }}>STUDENT'S ACCOUNT CARD</div>
-                 <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>{printTerm}; SY: {printSy}</div>
+                 <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>Second Semester; SY: 2025-2026</div>
                  
                  <div style={{ width: 100, height: 100, border: '1px solid #000', margin: '20px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 10, padding: 5 }}>
                    Not Valid Without<br/>RECENT 1x1 ID<br/>Picture.<br/>Do Not staple,<br/>Paste it!
@@ -3002,14 +3024,14 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
                  <div style={{ marginTop: 20, fontSize: 13 }}>
                    <div style={{ fontWeight: 'bold' }}>Assessed by:</div>
                    <div style={{ textAlign: 'center', width: '80%', margin: '15px 0 0 20px', borderBottom: '1px solid #000', fontWeight: 'bold', paddingBottom: 2 }}>
-                     {printAssessor}
+                     Manrey C. Almario Jr.
                    </div>
                    <div style={{ textAlign: 'center', width: '80%', marginLeft: '20px', fontSize: 11 }}>Student Account Officer III</div>
                  </div>
                  
                  <div style={{ marginTop: 20, fontSize: 13 }}>
                    <div style={{ textAlign: 'center', width: '80%', margin: '15px 0 0 auto', borderBottom: '1px solid #000', fontWeight: 'bold', paddingBottom: 2 }}>
-                     {printChecker}
+                     Sherwin D. Maghuyop
                    </div>
                    <div style={{ textAlign: 'center', width: '80%', marginLeft: 'auto', fontSize: 11 }}>Student Account Chief</div>
                    <div style={{ display: 'inline-block' }}><strong>Checked by:</strong></div>
@@ -3869,7 +3891,7 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                   <div>
                     <Select label="Semester" value={semesterId} onChange={e => setSemesterId(e.target.value)}>
                       <option value="">All Semesters</option>
-                      {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
+                      {renderSemesterOptions(semesters)}
                     </Select>
                   </div>
                 </Card>
