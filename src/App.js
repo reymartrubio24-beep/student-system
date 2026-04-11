@@ -2259,15 +2259,12 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
             <Input label="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} />
             <Input label="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
             <Input label="Method" value={method} onChange={e => setMethod(e.target.value)} />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Type</label>
-              <select value={paymentType} onChange={e => setPaymentType(e.target.value)} style={{ padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13, background: "rgba(255,255,255,0.02)", color: "white", outline: "none" }}>
-                <option value="Tuition">Tuition</option>
-                <option value="Event">Event</option>
-                <option value="Penalty">Penalty</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+            <Select label="Type" value={paymentType} onChange={e => setPaymentType(e.target.value)}>
+              <option value="Tuition">Tuition</option>
+              <option value="Event">Event</option>
+              <option value="Penalty">Penalty</option>
+              <option value="Other">Other</option>
+            </Select>
             <Input label="Transaction No:" value={reference} onChange={e => setReference(e.target.value)} placeholder="Auto-generated if empty" />
             <Btn variant="primary" onClick={submitPayment} disabled={!studentId || !amount}>Record</Btn>
           </div>

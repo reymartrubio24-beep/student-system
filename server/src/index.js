@@ -700,7 +700,7 @@ app.get("/students", authRequired, requireRole("students"), async (req, res) => 
       ) - COALESCE(p.total_paid, 0), 2) as computed_balance
     FROM students s
     LEFT JOIN student_ledgers l ON l.student_id = s.id
-    LEFT JOIN (SELECT student_id, SUM(amount) as total_paid FROM payments GROUP BY student_id) p ON p.student_id = s.id
+    LEFT JOIN (SELECT student_id, SUM(amount) as total_paid FROM payments WHERE payment_type = 'Tuition' OR payment_type IS NULL GROUP BY student_id) p ON p.student_id = s.id
     WHERE s.deleted_at IS NULL
   `;
 
@@ -1571,7 +1571,7 @@ app.get(
         ) - COALESCE(p.total_paid, 0), 2) as computed_balance
       FROM students s
       LEFT JOIN student_ledgers l ON l.student_id = s.id
-      LEFT JOIN (SELECT student_id, SUM(amount) as total_paid FROM payments GROUP BY student_id) p ON p.student_id = s.id
+      LEFT JOIN (SELECT student_id, SUM(amount) as total_paid FROM payments WHERE payment_type = 'Tuition' OR payment_type IS NULL GROUP BY student_id) p ON p.student_id = s.id
       WHERE s.id=$1 AND s.deleted_at IS NULL
     `, [id]);
     if (!row) return res.status(404).json({ error: "Not found" });
@@ -1677,7 +1677,7 @@ app.get(
     const where = clauses.length ? ` AND ${clauses.join(" AND ")}` : "";
     if (role === "student") {
       const rows = await all(
-      "SELECT id, amount, method, reference, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
+      "SELECT id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=$1"+where+" ORDER BY created_at DESC",
         [student_id, ...params],
       );
       await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(student_id), details: { from, to, method } });
@@ -1710,7 +1710,7 @@ app.get(
        return res.status(403).json({ error: "Forbidden" });
     }
     const rows = await all(
-      "SELECT id, amount, method, reference, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
+      "SELECT id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=$1"+where+" ORDER BY created_at DESC",
       [sid, ...params],
     );
     await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(sid), details: { from, to, method } });
