@@ -2206,6 +2206,7 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("");
   const [reference, setReference] = useState("");
+  const [paymentType, setPaymentType] = useState("Tuition");
   const [msg, setMsg] = useState("");
   const [payments, setPayments] = useState([]);
   const [fromDate, setFromDate] = useState("");
@@ -2238,10 +2239,10 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   }, [studentId, loadBalance]);
   const submitPayment = async () => {
     try {
-      const data = { student_id: studentId.trim(), amount: parseFloat(amount), method: method.trim(), reference: reference.trim() };
+      const data = { student_id: studentId.trim(), amount: parseFloat(amount), method: method.trim(), reference: reference.trim(), payment_type: paymentType };
       await api("/payments", { method: "POST", body: data }, token);
       setMsg("Payment recorded.");
-      setAmount(""); setMethod(""); setReference("");
+      setAmount(""); setMethod(""); setReference(""); setPaymentType("Tuition");
       loadBalance();
     } catch (e) {
       setMsg(e.message);
@@ -2254,14 +2255,23 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
       
       {canWrite && (
         <Card title="Record Payment">
-          <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 10 }}>
+          <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1.5fr 1fr", gap: 10, alignItems: "end" }}>
             <Input label="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} />
             <Input label="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
             <Input label="Method" value={method} onChange={e => setMethod(e.target.value)} />
-            <Input label="Reference" value={reference} onChange={e => setReference(e.target.value)} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Type</label>
+              <select value={paymentType} onChange={e => setPaymentType(e.target.value)} style={{ padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13, background: "rgba(255,255,255,0.02)", color: "white", outline: "none" }}>
+                <option value="Tuition">Tuition</option>
+                <option value="Event">Event</option>
+                <option value="Penalty">Penalty</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <Input label="Transaction No:" value={reference} onChange={e => setReference(e.target.value)} placeholder="Auto-generated if empty" />
             <Btn variant="primary" onClick={submitPayment} disabled={!studentId || !amount}>Record</Btn>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
             <Btn variant="outline" onClick={loadBalance} disabled={!studentId}>Load Balance & History</Btn>
           </div>
         </Card>
@@ -2282,7 +2292,7 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
 
       {balance !== null && (
         <Card title={role === "student" ? "My Balance" : `Account Balance: ${studentId}`}>
-          <div className="glow-text" style={{ fontSize: 32, fontWeight: 900, color: "var(--neon-blue)", marginBottom: 4 }}>₱{balance.toFixed(2)}</div>
+          <div className="glow-text" style={{ fontSize: 32, fontWeight: 900, color: "var(--neon-blue)", marginBottom: 4 }}>&#8369;{balance.toFixed(2)}</div>
           <div style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 500 }}>Remaining balance for current semester.</div>
         </Card>
       )}
@@ -2291,14 +2301,15 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
         <Card title={role === "student" ? "Payment History" : (studentId ? `Recent Payments for ${studentId}` : "All Payments")}>
           <div className="table-container">
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead><tr><Th>Date</Th><Th>Amount</Th><Th>Method</Th><Th>Reference</Th></tr></thead>
+              <thead><tr><Th>Date</Th><Th>Amount</Th><Th>Method</Th><Th>Type</Th><Th>Transaction No:</Th></tr></thead>
               <tbody>
                 {payments.map(p => (
                   <tr key={p.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
                     <Td>{new Date(p.created_at).toLocaleString()}</Td>
                     <Td>₱{Number(p.amount).toFixed(2)}</Td>
                     <Td>{p.method || "-"}</Td>
-                    <Td>{p.reference || "-"}</Td>
+                    <Td><span style={{ padding: '2px 8px', background: 'rgba(68,215,255,0.1)', color: '#44d7ff', borderRadius: 12, fontSize: 11, fontWeight: 700 }}>{p.payment_type || "Tuition"}</span></Td>
+                    <Td><code style={{ background: '#1e293b', padding: '3px 8px', borderRadius: 4, fontWeight: 'bold' }}>{p.reference || "-"}</code></Td>
                   </tr>
                 ))}
               </tbody>
@@ -2492,7 +2503,7 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
   );
 }
 
-function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) {
+function LedgerModal({ studentId, students, assignedSubjects, token, onClose, onSave }) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [printTerm, setPrintTerm] = useState("Second Semester");
@@ -2545,7 +2556,8 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
       ].forEach(k => payload[k] = payload[k] === "" || isNaN(payload[k]) ? 0 : Number(payload[k]));
       
       await api(`/ledgers/${encodeURIComponent(studentId)}`, { method: 'PUT', body: payload }, token);
-      alert("Ledger saved perfectly!");
+      alert("Ledger saved!");
+      if (onSave) onSave();
     } catch (e) {
       alert("Failed to save ledger: " + e.message);
     }
@@ -3346,7 +3358,7 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
           <Btn variant="ghost" onClick={() => setDeleteConfirm(null)}>Cancel</Btn>
         </div>
       </Modal>
-      {ledgerStudent && <LedgerModal studentId={ledgerStudent} students={students} assignedSubjects={[]} token={token} onClose={() => setLedgerStudent(null)} />}
+      {ledgerStudent && <LedgerModal studentId={ledgerStudent} students={students} assignedSubjects={[]} token={token} onClose={() => setLedgerStudent(null)} onSave={async () => { const data = await api("/students", {}, token); setStudents(data); }} />}
     </div>
   );
 }

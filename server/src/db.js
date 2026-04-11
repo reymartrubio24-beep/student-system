@@ -45,7 +45,8 @@ export async function initDB() {
       deleted_at TIMESTAMP WITH TIME ZONE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lower ON users (LOWER(username));
+    DROP INDEX IF EXISTS idx_users_username_lower;
+    CREATE INDEX IF NOT EXISTS idx_users_username_lower_nonunique ON users (LOWER(username));
 
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -100,10 +101,16 @@ export async function initDB() {
       amount DECIMAL NOT NULL,
       reference TEXT,
       method TEXT,
+      payment_type TEXT DEFAULT 'Tuition',
       status TEXT DEFAULT 'posted',
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
     );
+    -- Ensure payment_type exists if upgrading from older schema
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'Tuition';
+
+    -- Sequence for auto transaction numbers starting at 1
+    CREATE SEQUENCE IF NOT EXISTS txn_seq START 1;
 
     CREATE TABLE IF NOT EXISTS audit_log (
       id SERIAL PRIMARY KEY,

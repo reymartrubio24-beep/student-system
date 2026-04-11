@@ -693,11 +693,11 @@ app.get("/students", authRequired, requireRole("students"), async (req, res) => 
   const query = `
     SELECT s.*, 
       ROUND((
-        IFNULL(l.tuition_fee,0) + IFNULL(l.misc_fee,0) + IFNULL(l.internship_fee,0) + 
-        IFNULL(l.computer_lab_fee,0) + IFNULL(l.chem_lab_fee,0) + IFNULL(l.aircon_fee,0) + 
-        IFNULL(l.shop_fee,0) + IFNULL(l.other_fees,0) + IFNULL(l.id_fee,0) + IFNULL(l.subscription_fee,0) - 
-        IFNULL(l.discount,0) + IFNULL(l.bank_account,0)
-      ) - IFNULL(p.total_paid, 0), 2) as computed_balance
+        COALESCE(l.tuition_fee::numeric,0) + COALESCE(l.misc_fee::numeric,0) + COALESCE(l.internship_fee::numeric,0) + 
+        COALESCE(l.computer_lab_fee::numeric,0) + COALESCE(l.chem_lab_fee::numeric,0) + COALESCE(l.aircon_fee::numeric,0) + 
+        COALESCE(l.shop_fee::numeric,0) + COALESCE(l.other_fees::numeric,0) + COALESCE(l.id_fee::numeric,0) + COALESCE(l.subscription_fee::numeric,0) - 
+        COALESCE(l.discount::numeric,0) + COALESCE(l.bank_account::numeric,0)
+      ) - COALESCE(p.total_paid, 0), 2) as computed_balance
     FROM students s
     LEFT JOIN student_ledgers l ON l.student_id = s.id
     LEFT JOIN (SELECT student_id, SUM(amount) as total_paid FROM payments GROUP BY student_id) p ON p.student_id = s.id
@@ -705,7 +705,7 @@ app.get("/students", authRequired, requireRole("students"), async (req, res) => 
   `;
 
   if (role === "student") {
-    const row = await get(query + " AND s.id=?", [req.user.student_id]);
+    const row = await get(query + " AND s.id=$1", [req.user.student_id]);
     if (row) { row.tuition_balance = row.computed_balance !== null ? row.computed_balance : row.tuition_balance; }
     return res.json(row ? [row] : []);
   }
@@ -941,14 +941,7 @@ app.post(
           return parts[parts.length - 1] || "student";
         })().toLowerCase();
 
-        let username = baseLast;
-        let suffix = 1;
-        while (true) {
-          // Check ALL users, including deleted ones because of index constraint
-          const exists = await get("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?)", [username]);
-          if (!exists) break;
-          username = `${baseLast}${suffix++}`;
-        }
+        const username = baseLast;
 
         const password = assignedId; // Student ID as password
         const hash = bcrypt.hashSync(password, 10);
@@ -1571,15 +1564,15 @@ app.get(
     const row = await get(`
       SELECT s.tuition_balance,
         ROUND((
-          IFNULL(l.tuition_fee,0) + IFNULL(l.misc_fee,0) + IFNULL(l.internship_fee,0) + 
-          IFNULL(l.computer_lab_fee,0) + IFNULL(l.chem_lab_fee,0) + IFNULL(l.aircon_fee,0) + 
-          IFNULL(l.shop_fee,0) + IFNULL(l.other_fees,0) + IFNULL(l.id_fee,0) + IFNULL(l.subscription_fee,0) - 
-          IFNULL(l.discount,0) + IFNULL(l.bank_account,0)
-        ) - IFNULL(p.total_paid, 0), 2) as computed_balance
+          COALESCE(l.tuition_fee::numeric,0) + COALESCE(l.misc_fee::numeric,0) + COALESCE(l.internship_fee::numeric,0) + 
+          COALESCE(l.computer_lab_fee::numeric,0) + COALESCE(l.chem_lab_fee::numeric,0) + COALESCE(l.aircon_fee::numeric,0) + 
+          COALESCE(l.shop_fee::numeric,0) + COALESCE(l.other_fees::numeric,0) + COALESCE(l.id_fee::numeric,0) + COALESCE(l.subscription_fee::numeric,0) - 
+          COALESCE(l.discount::numeric,0) + COALESCE(l.bank_account::numeric,0)
+        ) - COALESCE(p.total_paid, 0), 2) as computed_balance
       FROM students s
       LEFT JOIN student_ledgers l ON l.student_id = s.id
       LEFT JOIN (SELECT student_id, SUM(amount) as total_paid FROM payments GROUP BY student_id) p ON p.student_id = s.id
-      WHERE s.id=? AND s.deleted_at IS NULL
+      WHERE s.id=$1 AND s.deleted_at IS NULL
     `, [id]);
     if (!row) return res.status(404).json({ error: "Not found" });
     const finalBalance = row.computed_balance !== null ? row.computed_balance : row.tuition_balance;
@@ -1625,35 +1618,37 @@ app.post(
       amount: z.number().min(0.01),
       method: z.string().optional(),
       reference: z.string().optional(),
+      payment_type: z.string().optional(),
       status: z.enum(["posted","void","pending"]).optional()
     });
     const parsed = shape.safeParse(req.body || {});
     if (!parsed.success)
       return res.status(400).json({ error: "Invalid fields" });
-    const s = await get("SELECT 1 FROM students WHERE id=? AND deleted_at IS NULL", [
+    const s = await get("SELECT 1 FROM students WHERE id=$1 AND deleted_at IS NULL", [
       parsed.data.student_id,
     ]);
     if (!s) return res.status(404).json({ error: "Student not found" });
+
     await tx(async () => {
+      let ref = parsed.data.reference;
+      if (!ref || ref.trim() === "") {
+        const seqRow = await get("SELECT nextval('txn_seq') as seq");
+        ref = String(seqRow.seq).padStart(6, '0');
+      }
+
       await run(
-        "INSERT INTO payments (student_id, amount, method, reference, status) VALUES (?,?,?,?,?)",
+        "INSERT INTO payments (student_id, amount, method, reference, payment_type, status) VALUES ($1,$2,$3,$4,$5,$6)",
         [
           parsed.data.student_id,
           parsed.data.amount,
           parsed.data.method || null,
-          parsed.data.reference || null,
+          ref,
+          parsed.data.payment_type || "Tuition",
           parsed.data.status || "posted"
         ],
       );
-      // Decrease tuition balance automatically
-      const bal = await get("SELECT tuition_balance FROM students WHERE id=?", [
-        parsed.data.student_id,
-      ]);
-      const next = Number(bal?.tuition_balance || 0) - parsed.data.amount;
-      await run("UPDATE students SET tuition_balance=? WHERE id=?", [
-        next,
-        parsed.data.student_id,
-      ]);
+      // Removed legacy tuition_balance manual decrement code because balance 
+      // is now fully auto-computed using COALESCE via the GET /students endpoint!
       await logAction({
         userId: req.user.id,
         action: "CREATE",
