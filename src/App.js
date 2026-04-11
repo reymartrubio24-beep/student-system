@@ -412,7 +412,7 @@ export default function App() {
     if (role === "developer" || role === "owner") return true;
     if (role === "student") {
       if (action !== "read") return false;
-      return (module === "dashboard" || module === "profile" || module === "mypermits" || module === "subjects" || module === "grades" || module === "payments");
+      return (module === "dashboard" || module === "profile" || module === "mypermits" || module === "myledger" || module === "subjects" || module === "grades" || module === "payments");
     }
     const perms = auth?.permissions || {};
     if (perms["*"] && !!perms["*"][`can_${action}`]) return true;
@@ -429,6 +429,7 @@ export default function App() {
     ...(hasPerm("grades") ? [{ id: "grades", icon: "📝", label: role === "student" ? "My Grades" : "Grades" }] : []),
     ...(hasPerm("attendance") ? [{ id: "attendance", icon: "🗓️", label: "Attendance" }] : []),
     ...(role === "student" ? [{ id: "mypermits", icon: "🎫", label: "My Permits" }] : []),
+    ...(role === "student" ? [{ id: "myledger", icon: "📒", label: "My Ledger" }] : []),
     ...(hasPerm("permits") ? [{ id: "permits", icon: "🎫", label: "Student Permits" }] : []),
     ...(hasPerm("payments") ? [{ id: "payments", icon: "💳", label: role === "student" ? "My Payments" : "Payments" }] : []),
     ...(hasPerm("users") ? [{ id: "users", icon: "👥", label: "Users Admin" }] : []),
@@ -755,6 +756,7 @@ export default function App() {
             {page === "attendance" && hasPerm("attendance") && <AttendanceManage token={auth.token} role={role} students={students} subjects={subjects} canWrite={hasPerm("attendance", "write")} canDelete={hasPerm("attendance", "delete")} />}
             {page === "attendance" && role === "teacher" && <TeacherAttendanceDashboard token={auth.token} teacherUuid={auth?.uuid} subjects={subjects} />}
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
+            {page === "myledger" && role === "student" && <MyLedger token={auth.token} studentId={auth.student_id} authName={auth.full_name} authUsername={auth.username} />}
             {page === "permits"   && hasPerm("permits") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
             {page === "payments"  && hasPerm("payments") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("payments", "write")} canDelete={hasPerm("payments", "delete")} />}
             {page === "users"     && hasPerm("users") && <UsersAdmin token={auth.token} />}
@@ -2507,9 +2509,187 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
   };
 
   const handlePrint = () => {
-    setTimeout(() => {
-      window.print();
-    }, 200);
+    const studentName = (student?.name || "").toUpperCase();
+    const studentCourse = (student?.course || "").toUpperCase();
+    const studentYear = parsedYear || "";
+    const datePrinted = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+    const billOfPayment = ledger.bill_of_payment || "0.00";
+    const totalUnits = (parseInt(ledger.regular_units || regularUnits) || 0) + parseInt(ledger.petition_class || 0);
+    const fees = [
+      { label: "Tuition Fee:", val: ledger.tuition_fee },
+      { label: "Miscellaneous Fee:", val: ledger.misc_fee },
+      { label: "Internship Fee:", val: ledger.internship_fee },
+      { label: "Computer Lab. Fee:", val: ledger.computer_lab_fee },
+      { label: "Chem. Lab. Fee:", val: ledger.chem_lab_fee },
+      { label: "Aircon Fee:", val: ledger.aircon_fee },
+      { label: "Shop Fee:", val: ledger.shop_fee },
+      { label: "Other & New Fees:", val: ledger.other_fees },
+      { label: "I.D. Fee:", val: ledger.id_fee },
+      { label: "Subscription fee:", val: ledger.subscription_fee },
+    ];
+    const feeRows = fees.map(f => `<tr><td>${f.label}</td><td></td><td style="text-align:right">${f.val ? Number(f.val).toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td></tr>`).join('');
+    const blankRows = Array.from({length: 12}).map(() => `<tr style="height:25px"><td></td><td></td><td></td><td></td><td></td></tr>`).join('');
+    const totalChargesStr = totalCharges > 0 ? totalCharges.toLocaleString('en-US', {minimumFractionDigits:2}) : '-';
+    const totalFeesStr = totalFees > 0 ? totalFees.toLocaleString('en-US', {minimumFractionDigits:2}) : '-';
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Student Ledger - ${studentName}</title>
+  <style>
+    @page { size: landscape; margin: 0mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Times New Roman', serif; background: white; color: black; }
+    .spread { display: flex; width: 100vw; min-height: 100vh; page-break-after: always; break-after: page; }
+    .spread:last-child { page-break-after: auto; break-after: auto; }
+    .page { flex: 1; padding: 20mm 15mm; position: relative; border-right: 1px dashed #ccc; }
+    .page:last-child { border-right: none; }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .underline { text-decoration: underline; }
+    .exam-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+    .exam-box { border: 1px solid #aaa; height: 48px; display: flex; align-items: center; justify-content: center; font-style: italic; color: #888; font-size: 16px; }
+    .exam-box.full { grid-column: 1 / -1; width: 50%; margin: 0 auto; }
+    img.logo { width: 90px; height: 90px; border-radius: 50%; display: block; margin: 12px auto; object-fit: contain; }
+    .id-box { width: 90px; height: 90px; border: 1px solid #000; margin: 15px auto; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 9px; padding: 4px; }
+    .sig-line { border-top: 1px solid #000; width: 80%; margin: 30px 0 0 auto; text-align: center; padding-top: 4px; }
+    table.fees { width: 100%; font-size: 12px; margin-bottom: 8px; }
+    table.fees th { text-align: left; text-decoration: underline; padding: 2px 0; }
+    table.fees td { padding: 2px 3px; }
+    table.payments { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.payments th, table.payments td { border: 1px solid #000; padding: 4px; text-align: center; }
+    .proverb { position: absolute; left: 15px; top: 50%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; font-size: 10px; color: #555; white-space: nowrap; }
+    ol { font-size: 11px; padding-left: 18px; margin-top: 8px; line-height: 1.5; }
+    .footer-row { display: flex; justify-content: space-between; font-size: 10px; margin-top: 18px; }
+    .assessed-by { margin-top: 16px; font-size: 12px; }
+    .assessed-by .sig { border-bottom: 1px solid #000; width: 80%; margin: 12px 0 0 15px; text-align: center; padding-bottom: 2px; font-weight: bold; }
+    .assessed-by .role { text-align: center; width: 80%; margin-left: 15px; font-size: 11px; }
+    .checked-by .sig { border-bottom: 1px solid #000; width: 80%; margin: 12px 0 0 auto; text-align: center; padding-bottom: 2px; font-weight: bold; }
+    .checked-by .role { text-align: center; width: 80%; margin-left: auto; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+<!-- PAGE 1: Cover / Permit -->
+<div class="spread">
+  <!-- LEFT: Permit -->
+  <div class="page">
+    <div class="center bold" style="font-size:13px">${studentName} ${studentCourse} ${studentYear}</div>
+    <div class="center bold" style="font-size:15px;margin:8px 0">PERMIT</div>
+    <div class="center" style="font-style:italic;font-size:11px">Second Semester; SY: 2025-2026</div>
+    <div class="exam-boxes">
+      <div class="exam-box">1st Prelim</div>
+      <div class="exam-box">2nd Prelim</div>
+      <div class="exam-box">Midterm</div>
+      <div class="exam-box">Semi-Final</div>
+      <div class="exam-box full">Final</div>
+    </div>
+    <div style="margin-top:24px">
+      <div class="center bold underline">IMPORTANT</div>
+      <ol>
+        <li>This card is non-transferable and forfeited if alterations are made.</li>
+        <li>Attached your 1x1 picture in the box provided and affix your signature on the space provided.</li>
+        <li>This card is valid for one (1) semester only.</li>
+        <li>Please keep this card away from deteriorated.</li>
+        <li>A duplicate card will be issued only upon due payment of one hundred pesos (Php 100.00).</li>
+      </ol>
+      <div class="footer-row">
+        <i>Printed in YBVC, Pagadian City</i>
+        <i>Date Printed: ${datePrinted}</i>
+      </div>
+    </div>
+  </div>
+  <!-- RIGHT: Account Card Cover -->
+  <div class="page">
+    <div class="center bold" style="font-size:17px">YLLANA BAY VIEW COLLEGE, INC.</div>
+    <div class="center bold" style="color:darkgreen;font-size:13px;margin-top:4px">COLLEGE DEPARTMENT</div>
+    <div class="center" style="font-size:11px">Enerio St., Balangasan Dist., Pagadian City</div>
+    <div class="center" style="font-size:11px">Tel. No. (062) 2154-176</div>
+    <div class="center" style="font-style:italic;font-size:11px">"The Builder of Future Leaders"</div>
+    <img class="logo" src="${window.location.origin}/123.png" alt="Logo"/>
+    <div class="center bold" style="font-size:12px;margin-top:8px">STUDENT ACCOUNT AND PERMIT SECTION</div>
+    <div class="center bold" style="color:darkgreen;font-size:15px">STUDENT'S ACCOUNT CARD</div>
+    <div class="center" style="font-style:italic;font-size:11px">Second Semester; SY: 2025-2026</div>
+    <div class="id-box">Not Valid Without<br/>RECENT 1x1 ID<br/>Picture.<br/>Do Not staple,<br/>Paste it!</div>
+    <div style="margin-top:16px;font-size:12px;font-weight:bold">I'm, <span class="underline">${studentName} ${studentCourse} ${studentYear}</span></div>
+    <div style="font-size:11px;margin-top:4px;text-align:justify;text-indent:18px">I hereby promise and pledge to abide by and comply with all the rules and regulations of Yllana Bay View College.</div>
+    <div class="sig-line">
+      <div class="bold">${studentName} ${studentCourse} ${studentYear}</div>
+      <div style="font-size:10px;font-weight:normal">Signature Over Printed Name</div>
+    </div>
+    <div style="font-size:9px;margin-top:16px">REV. FORM: SAS 070-2017</div>
+  </div>
+</div>
+
+<!-- PAGE 2: Ledger / Payments -->
+<div class="spread">
+  <!-- LEFT: Assessment -->
+  <div class="page">
+    <div class="center bold" style="font-size:13px;letter-spacing:1px;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:10px">ASSESSMENT INFORMATION</div>
+    <table class="fees">
+      <thead><tr><th style="width:55%">DESCRIPTION</th><th style="width:20%;text-align:center">UNITS</th><th style="width:25%;text-align:right">AMOUNT</th></tr></thead>
+      <tbody>
+        <tr><td>Regular Units Enrolled:</td><td style="text-align:center">${ledger.regular_units !== undefined ? ledger.regular_units : regularUnits}</td><td></td></tr>
+        <tr><td>Petition Class :</td><td style="text-align:center">${ledger.petition_class || '0'}</td><td style="text-align:right">-</td></tr>
+        <tr><td>&nbsp;</td><td></td><td></td></tr>
+        <tr><td class="bold">Total Units Enrolled:</td><td style="text-align:center;font-weight:bold">${totalUnits}</td><td></td></tr>
+        <tr><td>&nbsp;</td><td></td><td></td></tr>
+        ${feeRows}
+        <tr><td class="bold" style="color:darkred">Current Account:</td><td></td><td style="text-align:right;color:darkred;font-weight:bold">${totalFeesStr}</td></tr>
+        <tr><td class="bold">Discount:</td><td></td><td style="text-align:right">${ledger.discount ? Number(ledger.discount).toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td></tr>
+        <tr><td class="bold">Back Account:</td><td></td><td style="text-align:right">${ledger.bank_account ? Number(ledger.bank_account).toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td></tr>
+        <tr><td class="bold" style="color:darkred">Total Charges:</td><td></td><td style="text-align:right;color:darkred;font-weight:bold">${totalChargesStr}</td></tr>
+      </tbody>
+    </table>
+    <div class="assessed-by">
+      <div class="bold">Assessed by:</div>
+      <div class="sig">Manrey C. Almario Jr.</div>
+      <div class="role">Student Account Officer III</div>
+    </div>
+    <div class="checked-by" style="margin-top:12px">
+      <div class="sig">Sherwin D. Maghuyop</div>
+      <div class="role">Student Account Chief</div>
+      <div style="display:inline-block"><strong>Checked by:</strong></div>
+    </div>
+  </div>
+  <!-- RIGHT: Payments -->
+  <div class="page" style="position:relative">
+    <div class="proverb">
+      Commit to the LORD whatever you do, and he will establish your plans. — Proverbs 16:3
+    </div>
+    <div class="center bold" style="font-size:13px;letter-spacing:1px;margin-bottom:10px">${studentName} ${studentCourse} ${studentYear}</div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:10px;font-size:12px;margin-bottom:12px">
+      <span style="color:darkred;font-weight:bold">BILL OF PAYMENT PER EXAM:</span>
+      <span style="border:1px solid darkred;border-radius:20px;padding:2px 14px;color:darkred;font-weight:bold">${billOfPayment}</span>
+    </div>
+    <table class="payments">
+      <thead>
+        <tr><th colspan="5" style="background:#eee;letter-spacing:1px">PAYMENTS</th></tr>
+        <tr><th style="width:15%">Dates</th><th style="width:25%">Receipts No.</th><th style="width:20%">Amount Paid</th><th style="width:25%">Balance</th><th style="width:15%">Cashier's Initial</th></tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="3"></td><td style="font-weight:bold;font-size:13px">${totalChargesStr}</td><td></td></tr>
+        ${blankRows}
+      </tbody>
+    </table>
+    <div style="margin-top:16px;font-size:12px;border:1px solid #ccc;min-height:60px;padding:5px">
+      <strong>Notes:</strong><br/>${ledger.notes || ''}
+    </div>
+  </div>
+</div>
+
+<script>window.onload = function(){ window.print(); };<\/script>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const popup = window.open(url, '_blank', 'width=1200,height=800');
+    if (!popup) {
+      alert('Please allow popups for this site to print the ledger. Look for the popup blocked icon in your browser address bar.');
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const totalFees = 
@@ -2528,14 +2708,51 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
         <style>{`
           @media print {
             @page { size: landscape; margin: 0mm; }
+            
+            html, body, #root { height: auto !important; overflow: visible !important; background: white !important; }
             body * { visibility: hidden; }
+            
+            /* Hide the large dashboard components to prevent them from pushing the booklet to the second page! */
+            .sidebar, .table-container, .App > .dashboard-container > :not(div[style*="inset: 0"]),
+            h1:not(.glow-text), h2, h3, h4, PageHeader, button:not(.no-print), select, input:not(.paper-input) {
+                display: none !important;
+                position: absolute !important;
+                height: 0 !important;
+            }
+
+            /* Break out of Modal fixed constraints so browser paginates multiple pages */
+            div[style*="inset: 0"], .glass-card, .ledger-modal-content {
+                position: static !important;
+                display: block !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                transform: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+            }
+
             .ledger-printable, .ledger-printable * { visibility: visible; }
-            .ledger-printable { position: absolute; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; background: white !important; }
+            .ledger-printable { 
+                position: static !important; /* Must be static for pagination to work */
+                display: block !important;
+                width: 100vw; 
+                background: white !important; 
+            }
             .no-print { display: none !important; }
             .ledger-printable input, .ledger-printable textarea { border: none !important; background: transparent !important; color: black !important; resize: none; appearance: none; }
+            
+            .print-page { display: flex !important; page-break-after: always; break-after: page; }
+            .print-page:last-child { page-break-after: auto; break-after: auto; }
+            .screen-only-hide { display: flex !important; }
+            
             .booklet-spread { max-width: 100% !important; margin: 0 !important; border: none !important; box-shadow: none !important; margin-top: 5mm !important; }
             .booklet-page { padding: 15mm !important; border: none !important; height: 100%; border-right: 1px dashed #ccc !important; }
             .right-page { border-right: none !important; }
+          }
+          @media screen {
+            .screen-only-hide { display: none !important; }
           }
           
           /* BOOKLET CSS */
@@ -2549,13 +2766,18 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
           
           .proverb-text {
             position: absolute;
-            left: -13px;
+            left: 20px;
             top: 50%;
-            transform: translateY(-50%) rotate(-90deg);
-            white-space: nowrap;
-            font-size: 10px;
+            width: 400px;
+            height: 45px;
+            margin-left: -200px;
+            margin-top: -22.5px;
+            transform: rotate(-90deg);
+            text-align: center;
+            font-size: 11px;
             color: #555;
             letter-spacing: 1px;
+            line-height: 1.3;
           }
           
           .cover-logo { width: 100px; height: 100px; border-radius: 50%; background: #eee; border: 2px solid #ccc; display: block; margin: 15px auto; }
@@ -2564,7 +2786,8 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
           .exam-box.centered { grid-column: 1 / -1; width: 50%; margin: 0 auto; }
           
           /* Transparent Input styling for direct editing */
-          .paper-input { width: 100%; border: none !important; background: rgba(0,0,0,0.03); outline: none; font-family: 'Times New Roman', serif; font-size: 13px; text-align: right; padding: 2px 5px; box-sizing: border-box; }
+          .paper-input { width: 100%; border: none !important; background: rgba(0,0,0,0.03); outline: none; font-family: 'Times New Roman', serif; font-size: 13px; text-align: right; padding: 2px 5px; box-sizing: border-box; color: black !important; }
+          .paper-input::placeholder { color: rgba(0,0,0,0.3) !important; }
           .paper-input:focus { background: rgba(59, 130, 246, 0.1); border-bottom: 1px solid #3b82f6 !important; }
           .paper-input-center { text-align: center; }
           .paper-input-left { text-align: left; }
@@ -2580,8 +2803,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
 
         <div className="ledger-printable" style={{ position: "relative" }}>
           
-          {page === 1 && (
-            <div className="booklet-spread">
+          <div className={`booklet-spread print-page ${page !== 1 ? 'screen-only-hide' : ''}`}>
               <div className="booklet-page left-page">
                  <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14 }}>
                     {(student?.name||"").toUpperCase()} {(student?.course||"").toUpperCase()} {parsedYear}
@@ -2641,12 +2863,10 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
                  </div>
                  <div style={{ fontSize: 9, marginTop: 20 }}>REV. FORM: SAS 070-2017</div>
               </div>
-            </div>
-          )}
+          </div>
 
-          {page === 2 && (
-            <div className="booklet-spread">
-              <div className="booklet-page left-page">
+          <div className={`booklet-spread print-page ${page !== 2 ? 'screen-only-hide' : ''}`}>
+            <div className="booklet-page left-page">
                  <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14, letterSpacing: 1, borderBottom: '2px solid #000', paddingBottom: 4, marginBottom: 10 }}>
                    ASSESSMENT INFORMATION
                  </div>
@@ -2742,7 +2962,11 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
               </div>
               
               <div className="booklet-page right-page">
-                 <div className="proverb-text">Commit to the LORD whatever you do, and he will establish your plans. Proverbs 16:3</div>
+                 <div className="proverb-text">
+                   <div>Commit to the LORD whatever you do,</div>
+                   <div>and he will establish your plans.</div>
+                   <div style={{ marginTop: 2, fontWeight: 'bold' }}>Proverbs 16:3</div>
+                 </div>
                  
                  <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14, letterSpacing: 1, marginBottom: 10 }}>
                    {(student?.name||"").toUpperCase()} {(student?.course||"").toUpperCase()} {parsedYear || ""}
@@ -2774,34 +2998,11 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
                        <td style={{ fontWeight: 'bold', fontSize: 14 }}>{totalCharges.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
                        <td></td>
                      </tr>
-                     {(() => {
-                        let rBal = totalCharges;
-                        // Show minimum 12 rows to cover the booklet size
-                        const emptyRowsCount = Math.max(0, 12 - payments.length);
-                        
-                        const renderRows = [];
-                        payments.forEach((p, index) => {
-                          rBal -= parseFloat(p.amount||0);
-                          renderRows.push(
-                            <tr key={`p-${index}`}>
-                              <td>{new Date(p.created_at).toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'2-digit'})}</td>
-                              <td>{p.reference || "-"}</td>
-                              <td style={{ fontWeight: 'bold' }}>{parseFloat(p.amount||0).toLocaleString('en-US', {minimumFractionDigits:0})}</td>
-                              <td style={{ fontWeight: 'bold' }}>{rBal.toLocaleString('en-US', {minimumFractionDigits:0})}</td>
-                              <td style={{ fontStyle: 'italic' }}>sys</td>
-                            </tr>
-                          );
-                        });
-                        
-                        for (let i = 0; i < emptyRowsCount; i++) {
-                          renderRows.push(
-                            <tr key={`e-${i}`} style={{height: 25}}>
-                              <td></td><td></td><td></td><td></td><td></td>
-                            </tr>
-                          );
-                        }
-                        return renderRows;
-                     })()}
+                     {Array.from({ length: 12 }).map((_, i) => (
+                       <tr key={`e-${i}`} style={{height: 25}}>
+                         <td></td><td></td><td></td><td></td><td></td>
+                       </tr>
+                     ))}
                    </tbody>
                  </table>
                  
@@ -2816,10 +3017,8 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
                  </div>
               </div>
             </div>
-          )}
-
+          </div>
         </div>
-      </div>
     </Modal>
   );
 }
@@ -4241,6 +4440,148 @@ function RolePermissionsView({ token, auth, syncAuth }) {
             </table>
           </Card>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function MyLedger({ token, studentId, authName, authUsername }) {
+  const [ledger, setLedger] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!studentId) {
+      setError('No student ID linked to your account. Contact admin.');
+      setLoading(false);
+      return;
+    }
+    let mounted = true;
+    const load = async () => {
+      try {
+        const ledgerData = await api(`/ledgers/${encodeURIComponent(studentId)}`, {}, token);
+        if (mounted) {
+          setLedger(ledgerData);
+          setLoading(false);
+        }
+      } catch (e) {
+        if (mounted) { setError(e.message); setLoading(false); }
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [studentId, token]);
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-dim)' }}>Loading your ledger...</div>;
+  if (error) return <div style={{ textAlign: 'center', padding: 60, color: '#f87171', fontWeight: 600 }}>&#10060; {error}</div>;
+  if (!ledger) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-dim)' }}>No ledger record found.</div>;
+
+  const displayName = authName || authUsername || studentId;
+  const feeItems = [
+    { label: 'Tuition Fee', key: 'tuition_fee' },
+    { label: 'Miscellaneous Fee', key: 'misc_fee' },
+    { label: 'Internship Fee', key: 'internship_fee' },
+    { label: 'Computer Lab. Fee', key: 'computer_lab_fee' },
+    { label: 'Chem. Lab. Fee', key: 'chem_lab_fee' },
+    { label: 'Aircon Fee', key: 'aircon_fee' },
+    { label: 'Shop Fee', key: 'shop_fee' },
+    { label: 'Other & New Fees', key: 'other_fees' },
+    { label: 'I.D. Fee', key: 'id_fee' },
+    { label: 'Subscription Fee', key: 'subscription_fee' },
+  ];
+  const totalFees = feeItems.reduce((s, f) => s + Number(ledger[f.key] || 0), 0);
+  const totalCharges = totalFees - Number(ledger.discount || 0) + Number(ledger.bank_account || 0);
+  const fmt = n => Number(n) > 0 ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 }) : 'n/a';
+
+  return (
+    <div>
+      <PageHeader title="My Ledger" sub="Your current semester billing and payment record" />
+      <div className="glass-card" style={{ padding: '20px 28px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'white' }}>{displayName}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>
+            <code style={{ background: '#1e293b', padding: '2px 8px', borderRadius: 6, color: '#44d7ff', fontWeight: 700, fontSize: 12 }}>{studentId}</code>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Total Charges</div>
+          <div style={{ fontSize: 30, fontWeight: 800, color: totalCharges > 0 ? '#f87171' : '#4ade80' }}>&#8369;{fmt(totalCharges)}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>Second Semester � SY 2025-2026</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        <div className="glass-card" style={{ padding: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--neon-blue)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border-color)' }}>Assessment Information</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, color: 'var(--text-dim)' }}>
+            <span>Regular Units Enrolled</span><span style={{ fontWeight: 700, color: 'white' }}>{ledger.regular_units ?? 'n/a'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 14, color: 'var(--text-dim)' }}>
+            <span>Petition Class</span><span style={{ fontWeight: 700, color: 'white' }}>{ledger.petition_class || '0'}</span>
+          </div>
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 10, marginBottom: 10 }}>
+            {feeItems.map(f => Number(ledger[f.key] || 0) > 0 && (
+              <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--text-dim)' }}>
+                <span>{f.label}</span><span style={{ fontWeight: 600, color: 'white' }}>&#8369;{fmt(Number(ledger[f.key]))}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--text-dim)' }}>
+              <span>Current Account</span><span style={{ fontWeight: 700, color: '#f87171' }}>&#8369;{fmt(totalFees)}</span>
+            </div>
+            {Number(ledger.discount || 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--text-dim)' }}>
+                <span>Discount</span><span style={{ fontWeight: 700, color: '#4ade80' }}>- &#8369;{fmt(Number(ledger.discount))}</span>
+              </div>
+            )}
+            {Number(ledger.bank_account || 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--text-dim)' }}>
+                <span>Back Account</span><span style={{ fontWeight: 700, color: '#fbbf24' }}>&#8369;{fmt(Number(ledger.bank_account))}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '10px 0 0', fontWeight: 800, borderTop: '1px solid var(--border-color)', marginTop: 6 }}>
+              <span style={{ color: 'white' }}>Total Charges</span><span style={{ color: '#f87171' }}>&#8369;{fmt(totalCharges)}</span>
+            </div>
+          </div>
+          {ledger.notes && (
+            <div style={{ marginTop: 14, padding: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 12, color: 'var(--text-dim)', borderLeft: '3px solid var(--neon-blue)' }}>
+              <strong style={{ color: 'white' }}>Notes:</strong> {ledger.notes}
+            </div>
+          )}
+        </div>
+        <div className="glass-card" style={{ padding: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--neon-blue)', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border-color)' }}>Payment History</div>
+          {ledger.bill_of_payment && (
+            <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 10 }}>
+              Bill per Exam: <span style={{ fontWeight: 700, color: '#f87171' }}>&#8369;{fmt(Number(ledger.bill_of_payment))}</span>
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12, fontStyle: 'italic' }}>Payments are recorded manually by the cashier. Visit the SAPS office for inquiries.</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
+                {['Date', 'Receipt No.', 'Amount Paid', 'Balance', "Cashier's Initial"].map(h => (
+                  <th key={h} style={{ padding: '9px 6px', textAlign: 'center', color: 'var(--neon-blue)', fontWeight: 700, fontSize: 10, textTransform: 'uppercase', borderBottom: '1px solid var(--border-color)' }}>{h}</th>
+                ))}
+              </tr>
+              <tr>
+                <td colSpan={3} />
+                <td style={{ padding: '6px', textAlign: 'center', fontWeight: 800, color: '#f87171', fontSize: 13, borderBottom: '1px solid var(--border-color)' }}>&#8369;{fmt(totalCharges)}</td>
+                <td style={{ borderBottom: '1px solid var(--border-color)' }} />
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 10 }).map((_, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', height: 30 }}>
+                  <td /><td /><td /><td /><td />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 12, fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'right' }}>
+            Assessed by: Manrey C. Almario Jr. � Checked by: Sherwin D. Maghuyop
+          </div>
+        </div>
       </div>
     </div>
   );

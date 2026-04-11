@@ -33,7 +33,8 @@ app.use(helmet());
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : ["http://localhost:3000", "http://localhost:5173", "http://localhost:4000"];
 app.use(cors({ origin: allowedOrigins, credentials: false }));
 app.use(express.json({ limit: "1mb" }));
-app.use(morgan("dev"));
+morgan.token('time', () => new Date().toLocaleTimeString());
+app.use(morgan('[:time] :method :url :status :response-time ms - :res[content-length]'));
 
 app.get("/health", (_, res) => res.json({ ok: true }));
 app.post("/auth/login", loginHandler);
@@ -1887,7 +1888,7 @@ app.get("/students/:id/subjects", authRequired, requireRole("students"), async (
       `, [id]);
   res.json(rows);
 });
-app.get("/ledgers/:id", authRequired, requireRole("students"), async (req, res) => {
+app.get("/ledgers/:id", authRequired, async (req, res) => {
   const id = String(req.params.id);
   if (req.user.role === "student" && id !== req.user.student_id) return res.status(403).json({ error: "Forbidden" });
   let ledger = await get("SELECT * FROM student_ledgers WHERE student_id = ?", [id]);

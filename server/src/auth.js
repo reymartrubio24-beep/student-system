@@ -53,7 +53,7 @@ export function requireRole(module, action = "read") {
     }
 
     // Intrinsically allow students to read their own data without explicit RBAC
-    if (role === "student" && action === "read" && ["grades", "payments", "permits", "student_permits", "attendance", "subjects"].includes(module)) {
+    if (role === "student" && action === "read" && ["grades", "payments", "permits", "student_permits", "attendance", "subjects", "ledgers"].includes(module)) {
       return next(); // Security: endpoint logic enforces student_id filtering
     }
 
