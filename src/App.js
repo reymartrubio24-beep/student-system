@@ -2266,7 +2266,9 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
               <option value="Other">Other</option>
             </Select>
             <Input label="Transaction No:" value={reference} onChange={e => setReference(e.target.value)} placeholder="Auto-generated if empty" />
-            <Btn variant="primary" onClick={submitPayment} disabled={!studentId || !amount}>Record</Btn>
+            <div style={{ marginBottom: 16 }}>
+              <Btn variant="primary" onClick={submitPayment} disabled={!studentId || !amount} style={{ width: "100%", padding: "12px 16px" }}>Record</Btn>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
             <Btn variant="outline" onClick={loadBalance} disabled={!studentId}>Load Balance & History</Btn>
