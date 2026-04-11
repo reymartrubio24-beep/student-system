@@ -2556,7 +2556,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
     const studentCourse = (student?.course || "").toUpperCase();
     const studentYear = parsedYear || "";
     const datePrinted = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-    const billOfPayment = ledger.bill_of_payment || "0.00";
+    const billOfPayment = totalCharges > 0 ? (totalCharges / 5).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "0.00";
     const totalUnits = (parseInt(ledger.regular_units || regularUnits) || 0) + parseInt(ledger.petition_class || 0);
     const fees = [
       { label: "Tuition Fee:", val: ledger.tuition_fee },
@@ -3029,8 +3029,8 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) 
                  
                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, fontSize: 13, marginBottom: 15 }}>
                    <span style={{ color: 'darkred', fontWeight: 'bold' }}>BILL OF PAYMENT PER EXAM:</span>
-                   <span style={{ border: '1px solid darkred', borderRadius: '20px', padding: '2px 15px', color: 'darkred', fontWeight: 'bold' }}>
-                     <input className="paper-input paper-input-center bold-val" style={{ color: 'darkred', background: 'transparent' }} value={ledger.bill_of_payment||""} onChange={e => setLedger({...ledger, bill_of_payment: e.target.value})} placeholder="0.00" />
+                   <span style={{ border: '1px solid darkred', borderRadius: '20px', padding: '2px 15px', color: 'darkred', fontWeight: 'bold', display: 'inline-block', minWidth: 60, textAlign: 'center' }}>
+                     {totalCharges > 0 ? (totalCharges / 5).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "0.00"}
                    </span>
                  </div>
                  
@@ -3252,19 +3252,6 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
                         <Td>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             ₱{Number(s.tuition_balance || 0).toFixed(2)}
-                            {canWrite && (
-                              <Btn variant="outline" onClick={async () => {
-                                const val = prompt("Set Tuition Balance (₱)", Number(s.tuition_balance || 0));
-                                if (val === null) return;
-                                const amt = Number(val);
-                                if (!Number.isFinite(amt)) return alert("Invalid amount");
-                                try {
-                                  await api(`/students/${encodeURIComponent(s.id)}/tuition-balance`, { method: "PUT", body: { amount: amt } }, token);
-                                  const data = await api("/students", {}, token);
-                                  setStudents(data);
-                                } catch (e) { alert(e.message); }
-                              }} style={{ fontSize: 11, padding: "3px 8px" }}>Set</Btn>
-                            )}
                             <Btn variant="success" onClick={() => setLedgerStudent(s.id)} style={{ fontSize: 11, padding: "3px 8px", background: "#3b82f6", borderColor: "#3b82f6", marginLeft: 4 }}>📓 Ledger</Btn>
                           </div>
                         </Td>
@@ -4606,9 +4593,9 @@ function MyLedger({ token, studentId, authName, authUsername }) {
         </div>
         <div className="glass-card" style={{ padding: 24 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--neon-blue)', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border-color)' }}>Payment History</div>
-          {ledger.bill_of_payment && (
+          {totalCharges > 0 && (
             <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 10 }}>
-              Bill per Exam: <span style={{ fontWeight: 700, color: '#f87171' }}>&#8369;{fmt(Number(ledger.bill_of_payment))}</span>
+              Bill per Exam: <span style={{ fontWeight: 700, color: '#f87171' }}>&#8369;{fmt(totalCharges / 5)}</span>
             </div>
           )}
           <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12, fontStyle: 'italic' }}>Payments are recorded manually by the cashier. Visit the SAPS office for inquiries.</div>

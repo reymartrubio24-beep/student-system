@@ -689,15 +689,29 @@ const gradeSchema = z.object({
 
 app.get("/students", authRequired, requireRole("students"), async (req, res) => {
   const { role } = req.user;
+  
+  const query = `
+    SELECT s.*, 
+      ROUND((
+        IFNULL(l.tuition_fee,0) + IFNULL(l.misc_fee,0) + IFNULL(l.internship_fee,0) + 
+        IFNULL(l.computer_lab_fee,0) + IFNULL(l.chem_lab_fee,0) + IFNULL(l.aircon_fee,0) + 
+        IFNULL(l.shop_fee,0) + IFNULL(l.other_fees,0) + IFNULL(l.id_fee,0) + IFNULL(l.subscription_fee,0) - 
+        IFNULL(l.discount,0) + IFNULL(l.bank_account,0)
+      ) - IFNULL(p.total_paid, 0), 2) as computed_balance
+    FROM students s
+    LEFT JOIN student_ledgers l ON l.student_id = s.id
+    LEFT JOIN (SELECT student_id, SUM(amount) as total_paid FROM payments GROUP BY student_id) p ON p.student_id = s.id
+    WHERE s.deleted_at IS NULL
+  `;
+
   if (role === "student") {
-    const row = await get(
-      "SELECT * FROM students WHERE id=? AND deleted_at IS NULL",
-      [req.user.student_id],
-    );
+    const row = await get(query + " AND s.id=?", [req.user.student_id]);
+    if (row) { row.tuition_balance = row.computed_balance !== null ? row.computed_balance : row.tuition_balance; }
     return res.json(row ? [row] : []);
   }
 
-  const rows = await all("SELECT * FROM students WHERE deleted_at IS NULL");
+  const rows = await all(query);
+  rows.forEach(r => { r.tuition_balance = r.computed_balance !== null ? r.computed_balance : r.tuition_balance; });
   res.json(rows);
 });
 
@@ -1554,12 +1568,22 @@ app.get(
   requireRole("payments", "read"),
   async (req, res) => {
     const id = req.params.id;
-    const row = await get(
-      "SELECT tuition_balance FROM students WHERE id=? AND deleted_at IS NULL",
-      [id],
-    );
+    const row = await get(`
+      SELECT s.tuition_balance,
+        ROUND((
+          IFNULL(l.tuition_fee,0) + IFNULL(l.misc_fee,0) + IFNULL(l.internship_fee,0) + 
+          IFNULL(l.computer_lab_fee,0) + IFNULL(l.chem_lab_fee,0) + IFNULL(l.aircon_fee,0) + 
+          IFNULL(l.shop_fee,0) + IFNULL(l.other_fees,0) + IFNULL(l.id_fee,0) + IFNULL(l.subscription_fee,0) - 
+          IFNULL(l.discount,0) + IFNULL(l.bank_account,0)
+        ) - IFNULL(p.total_paid, 0), 2) as computed_balance
+      FROM students s
+      LEFT JOIN student_ledgers l ON l.student_id = s.id
+      LEFT JOIN (SELECT student_id, SUM(amount) as total_paid FROM payments GROUP BY student_id) p ON p.student_id = s.id
+      WHERE s.id=? AND s.deleted_at IS NULL
+    `, [id]);
     if (!row) return res.status(404).json({ error: "Not found" });
-    res.json({ id, tuition_balance: Number(row.tuition_balance || 0) });
+    const finalBalance = row.computed_balance !== null ? row.computed_balance : row.tuition_balance;
+    res.json({ id, tuition_balance: Number(finalBalance || 0) });
   },
 );
 app.put(
