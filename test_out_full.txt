@@ -1,6 +1,0 @@
---- Testing Attendance System ---
-Token Received: null
-Login: OK
-Create Table Status: 401
-Create Table Data: { error: 'Invalid token' }
-List Tables Error: 401 { error: 'Invalid token' }

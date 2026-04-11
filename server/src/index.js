@@ -1887,6 +1887,37 @@ app.get("/students/:id/subjects", authRequired, requireRole("students"), async (
       `, [id]);
   res.json(rows);
 });
+app.get("/ledgers/:id", authRequired, requireRole("students"), async (req, res) => {
+  const id = String(req.params.id);
+  if (req.user.role === "student" && id !== req.user.student_id) return res.status(403).json({ error: "Forbidden" });
+  let ledger = await get("SELECT * FROM student_ledgers WHERE student_id = ?", [id]);
+  if (!ledger) {
+    ledger = {
+      student_id: id, petition_class: "", regular_units: "", total_units: "", tuition_fee: 0, misc_fee: 0, internship_fee: 0,
+      computer_lab_fee: 0, chem_lab_fee: 0, aircon_fee: 0, shop_fee: 0, other_fees: 0,
+      id_fee: 0, subscription_fee: 0, discount: 0, bank_account: "", bill_of_payment: "", notes: ""
+    };
+  }
+  res.json(ledger);
+});
+
+app.put("/ledgers/:id", authRequired, requireRole("students", "write"), async (req, res) => {
+  const id = String(req.params.id);
+  const data = req.body;
+  const existing = await get("SELECT student_id FROM student_ledgers WHERE student_id = ?", [id]);
+  if (existing) {
+    await run(`UPDATE student_ledgers SET 
+      petition_class = ?, regular_units = ?, total_units = ?, tuition_fee = ?, misc_fee = ?, internship_fee = ?, computer_lab_fee = ?, chem_lab_fee = ?, aircon_fee = ?, shop_fee = ?, other_fees = ?, id_fee = ?, subscription_fee = ?, discount = ?, bank_account = ?, bill_of_payment = ?, notes = ? WHERE student_id = ?`,
+      [data.petition_class, data.regular_units, data.total_units, data.tuition_fee, data.misc_fee, data.internship_fee, data.computer_lab_fee, data.chem_lab_fee, data.aircon_fee, data.shop_fee, data.other_fees, data.id_fee, data.subscription_fee, data.discount, data.bank_account, data.bill_of_payment, data.notes, id]);
+  } else {
+    await run(`INSERT INTO student_ledgers (student_id, petition_class, regular_units, total_units, tuition_fee, misc_fee, internship_fee, computer_lab_fee, chem_lab_fee, aircon_fee, shop_fee, other_fees, id_fee, subscription_fee, discount, bank_account, bill_of_payment, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, data.petition_class, data.regular_units, data.total_units, data.tuition_fee, data.misc_fee, data.internship_fee, data.computer_lab_fee, data.chem_lab_fee, data.aircon_fee, data.shop_fee, data.other_fees, data.id_fee, data.subscription_fee, data.discount, data.bank_account, data.bill_of_payment, data.notes]);
+  }
+  await logAction({ userId: req.user.id, action: "UPDATE", entity: "student_ledger", entityId: id });
+  res.json({ ok: true });
+});
+
 app.delete(
   "/subjects/:id",
   authRequired,

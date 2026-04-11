@@ -52,6 +52,11 @@ export function requireRole(module, action = "read") {
       return next();
     }
 
+    // Intrinsically allow students to read their own data without explicit RBAC
+    if (role === "student" && action === "read" && ["grades", "payments", "permits", "student_permits", "attendance", "subjects"].includes(module)) {
+      return next(); // Security: endpoint logic enforces student_id filtering
+    }
+
     // 2. Fallback to role-based permission
     const permission = await get(
       `SELECT ${column} FROM "authorization" WHERE role=$1 AND (module=$2 OR module='*')`,
@@ -163,12 +168,13 @@ export async function loginHandler(req, res) {
   await logAction({ userId: user.id, action: "LOGIN", entity: "user", entityId: String(user.id), details: { username } });
   
   // Fetch with potential student fallback
-  const finalUser = await get(`
-    SELECT u.*, s.name as student_full_name 
-    FROM users u 
-    LEFT JOIN students s ON u.student_id = s.id 
-    WHERE u.id = ?
-  `, [user.id]);
+  const finalUser = await get(
+    `SELECT u.*, COALESCE(u.student_id, s.id) as student_id, s.name as student_full_name 
+     FROM users u 
+     LEFT JOIN students s ON s.id = u.student_id OR s.id = u.username OR LOWER(s.name) LIKE '%' || LOWER(u.username) || '%'
+     WHERE u.id = ? LIMIT 1`, 
+    [user.id]
+  );
   
   const authRecords = await all("SELECT module, can_read, can_write, can_delete FROM \"authorization\" WHERE role=?", [finalUser.role]);
   const userPerms = await all("SELECT module, can_read, can_write, can_delete FROM user_permissions WHERE user_id=?", [finalUser.id]);

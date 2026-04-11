@@ -1,79 +1,58 @@
-import { spawn } from "child_process";
-import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
+const { spawn } = require('child_process');
+const path = require('path');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const fetchJson = async (url) => {
-  try {
-    const r = await fetch(url, { method: "GET" });
-    return { ok: r.ok, status: r.status };
-  } catch {
-    return { ok: false, status: 0 };
-  }
+// Colors for output
+const colors = {
+  reset: "\x1b[0m",
+  cyan: "\x1b[36m",
+  green: "\x1b[32m",
+  red: "\x1b[31m"
 };
 
-const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-
-let backendProc = null;
-let lastStart = Date.now();
-
-const startBackend = () => {
-  const serverDir = resolve(__dirname, "server");
-  process.stdout.write(`[start-all] Starting backend... ${new Date().toLocaleTimeString()}\n`);
-  lastStart = Date.now();
-  const p = spawn("node", ["src/index.js"], {
-    cwd: serverDir,
-    stdio: "inherit",
-    shell: false,
-    env: { ...process.env },
+function runProcess(name, command, args, cwd, color) {
+  console.log(`${color}Starting ${name}...${colors.reset}`);
+  const child = spawn(command, args, { 
+    cwd: cwd, 
+    shell: true,
+    stdio: 'pipe'
   });
-  p.on("exit", (code) => {
-    const runtime = Date.now() - lastStart;
-    const isFast = runtime < 5000;
-    process.stdout.write(`\n[start-all] Backend exited (code ${code}) after ${runtime}ms. ${isFast ? "Crash protection: Waiting 10s before restart." : "Restarting in 2s."}\n`);
-    setTimeout(() => {
-      try { backendProc = startBackend(); } catch (err) {}
-    }, isFast ? 10000 : 2000);
+
+  child.stdout.on('data', (data) => {
+    const lines = data.toString().split('\n').filter(line => line.trim());
+    for (const line of lines) {
+      console.log(`${color}[${name}]${colors.reset} ${line}`);
+    }
   });
-  p.on("error", (e) => process.stdout.write(`[start-all] Backend error: ${e?.message || "unknown"}\n`));
-  return p;
-};
 
-const startFrontend = () => {
-  process.stdout.write(`[start-all] Starting frontend...\n`);
-  const p = spawn("npx", ["react-scripts", "start"], {
-    cwd: __dirname,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-    env: { ...process.env, BROWSER: "none" },
+  child.stderr.on('data', (data) => {
+    const lines = data.toString().split('\n').filter(line => line.trim());
+    for (const line of lines) {
+      console.error(`${colors.red}[${name} ERROR]${colors.reset} ${line}`);
+    }
   });
-  p.on("exit", (code) => process.stdout.write(`[start-all] Frontend exited (code ${code})\n`));
-  p.on("error", (e) => process.stdout.write(`[start-all] Frontend error: ${e?.message || "unknown"}\n`));
-  return p;
+
+  child.on('close', (code) => {
+    console.log(`${color}[${name}] exited with code ${code}${colors.reset}`);
+  });
+
+  return child;
+}
+
+// Start Backend
+const backendCwd = path.join(__dirname, 'server');
+const backendProcess = runProcess('Backend', 'npm', ['start'], backendCwd, colors.cyan);
+
+// Start Frontend
+const frontendCwd = __dirname;
+const frontendProcess = runProcess('Frontend', 'npm', ['start'], frontendCwd, colors.green);
+
+// Handle termination
+const cleanup = () => {
+  console.log('\nShutting down...');
+  backendProcess.kill('SIGTERM');
+  frontendProcess.kill('SIGTERM');
+  process.exit();
 };
 
-const ensureServerUp = async (retries = 20) => {
-  for (let i = 0; i < retries; i++) {
-    const ok = await fetchJson("http://localhost:4000/health");
-    if (ok.ok) return true;
-    await wait(500);
-  }
-  return false;
-};
-
-(async () => {
-  backendProc = startBackend();
-  const up = await ensureServerUp();
-  if (up) {
-    const frontendProc = startFrontend();
-    process.on("SIGINT", () => {
-      backendProc?.kill();
-      frontendProc?.kill();
-      process.exit();
-    });
-  } else {
-    process.stdout.write("[start-all] Backend failed to healthcheck. Please check logs.\n");
-  }
-})();
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);

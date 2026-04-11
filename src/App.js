@@ -335,6 +335,7 @@ export default function App() {
   const [title, setTitle] = useState(() => localStorage.getItem("appTitle") || "Student Subject Management & Tracking System");
   const [logo, setLogo] = useState(() => localStorage.getItem("appLogo") || "");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [changePassOpen, setChangePassOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -351,14 +352,14 @@ export default function App() {
     }
   };
 
-  const syncAuth = a => {
+  const syncAuth = useCallback(a => {
     setAuth(a);
     if (a) {
       localStorage.setItem("auth", JSON.stringify(a));
     } else {
       localStorage.removeItem("auth");
     }
-  };
+  }, []);
 
   const navigate = (p) => {
     setPage(p);
@@ -410,7 +411,8 @@ export default function App() {
   const hasPerm = useCallback((module, action = "read") => {
     if (role === "developer" || role === "owner") return true;
     if (role === "student") {
-      if (module === "dashboard" || module === "profile" || module === "mypermits") return true;
+      if (action !== "read") return false;
+      return (module === "dashboard" || module === "profile" || module === "mypermits" || module === "subjects" || module === "grades" || module === "payments");
     }
     const perms = auth?.permissions || {};
     if (perms["*"] && !!perms["*"][`can_${action}`]) return true;
@@ -424,12 +426,11 @@ export default function App() {
     ...(hasPerm("students") ? [{ id: "students", icon: "👤", label: "Students" }] : []),
     ...(hasPerm("students") ? [{ id: "studentmgmt", icon: "🧭", label: "Student Management" }] : []),
     ...(hasPerm("subjects") ? [{ id: "subjects", icon: "📚", label: role === "student" ? "My Schedule" : "Subjects" }] : []),
-    ...(hasPerm("grades") ? [{ id: "grades", icon: "📝", label: "Grades" }] : []),
+    ...(hasPerm("grades") ? [{ id: "grades", icon: "📝", label: role === "student" ? "My Grades" : "Grades" }] : []),
     ...(hasPerm("attendance") ? [{ id: "attendance", icon: "🗓️", label: "Attendance" }] : []),
     ...(role === "student" ? [{ id: "mypermits", icon: "🎫", label: "My Permits" }] : []),
     ...(hasPerm("permits") ? [{ id: "permits", icon: "🎫", label: "Student Permits" }] : []),
-    ...(hasPerm("payments") ? [{ id: "payments", icon: "💳", label: "Payments" }] : []),
-    ...(role === "student" ? [{ id: "profile", icon: "👤", label: "My Profile" }] : []),
+    ...(hasPerm("payments") ? [{ id: "payments", icon: "💳", label: role === "student" ? "My Payments" : "Payments" }] : []),
     ...(hasPerm("users") ? [{ id: "users", icon: "👥", label: "Users Admin" }] : []),
     ...(hasPerm("logs") ? [{ id: "logs", icon: "📜", label: "System Logs" }] : []),
     ...(hasPerm("rolepermissions") ? [{ id: "rolepermissions", icon: "🔐", label: "Role Permissions" }] : []),
@@ -449,7 +450,7 @@ export default function App() {
       timer = setInterval(syncPermissions, 10000);
     }
     return () => clearInterval(timer);
-  }, [auth?.token, auth?.permissions]);
+  }, [auth, syncAuth]);
 
   useEffect(() => {
     let mounted = true;
@@ -649,10 +650,10 @@ export default function App() {
              {sidebarExpanded && (
                <>
                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                   <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent-gradient)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "white" }}>
+                   <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent-gradient)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "white", flexShrink: 0 }}>
                      {auth.full_name ? auth.full_name.slice(0, 2).toUpperCase() : auth.username.slice(0, 2).toUpperCase()}
                    </div>
-                   <div style={{ overflow: "hidden" }}>
+                   <div style={{ overflow: "hidden", flex: 1 }}>
                      <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
                        {auth.full_name || auth.username}
                      </div>
@@ -661,6 +662,9 @@ export default function App() {
                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} /> Online
                      </div>
                    </div>
+                   <button onClick={() => setChangePassOpen(true)} title="Change Password" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-dim)", flexShrink: 0 }} onMouseEnter={e => e.currentTarget.style.color = "white"} onMouseLeave={e => e.currentTarget.style.color = "var(--text-dim)"}>
+                     🔑
+                   </button>
                  </div>
                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 8 }}>
                     Developer: <span style={{ color: "var(--neon-blue)", fontWeight: 700 }}>April Jay</span>
@@ -746,14 +750,13 @@ export default function App() {
                 setSearchResult={setSearchResult} searchDone={searchDone} setSearchDone={setSearchDone} />}
             {page === "students"  && hasPerm("students") && <Students students={students} setStudents={setStudents} subjects={subjects} token={auth.token} role={role} canWrite={hasPerm("students", "write")} canDelete={hasPerm("students", "delete")} />}
             {page === "studentmgmt" && hasPerm("students") && <StudentManagement token={auth.token} role={role} students={students} allSubjects={subjects} grades={grades} setGrades={setGrades} canWrite={hasPerm("students", "write")} canDelete={hasPerm("students", "delete")} />}
-            {page === "subjects"  && hasPerm("subjects") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} canWrite={hasPerm("subjects", "write")} canDelete={hasPerm("subjects", "delete")} />}
+            {page === "subjects"  && hasPerm("subjects") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} grades={grades} studentIdFromAuth={auth.student_id} canWrite={hasPerm("subjects", "write")} canDelete={hasPerm("subjects", "delete")} />}
             {page === "grades"    && hasPerm("grades") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("grades", "write")} canDelete={hasPerm("grades", "delete")} />}
             {page === "attendance" && hasPerm("attendance") && <AttendanceManage token={auth.token} role={role} students={students} subjects={subjects} canWrite={hasPerm("attendance", "write")} canDelete={hasPerm("attendance", "delete")} />}
             {page === "attendance" && role === "teacher" && <TeacherAttendanceDashboard token={auth.token} teacherUuid={auth?.uuid} subjects={subjects} />}
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
             {page === "permits"   && hasPerm("permits") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
             {page === "payments"  && hasPerm("payments") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("payments", "write")} canDelete={hasPerm("payments", "delete")} />}
-            {page === "profile"   && <Profile token={auth.token} username={auth.username} />}
             {page === "users"     && hasPerm("users") && <UsersAdmin token={auth.token} />}
             {page === "logs"      && hasPerm("logs") && <LogsView token={auth.token} />}
             {page === "rolepermissions" && hasPerm("rolepermissions") && <RolePermissionsView token={auth.token} auth={auth} syncAuth={syncAuth} />}
@@ -774,6 +777,12 @@ export default function App() {
           }}
         />
       )}
+      <ChangePasswordModal 
+        show={changePassOpen} 
+        onClose={() => setChangePassOpen(false)} 
+        token={auth?.token} 
+        username={auth?.username} 
+      />
     </div>
   );
 }
@@ -1751,10 +1760,12 @@ function MyAttendance({ token }) {
 }
 */
 
-function Profile({ token, username }) {
+function ChangePasswordModal({ show, onClose, token, username }) {
   const [pass, setPass] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState(null);
+
+  if (!show) return null;
 
   const handleSave = async () => {
     if (!pass) return setMsg({ type: "error", text: "Password required" });
@@ -1763,33 +1774,34 @@ function Profile({ token, username }) {
       await api("/auth/change-password", { method: "POST", body: { password: pass } }, token);
       setMsg({ type: "success", text: "Password updated successfully" });
       setPass(""); setConfirm("");
+      setTimeout(() => { onClose(); }, 1500);
     } catch (e) {
       setMsg({ type: "error", text: e.message });
     }
   };
 
   return (
-    <div style={{ maxWidth: 400 }}>
-      <PageHeader title="👤 My Profile" sub="Manage your account settings" />
-      <Card title="Change Password">
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <label htmlFor="profile-username" style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Username</label>
-            <input id="profile-username" type="text" value={username} disabled style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid var(--border-color)", background: "#0f172a", fontSize: 13, color: "var(--text-dim)" }} />
-          </div>
-          <div>
-            <label htmlFor="profile-newpass" style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>New Password</label>
-            <input id="profile-newpass" type="password" value={pass} onChange={e => setPass(e.target.value)} style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid var(--border-color)", background: "#0f172a", color: "#ffffff", fontSize: 13 }} />
-          </div>
-          <div>
-            <label htmlFor="profile-confirm" style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Confirm Password</label>
-            <input id="profile-confirm" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid var(--border-color)", background: "#0f172a", color: "white", fontSize: 13 }} />
-          </div>
-          {msg && <div style={{ fontSize: 12, color: msg.type === "error" ? "red" : "green" }}>{msg.text}</div>}
-          <Btn onClick={handleSave}>Update Password</Btn>
+    <Modal show={show} title="Change Password" onClose={onClose} width={400}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div>
+          <label htmlFor="profile-username" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>Username</label>
+          <input id="profile-username" type="text" value={username} disabled style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border-color)", background: "rgba(255,255,255,0.05)", fontSize: 13, color: "var(--text-dim)", boxSizing: "border-box" }} />
         </div>
-      </Card>
-    </div>
+        <div>
+          <label htmlFor="profile-newpass" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>New Password</label>
+          <input id="profile-newpass" type="password" value={pass} onChange={e => setPass(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border-color)", background: "#0f172a", color: "#ffffff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        </div>
+        <div>
+          <label htmlFor="profile-confirm" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>Confirm Password</label>
+          <input id="profile-confirm" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border-color)", background: "#0f172a", color: "white", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        </div>
+        {msg && <div style={{ fontSize: 13, fontWeight: 600, color: msg.type === "error" ? "#fca5a5" : "#86efac", background: msg.type === "error" ? "rgba(239, 68, 68, 0.1)" : "rgba(34, 197, 94, 0.1)", padding: "8px 12px", borderRadius: 8, border: "1px solid " + (msg.type === "error" ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.2)") }}>{msg.text}</div>}
+        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <Btn onClick={handleSave} style={{ flex: 1 }}>Update</Btn>
+          <Btn variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Btn>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -2443,12 +2455,232 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
   );
 }
 
+function LedgerModal({ studentId, students, assignedSubjects, token, onClose }) {
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [payments, setPayments] = useState([]);
+  const [ledger, setLedger] = useState({
+    petition_class: "", regular_units: "", total_units: "", tuition_fee: 0, misc_fee: 0, internship_fee: 0,
+    computer_lab_fee: 0, chem_lab_fee: 0, aircon_fee: 0, shop_fee: 0, other_fees: 0,
+    id_fee: 0, subscription_fee: 0, discount: 0, bank_account: "", bill_of_payment: "", notes: ""
+  });
+  
+  const student = students?.find(s => s.id === studentId);
+  const regularUnits = assignedSubjects?.reduce((acc, s) => acc + (s.units || 0), 0) || 0;
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchLedger = async () => {
+      try {
+        const [led, pays] = await Promise.all([
+          api(`/ledgers/${encodeURIComponent(studentId)}`, {}, token),
+          api(`/payments?student_id=${encodeURIComponent(studentId)}`, {}, token)
+        ]);
+        if (mounted) {
+          setLedger(led || {});
+          setPayments(pays || []);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error(err);
+        if (mounted) setLoading(false);
+      }
+    };
+    fetchLedger();
+    return () => { mounted = false; };
+  }, [studentId, token]);
+
+  const handleSave = async () => {
+    try {
+      const payload = { ...ledger };
+      [
+        "tuition_fee", "misc_fee", "internship_fee", "computer_lab_fee", "chem_lab_fee", 
+        "aircon_fee", "shop_fee", "other_fees", "id_fee", "subscription_fee", "discount", "bank_account"
+      ].forEach(k => payload[k] = payload[k] === "" || isNaN(payload[k]) ? 0 : Number(payload[k]));
+      
+      await api(`/ledgers/${encodeURIComponent(studentId)}`, { method: 'PUT', body: payload }, token);
+      alert("Ledger updated perfectly!");
+    } catch (e) {
+      alert("Failed to save ledger: " + e.message);
+    }
+  };
+
+  const handlePrint = () => window.print();
+
+  const totalFees = 
+    Number(ledger.tuition_fee||0) + Number(ledger.misc_fee||0) + 
+    Number(ledger.internship_fee||0) + Number(ledger.computer_lab_fee||0) + 
+    Number(ledger.chem_lab_fee||0) + Number(ledger.aircon_fee||0) + 
+    Number(ledger.shop_fee||0) + Number(ledger.other_fees||0) + 
+    Number(ledger.id_fee||0) + Number(ledger.subscription_fee||0);
+  const totalCharges = totalFees - Number(ledger.discount||0) + Number(ledger.bank_account||0);
+
+  if (loading) return <Modal show title="Student Ledger" width={800} onClose={onClose}><div style={{padding:40, textAlign:"center"}}>Loading ledger...</div></Modal>;
+
+  return (
+    <Modal show title="📓 Student Ledger" width={850} onClose={onClose}>
+      <div className="ledger-modal-content">
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            .ledger-printable, .ledger-printable * { visibility: visible; }
+            .ledger-printable { position: absolute; left: 0; top: 0; width: 100%; color: black !important; background: white !important; }
+            .no-print { display: none !important; }
+            .ledger-printable input, .ledger-printable textarea { border: none !important; background: transparent !important; color: black !important; resize: none; overflow: hidden; appearance: none; }
+          }
+          .ledger-btn { background: #374151; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+          .ledger-btn.active { background: #3b82f6; }
+          .ledger-table th, .ledger-table td { border: 1px solid var(--border-color); padding: 8px; text-align: left; }
+          .ledger-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+          .fee-row { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; }
+          .fee-row input { width: 120px; padding: 4px; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: white; text-align: right; }
+        `}</style>
+
+        <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          <button className={`ledger-btn ${page === 1 ? 'active' : ''}`} onClick={() => setPage(1)}>Page 1 (Configuration)</button>
+          <button className={`ledger-btn ${page === 2 ? 'active' : ''}`} onClick={() => setPage(2)}>Page 2 (Payments)</button>
+          <button className="ledger-btn" style={{ marginLeft: 'auto', background: "#f59e0b" }} onClick={handlePrint}>👁️ Preview</button>
+          <button className="ledger-btn" style={{ background: "#10b981" }} onClick={handleSave}>💾 Save Ledger</button>
+          <button className="ledger-btn" style={{ background: "#8b5cf6" }} onClick={handlePrint}>🖨️ Print Page</button>
+        </div>
+
+        <div className="ledger-printable" style={{ padding: "20px", background: "var(--card-bg)" }}>
+          {page === 1 && (
+            <div>
+              <h2 style={{ textAlign: "center", marginBottom: 20, marginTop: 0 }}>STUDENT LEDGER</h2>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div>
+                  <div style={{ marginBottom: 5, display: "flex", alignItems: "center", gap: 8 }}>
+                    <strong>regular units enrolled:</strong> 
+                    <input className="no-print" value={ledger.regular_units || ""} placeholder={String(regularUnits)} onChange={e => setLedger({...ledger, regular_units: e.target.value})} style={{ padding: 4, width: 80, background: "rgba(0,0,0,0.2)", color: "white", border: "1px solid var(--border-color)", borderRadius: 4 }} />
+                    <span style={{ display: "none" }} className="print-only">{ledger.regular_units || regularUnits}</span>
+                  </div>
+                  <div style={{ marginBottom: 5, display: "flex", alignItems: "center", gap: 8 }}>
+                    <strong>Petition Class:</strong> 
+                    <input className="no-print" value={ledger.petition_class||""} onChange={e => setLedger({...ledger, petition_class: e.target.value})} style={{ padding: 4, width: 200, background: "rgba(0,0,0,0.2)", color: "white", border: "1px solid var(--border-color)", borderRadius: 4 }} />
+                    <span style={{ display: "none" }} className="print-only">{ledger.petition_class}</span>
+                  </div>
+                  <div style={{ marginBottom: 5, display: "flex", alignItems: "center", gap: 8 }}>
+                    <strong>total Units Enrolled:</strong> 
+                    <input className="no-print" value={ledger.total_units || ""} placeholder={String(regularUnits + (ledger.petition_class ? 1 : 0))} onChange={e => setLedger({...ledger, total_units: e.target.value})} style={{ padding: 4, width: 80, background: "rgba(0,0,0,0.2)", color: "white", border: "1px solid var(--border-color)", borderRadius: 4 }} />
+                    <span style={{ display: "none" }} className="print-only">{ledger.total_units || (regularUnits + (ledger.petition_class ? 1 : 0))}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="ledger-form-grid" style={{ marginTop: 30 }}>
+                <div>
+                  {[
+                    { label: "Tuition Fee", key: "tuition_fee" },
+                    { label: "Misscellaneous Fee", key: "misc_fee" },
+                    { label: "Internship Fee", key: "internship_fee" },
+                    { label: "Computer Lab Fee", key: "computer_lab_fee" },
+                    { label: "Chem. Lab Fee", key: "chem_lab_fee" },
+                    { label: "Aircon Fee", key: "aircon_fee" },
+                    { label: "Shop Fee", key: "shop_fee" },
+                    { label: "Other & New Fees", key: "other_fees" },
+                    { label: "I.D Fee", key: "id_fee" },
+                    { label: "Subscription Fee", key: "subscription_fee" }
+                  ].map(f => (
+                    <div className="fee-row" key={f.key}>
+                      <span style={{ fontSize: 13 }}>{f.label}:</span>
+                      <input type="number" value={ledger[f.key]||0} onChange={e => setLedger({...ledger, [f.key]: e.target.value})} />
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ paddingLeft: 30, borderLeft: "1px solid var(--border-color)" }}>
+                  <div className="fee-row" style={{ marginTop: 40 }}><strong style={{ color: "var(--neon-blue)" }}>Current Account:</strong> <span>{totalFees.toFixed(2)}</span></div>
+                  <div className="fee-row"><strong>Discount:</strong> <input type="number" value={ledger.discount||0} onChange={e => setLedger({...ledger, discount: e.target.value})} /></div>
+                  <div className="fee-row"><strong>Bank Account:</strong> <input type="number" value={ledger.bank_account||0} onChange={e => setLedger({...ledger, bank_account: e.target.value})} /></div>
+                  <div className="fee-row" style={{ marginTop: 20, borderTop: "2px solid var(--border-color)", paddingTop: 10 }}>
+                    <strong style={{ fontSize: 16, color: "var(--neon-pink)" }}>Total Charges:</strong> 
+                    <strong style={{ fontSize: 16 }}>{totalCharges.toFixed(2)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', marginTop: 50, gap: 40 }}>
+                <div>
+                  <div style={{ marginBottom: 20 }}><strong>Assessed By:</strong></div>
+                  <div style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: 5, marginBottom: 5 }}><strong>Manrey C. Almario Jr.</strong></div>
+                  <div style={{ textAlign: "center", fontSize: 12 }}>Student Account Officer</div>
+                </div>
+                <div>
+                  <div style={{ marginBottom: 20 }}><strong>Checked By:</strong></div>
+                  <div style={{ textAlign: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: 5, marginBottom: 5 }}><strong>Sherwin D. Maghuyop</strong></div>
+                  <div style={{ textAlign: "center", fontSize: 12 }}>Student Account Chief</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {page === 2 && (
+            <div>
+              <h3 style={{ textTransform: "uppercase", marginBottom: 20 }}>{student?.name || "Unknown Student"}</h3>
+              
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, fontWeight: "bold" }}>
+                BILL OF PAYMENT PER EXAM:
+                <input value={ledger.bill_of_payment||""} onChange={e => setLedger({...ledger, bill_of_payment: e.target.value})} style={{ flex: 1, padding: 6, background: "rgba(0,0,0,0.2)", color: "white", border: "1px solid var(--border-color)", borderRadius: 4 }} />
+              </div>
+
+              <h4 style={{ textAlign: "center", letterSpacing: 2, marginBottom: 10 }}>PAYMENTS</h4>
+              <table className="ledger-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 30 }}>
+                <thead>
+                  <tr style={{ background: "rgba(68, 215, 255, 0.1)" }}>
+                    <th>DATES</th>
+                    <th>RECEIPT NO.</th>
+                    <th style={{ textAlign: "right" }}>ACCOUNT PAID</th>
+                    <th style={{ textAlign: "right" }}>BALANCE</th>
+                    <th>CASHIER'S INITIAL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    let runBal = totalCharges;
+                    const rows = payments.map(p => {
+                      runBal -= parseFloat(p.amount||0);
+                      return (
+                        <tr key={p.id}>
+                          <td>{new Date(p.created_at).toLocaleDateString()}</td>
+                          <td>{p.reference || "-"}</td>
+                          <td style={{ textAlign: "right", color: "#10b981", fontWeight: "bold" }}>{parseFloat(p.amount).toFixed(2)}</td>
+                          <td style={{ textAlign: "right", fontWeight: "bold" }}>{runBal.toFixed(2)}</td>
+                          <td>SYSTEM</td>
+                        </tr>
+                      );
+                    });
+                    if (rows.length === 0) return <tr><td colSpan="5" style={{ textAlign: "center", padding: 20 }}>No payments recorded.</td></tr>;
+                    return rows;
+                  })()}
+                </tbody>
+              </table>
+
+              <div style={{ border: "1px solid var(--border-color)", borderRadius: 8, padding: "10px 14px", background: "rgba(0,0,0,0.1)" }}>
+                <strong>NOTES:</strong>
+                <textarea 
+                  value={ledger.notes||""} 
+                  onChange={e => setLedger({...ledger, notes: e.target.value})}
+                  style={{ width: "100%", height: 150, background: "transparent", color: "white", border: "none", outline: "none", marginTop: 10, resize: "vertical" }} 
+                  placeholder="Enter notes here..."
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function Students({ students, setStudents, subjects, token, role, canWrite, canDelete }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [termFilter, setTermFilter] = useState("All");
   const [semesters, setSemesters] = useState([]);
   const [modal, setModal] = useState(null);
+  const [ledgerStudent, setLedgerStudent] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", course: "BSCS", year: "1st Year", email: "", status: "Active", birth_year: "" });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -2627,6 +2859,7 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
                                 } catch (e) { alert(e.message); }
                               }} style={{ fontSize: 11, padding: "3px 8px" }}>Set</Btn>
                             )}
+                            <Btn variant="success" onClick={() => setLedgerStudent(s.id)} style={{ fontSize: 11, padding: "3px 8px", background: "#3b82f6", borderColor: "#3b82f6", marginLeft: 4 }}>📓 Ledger</Btn>
                           </div>
                         </Td>
                       </>
@@ -2720,11 +2953,12 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
           <Btn variant="ghost" onClick={() => setDeleteConfirm(null)}>Cancel</Btn>
         </div>
       </Modal>
+      {ledgerStudent && <LedgerModal studentId={ledgerStudent} students={students} assignedSubjects={[]} token={token} onClose={() => setLedgerStudent(null)} />}
     </div>
   );
 }
 
-function Subjects({ subjects, setSubjects, token, role, canWrite, canDelete }) {
+function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAuth, canWrite, canDelete }) {
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -2733,7 +2967,15 @@ function Subjects({ subjects, setSubjects, token, role, canWrite, canDelete }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const filtered = subjects.filter(s =>
+  const displaySubjects = useMemo(() => {
+    if (role === "student" && studentIdFromAuth && grades) {
+      const myGrades = grades[studentIdFromAuth] || {};
+      return subjects.filter(s => myGrades[s.id] !== undefined);
+    }
+    return subjects;
+  }, [subjects, role, studentIdFromAuth, grades]);
+
+  const filtered = displaySubjects.filter(s =>
     s.id.toLowerCase().includes(search.toLowerCase()) ||
     s.name.toLowerCase().includes(search.toLowerCase()) ||
     s.professor.toLowerCase().includes(search.toLowerCase())
@@ -3129,11 +3371,6 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
 
   const flash = m => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
-  useEffect(() => {
-    if (role === "student" && students.length > 0) {
-      setSelectedStudent(students[0].id);
-    }
-  }, [role, students]);
   useEffect(() => {
     if (role === "student" && !selectedStudent && studentIdFromAuth) {
       setSelectedStudent(studentIdFromAuth);
@@ -3755,10 +3992,11 @@ function RolePermissionsView({ token, auth, syncAuth }) {
 
     const toggle = async (r, m, p, currentVal) => {
     try {
+      const currentPerms = r.permissions[m] || { can_read: false, can_write: false, can_delete: false };
       const payload = {
-        can_read: p === "can_read" ? !currentVal : !!r.permissions[m].can_read,
-        can_write: p === "can_write" ? !currentVal : !!r.permissions[m].can_write,
-        can_delete: p === "can_delete" ? !currentVal : !!r.permissions[m].can_delete
+        can_read: p === "can_read" ? !currentVal : !!currentPerms.can_read,
+        can_write: p === "can_write" ? !currentVal : !!currentPerms.can_write,
+        can_delete: p === "can_delete" ? !currentVal : !!currentPerms.can_delete
       };
       await api(`/authorization/${encodeURIComponent(r.role)}/${encodeURIComponent(m)}`, {
         method: "PUT", body: payload
@@ -3767,7 +4005,7 @@ function RolePermissionsView({ token, auth, syncAuth }) {
       const newPermissions = {
         ...r.permissions,
         [m]: {
-          ...r.permissions[m],
+          ...currentPerms,
           [p]: !currentVal
         }
       };
@@ -3826,8 +4064,12 @@ function RolePermissionsView({ token, auth, syncAuth }) {
                 </tr>
               </thead>
               <tbody>
-                {Object.keys(r.permissions).map(m => {
-                  const p = r.permissions[m];
+                {Array.from(new Set([
+                  "dashboard", "search", "students", "subjects", "grades", 
+                  "attendance", "permits", "payments", "settings", "users", 
+                  "logs", "rolepermissions", ...Object.keys(r.permissions)
+                ])).sort().map(m => {
+                  const p = r.permissions[m] || { can_read: false, can_write: false, can_delete: false };
                   return (
                     <tr key={m} style={{ borderBottom: "1px solid var(--border-color)", transition: "background 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                       <td style={{ padding: "8px", fontWeight: "600", color: "var(--text-main)" }}>{m}</td>

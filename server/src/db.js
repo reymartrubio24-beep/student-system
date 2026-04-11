@@ -154,6 +154,28 @@ export async function initDB() {
       FOREIGN KEY (permit_period_id) REFERENCES permit_periods(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS student_ledgers (
+      student_id TEXT PRIMARY KEY,
+      petition_class TEXT,
+      regular_units TEXT,
+      total_units TEXT,
+      tuition_fee DECIMAL DEFAULT 0,
+      misc_fee DECIMAL DEFAULT 0,
+      internship_fee DECIMAL DEFAULT 0,
+      computer_lab_fee DECIMAL DEFAULT 0,
+      chem_lab_fee DECIMAL DEFAULT 0,
+      aircon_fee DECIMAL DEFAULT 0,
+      shop_fee DECIMAL DEFAULT 0,
+      other_fees DECIMAL DEFAULT 0,
+      id_fee DECIMAL DEFAULT 0,
+      subscription_fee DECIMAL DEFAULT 0,
+      discount DECIMAL DEFAULT 0,
+      bank_account TEXT,
+      bill_of_payment TEXT,
+      notes TEXT,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS "authorization" (
       id SERIAL PRIMARY KEY,
       role TEXT NOT NULL,
