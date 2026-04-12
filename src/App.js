@@ -431,6 +431,7 @@ export default function App() {
     ...(role === "student" ? [{ id: "mypermits", icon: "🎫", label: "My Permits" }] : []),
     ...(role === "student" ? [{ id: "myledger", icon: "📒", label: "My Ledger" }] : []),
     ...(hasPerm("permits") ? [{ id: "permits", icon: "🎫", label: "Student Permits" }] : []),
+    ...(hasPerm("permits") ? [{ id: "semesters", icon: "📅", label: "Manage Semesters" }] : []),
     ...(hasPerm("payments") ? [{ id: "payments", icon: "💳", label: role === "student" ? "My Payments" : "Payments" }] : []),
     ...(hasPerm("users") ? [{ id: "users", icon: "👥", label: "Users Admin" }] : []),
     ...(hasPerm("logs") ? [{ id: "logs", icon: "📜", label: "System Logs" }] : []),
@@ -758,6 +759,7 @@ export default function App() {
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
             {page === "myledger" && role === "student" && <MyLedger token={auth.token} studentId={auth.student_id} authName={auth.full_name} authUsername={auth.username} />}
             {page === "permits"   && hasPerm("permits") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
+            {page === "semesters" && hasPerm("permits") && <SemestersView token={auth.token} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
             {page === "payments"  && hasPerm("payments") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("payments", "write")} canDelete={hasPerm("payments", "delete")} />}
             {page === "users"     && hasPerm("users") && <UsersAdmin token={auth.token} />}
             {page === "logs"      && hasPerm("logs") && <LogsView token={auth.token} />}
@@ -1327,7 +1329,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
 
   return (
     <div>
-      <PageHeader title="🗓️ Attendance Management" sub="Create tables, enroll students, and track daily attendance" />
+      <PageHeader title={<span>{"\u{1F5D3}"} Attendance Management</span>} sub="Create tables, enroll students, and track daily attendance" />
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "flex-end" }}>
         <Btn variant="primary" onClick={() => setCreateOpen(true)} style={{ padding: "12px 24px" }}>+ New Attendance Table</Btn>
       </div>
@@ -1730,7 +1732,7 @@ function MyAttendance({ token }) {
   useEffect(() => { refresh(); }, [refresh]);
   return (
     <div>
-      <PageHeader title="🗓️ My Attendance" sub="View your attendance across classes" />
+      <PageHeader title={<span>{"\u{1F5D3}"} My Attendance</span>} sub="View your attendance across classes" />
       {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <Input label="Filter Date (YYYY-MM-DD)" value={date} onChange={e => setDate(e.target.value)} />
@@ -1884,7 +1886,7 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
         </div>
         {!semesterId && syInput && termInput && (
            <div style={{ fontSize: 11, color: "#f87171", marginTop: -8 }}>
-             ⚠️ This semester doesn't exist in the database. Please add it via Settings &gt; Manage Semesters.
+             📅 This semester doesn't exist in the database. Please add it via Manage Semesters in the sidebar.
            </div>
         )}
         <Select id="assign-period" label="Select Period" value={periodId} onChange={e => setPeriodId(e.target.value)} disabled={!semesterId}>
@@ -1927,7 +1929,7 @@ function MyPermits({ token }) {
 
   return (
     <div>
-      <PageHeader title="🎫 My Permits" sub="View your examination permits by semester" />
+      <PageHeader title={<span>{"\u{1F3AB}"} My Permits</span>} sub="View your examination permits by semester" />
       {Object.keys(groups).length === 0 ? (
         <Card><div style={{ textAlign: "center", color: "#64748b", padding: 20 }}>No permits found.</div></Card>
       ) : (
@@ -2076,7 +2078,7 @@ function PermitsView({ token, semesterId, role, username, canWrite, canDelete })
   // Render
   return (
     <div>
-      <PageHeader title="🎫 Student Permits" sub={role === "teacher" ? "View student permits by semester (read-only)" : "Search, view, and manage permits"} />
+      <PageHeader title={<span>{"\u{1F3AB}"} Student Permits</span>} sub={role === "teacher" ? "View student permits by semester (read-only)" : "Search, view, and manage permits"} />
       <>
       {msg && <div style={{ background: "linear-gradient(135deg, #ecfdf5, #d1fae5)", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "#065f46", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 18 }}>
@@ -2248,7 +2250,7 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   };
   return (
     <div>
-      <PageHeader title="💳 Payments" sub={role === "student" ? "View your tuition balance and history" : "Record tuition payments"} />
+      <PageHeader title={<span>{"\u{1F4B3}"} Payments</span>} sub={role === "student" ? "View your tuition balance and history" : "Record tuition payments"} />
       {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", color: "var(--neon-blue)", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
       
       {canWrite && (
@@ -2351,7 +2353,7 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
 
   return (
     <div>
-      <PageHeader title="🔍 Student Search" sub="Search by Student ID or name to view the full academic profile" />
+      <PageHeader title={<span>{"\u{1F50D}"} Student Search</span>} sub="Search by Student ID or name to view the full academic profile" />
       <Card>
         <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
           <input placeholder="Enter Student ID (e.g. 2024-0001) or Name..."
@@ -3197,7 +3199,7 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
 
   return (
     <div>
-      <PageHeader title="👤 Student Management" sub="Add, edit, search, and remove student records" />
+      <PageHeader title={<span>{"\u{1F464}"} Student Management</span>} sub="Add, edit, search, and remove student records" />
       {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8,
         padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
       <Card>
@@ -3428,7 +3430,7 @@ function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAut
 
   return (
     <div>
-      <PageHeader title={role === "student" ? "📅 My Class Schedule" : "📚 Subject Management"} sub={role === "student" ? "View your enrolled subjects and their locations" : "Add, edit, and remove subjects from the course offerings"} />
+      <PageHeader title={role === "student" ? <span>{"\u{1F4C5}"} My Class Schedule</span> : <span>{"\u{1F4DA}"} Subject Management</span>} sub={role === "student" ? "View your enrolled subjects and their locations" : "Add, edit, and remove subjects from the course offerings"} />
       {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8,
         padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
       <Card>
@@ -3646,7 +3648,7 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
 
   return (
     <div>
-      <PageHeader title="🧭 Student Management" sub="Assign, update, and remove student subjects" />
+      <PageHeader title={<span>{"\u{1F464}"} Student Management</span>} sub="Assign, update, and remove student subjects" />
       {msg && <div style={{ background: "#eef2ff", border: "1px solid #c7d2fe", color: "#3730a3", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
       <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 18 }}>
         <Card title="Select Student">
@@ -3831,7 +3833,7 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
 
   return (
     <div>
-      <PageHeader title="📝 Grades & Performance" sub={role === "student" ? "View your academic performance" : "Select a student to manage their subject grades"} />
+      <PageHeader title={<span>{"\u{1F4DD}"} Grades & Performance</span>} sub={role === "student" ? "View your academic performance" : "Select a student to manage their subject grades"} />
       {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
 
       <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: role !== "student" ? "260px 1fr" : "1fr", gap: 18 }}>
@@ -4113,6 +4115,126 @@ function PermissionsEditor({ userId, token }) {
   );
 }
 
+function SemestersView({ token, canWrite, canDelete }) {
+  const [semesters, setSemesters] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState(null); // 'form' or null
+  const [editing, setEditing] = useState(null); // ID or null
+  const [form, setForm] = useState({ school_year: "", term: "1st Semester" });
+  const [msg, setMsg] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await api("/semesters", {}, token);
+      setSemesters(rows);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const flash = m => { setMsg(m); setTimeout(() => setMsg(""), 3000); };
+
+  const handleSave = async () => {
+    if (!form.school_year.trim()) return alert("School Year is required.");
+    try {
+      if (editing) {
+        await api(`/semesters/${editing}`, { method: "PUT", body: form }, token);
+        flash("Semester updated successfully.");
+      } else {
+        await api("/semesters", { method: "POST", body: form }, token);
+        flash("New semester added.");
+      }
+      setModal(null);
+      load();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this semester? This may affect linked permits.")) return;
+    try {
+      await api(`/semesters/${id}`, { method: "DELETE" }, token);
+      flash("Semester deleted.");
+      load();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  return (
+    <div>
+      <PageHeader title="Manage Semesters" sub="Setup school years and terms for permits and accounting" />
+      
+      {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", color: "var(--neon-blue)", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
+
+      <div className="glass-card" style={{ padding: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "white" }}>All Semesters ({semesters.length})</div>
+          {canWrite && <Btn variant="primary" onClick={() => { setEditing(null); setForm({ school_year: "", term: "1st Semester" }); setModal("form"); }}>+ Add Semester</Btn>}
+        </div>
+
+        <div style={{ overflowX: "auto" }}>
+          <table className="neon-table">
+            <thead>
+              <tr>
+                <th>School Year</th>
+                <th>Term</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="3" style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>Loading semesters...</td></tr>
+              ) : semesters.length === 0 ? (
+                <tr><td colSpan="3" style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>No semesters found. Add one to get started.</td></tr>
+              ) : semesters.map(s => (
+                <tr key={s.id}>
+                  <td style={{ fontWeight: 700, color: "white" }}>{s.school_year}</td>
+                  <td><Badge text={s.term} type="blue" /></td>
+                  <td style={{ textAlign: "right" }}>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      {canWrite && (
+                        <button onClick={() => { setEditing(s.id); setForm({ school_year: s.school_year, term: s.term }); setModal("form"); }} style={{ background: "rgba(68, 215, 255, 0.1)", border: "none", borderRadius: 6, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--neon-blue)" }}>{"\u{1F4DD}"}</button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => handleDelete(s.id)} style={{ background: "rgba(248, 113, 113, 0.1)", border: "none", borderRadius: 6, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#f87171" }}>{"\u{1F5D1}"}</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {modal === "form" && (
+        <Modal show={true} title={editing ? "Edit Semester" : "Add New Semester"} onClose={() => setModal(null)}>
+          <div style={{ display: "grid", gap: 16 }}>
+            <Input label="School Year" placeholder="e.g. 2025-2026" value={form.school_year} onChange={e => setForm({...form, school_year: e.target.value})} />
+            <Select label="Term" value={form.term} onChange={e => setForm({...form, term: e.target.value})}>
+              <option value="1st Semester">1st Semester</option>
+              <option value="2nd Semester">2nd Semester</option>
+              <option value="Summer">Summer</option>
+            </Select>
+            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+              <Btn variant="primary" style={{ flex: 1 }} onClick={handleSave}>Save</Btn>
+              <Btn variant="ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+
 function UsersAdmin({ token }) {
   const [list, setList] = useState([]);
   const [u, setU] = useState("");
@@ -4189,7 +4311,7 @@ function UsersAdmin({ token }) {
   };
   return (
     <div>
-      <PageHeader title="🛠️ User Management" sub="Create teacher and student accounts" />
+      <PageHeader title={<span>{"\u{1F6E0}"} User Management</span>} sub="Create teacher and student accounts" />
       {msg && <div style={{ background: "#eef2ff", border: "1px solid #c7d2fe", color: "#3730a3", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
       <Card title="Create User">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
@@ -4317,7 +4439,7 @@ function LogsView({ token }) {
 
   return (
     <div>
-      <PageHeader title="📜 System Audit Logs" sub="Track system-wide activities" />
+      <PageHeader title={<span>{"\u{1F4DC}"} System Audit Logs</span>} sub="Track system-wide activities" />
       
       <Card title="Recent Activity" action={<Btn variant="outline" onClick={refresh}>🔄 Refresh</Btn>}>
         <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -4446,7 +4568,7 @@ function RolePermissionsView({ token, auth, syncAuth }) {
 
   return (
     <div>
-      <PageHeader title="🔐 Role Permissions" sub="Manage access control for all roles dynamically" />
+      <PageHeader title={<span>{"\u{1F510}"} Role Permissions</span>} sub="Manage access control for all roles dynamically" />
       {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "var(--neon-blue)", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
       
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
