@@ -2571,25 +2571,21 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   );
 }
 function StudentSearch({ students, subjects, grades, searchId, setSearchId,
-  searchResult, setSearchResult, searchDone, setSearchDone }) {
-  const [results, setResults] = useState([]);
-  const handleSearch = () => {
+  searchResult, setSearchResult }) {
+  const results = useMemo(() => {
     const q = searchId.trim().toLowerCase();
-    const list = students.filter(s => {
-      if (!q) return true;
-      return (
-        s.id.toLowerCase().includes(q) ||
-        s.name.toLowerCase().includes(q) ||
-        s.course.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        s.year.toLowerCase().includes(q) ||
-        s.status.toLowerCase().includes(q)
-      );
-    });
-    setResults(list);
-    setSearchResult(list[0] || null);
-    setSearchDone(true);
-  };
+    if (!q) return students;
+    return students.filter(s =>
+      s.id.toLowerCase().includes(q) ||
+      s.name.toLowerCase().includes(q) ||
+      (s.course || "").toLowerCase().includes(q) ||
+      (s.email || "").toLowerCase().includes(q) ||
+      (s.year || "").toLowerCase().includes(q) ||
+      (s.status || "").toLowerCase().includes(q)
+    );
+  }, [students, searchId]);
+
+  const showClear = searchId.trim() !== "" || searchResult !== null;
 
   const studentGrades = searchResult ? (grades[searchResult.id] || {}) : {};
   const enrolledSubjects = subjects.filter(s => studentGrades[s.id]);
@@ -2608,15 +2604,14 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
       <Card>
         <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
           <input placeholder="Enter Student ID (e.g. 2024-0001) or Name..."
-            value={searchId} onChange={e => { setSearchId(e.target.value); setSearchDone(false); }}
-            onKeyDown={e => e.key === "Enter" && handleSearch()}
+            value={searchId} onChange={e => { setSearchId(e.target.value); setSearchResult(null); }}
             style={{ flex: 1, padding: "11px 15px", border: "2px solid #d1d5db",
               borderRadius: 9, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
-          <Btn variant="primary" onClick={handleSearch} style={{ padding: "11px 22px", fontSize: 14 }}>
-            🔍 Search
+          <Btn variant="primary" style={{ padding: "11px 22px", fontSize: 14, pointerEvents: 'none' }}>
+            {"\u{1F50D}"} Search
           </Btn>
-          {searchDone && (
-            <Btn variant="ghost" onClick={() => { setSearchId(""); setSearchResult(null); setSearchDone(false); }}>
+          {showClear && (
+            <Btn variant="ghost" onClick={() => { setSearchId(""); setSearchResult(null); }}>
               Clear
             </Btn>
           )}
@@ -2624,10 +2619,10 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
         <div style={{ fontSize: 12, color: "#9ca3af" }}>Try: "2024-0001", "Maria", "Juan"</div>
       </Card>
 
-      {searchDone && results.length === 0 && (
+      {searchId.trim() !== "" && results.length === 0 && (
         <Card>
           <div style={{ textAlign: "center", padding: "30px 0", color: "#6b7280" }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>🔎</div>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>{"\u{1F50E}"}</div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>No student found</div>
             <div style={{ fontSize: 13, marginTop: 4 }}>
               No match for "<strong>{searchId}</strong>". Try a different ID or name.
@@ -2636,7 +2631,7 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
         </Card>
       )}
 
-      {results.length > 0 && (
+      {results.length > 0 && !searchResult && (
         <Card title={`Results (${results.length})`}>
           <div className="table-container">
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
