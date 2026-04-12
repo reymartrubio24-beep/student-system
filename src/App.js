@@ -1650,7 +1650,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
           block_number: "1",
           subject_id: subject.id,
           semester_id: Number(semId),
-          time_slot: subject.time || "Morning Class",
+          time_slot: "Morning Class",
           term_period: "1st prelim"
         }}, token);
         const newTables = await api("/attendance/tables", {}, token);
