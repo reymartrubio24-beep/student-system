@@ -4544,7 +4544,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
   ];
   const totalFees = feeItems.reduce((s, f) => s + Number(ledger[f.key] || 0), 0);
   const totalCharges = totalFees - Number(ledger.discount || 0) + Number(ledger.bank_account || 0);
-  const fmt = n => Number(n) > 0 ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 }) : 'n/a';
+  const fmt = n => Number(n) > 0 ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-.-';
 
   return (
     <div>
@@ -4572,7 +4572,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
             <span>Petition Class</span><span style={{ fontWeight: 700, color: 'white' }}>{ledger.petition_class || '0'}</span>
           </div>
           <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 10, marginBottom: 10 }}>
-            {feeItems.map(f => Number(ledger[f.key] || 0) > 0 && (
+            {feeItems.map(f => (
               <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--text-dim)' }}>
                 <span>{f.label}</span><span style={{ fontWeight: 600, color: 'white' }}>&#8369;{fmt(Number(ledger[f.key]))}</span>
               </div>
