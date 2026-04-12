@@ -431,7 +431,7 @@ export default function App() {
     ...(role === "student" ? [{ id: "mypermits", icon: "🎫", label: "My Permits" }] : []),
     ...(role === "student" ? [{ id: "myledger", icon: "📒", label: "My Ledger" }] : []),
     ...(hasPerm("permits") ? [{ id: "permits", icon: "🎫", label: "Student Permits" }] : []),
-    ...(hasPerm("permits") ? [{ id: "semesters", icon: "📅", label: "Manage Semesters" }] : []),
+    ...(hasPerm("semesters") ? [{ id: "semesters", icon: "📅", label: "Manage Semesters" }] : []),
     ...(hasPerm("payments") ? [{ id: "payments", icon: "💳", label: role === "student" ? "My Payments" : "Payments" }] : []),
     ...(hasPerm("users") ? [{ id: "users", icon: "👥", label: "Users Admin" }] : []),
     ...(hasPerm("logs") ? [{ id: "logs", icon: "📜", label: "System Logs" }] : []),
@@ -758,7 +758,7 @@ export default function App() {
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
             {page === "myledger" && role === "student" && <MyLedger token={auth.token} studentId={auth.student_id} authName={auth.full_name} authUsername={auth.username} />}
             {page === "permits"   && hasPerm("permits") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
-            {page === "semesters" && hasPerm("permits") && <SemestersView token={auth.token} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
+            {page === "semesters" && hasPerm("semesters") && <SemestersView token={auth.token} canWrite={hasPerm("semesters", "write")} canDelete={hasPerm("semesters", "delete")} />}
             {page === "payments"  && hasPerm("payments") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("payments", "write")} canDelete={hasPerm("payments", "delete")} />}
             {page === "users"     && hasPerm("users") && <UsersAdmin token={auth.token} />}
             {page === "logs"      && hasPerm("logs") && <LogsView token={auth.token} />}
@@ -4303,7 +4303,7 @@ function AuthScreen({ onAuthed, logo }) {
 function PermissionsEditor({ userId, token }) {
   const [perms, setPerms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const modules = ["dashboard", "students", "subjects", "grades", "permits", "payments", "search", "attendance", "users", "debug"];
+  const modules = ["dashboard", "students", "subjects", "grades", "permits", "semesters", "payments", "search", "attendance", "users", "debug"];
 
   useEffect(() => {
     api(`/users/${userId}/permissions`, {}, token)
