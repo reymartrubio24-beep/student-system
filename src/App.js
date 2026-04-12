@@ -754,8 +754,7 @@ export default function App() {
             {page === "studentmgmt" && hasPerm("students") && <StudentManagement token={auth.token} role={role} students={students} allSubjects={subjects} grades={grades} setGrades={setGrades} canWrite={hasPerm("students", "write")} canDelete={hasPerm("students", "delete")} />}
             {page === "subjects"  && hasPerm("subjects") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} grades={grades} studentIdFromAuth={auth.student_id} canWrite={hasPerm("subjects", "write")} canDelete={hasPerm("subjects", "delete")} />}
             {page === "grades"    && hasPerm("grades") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("grades", "write")} canDelete={hasPerm("grades", "delete")} />}
-            {page === "attendance" && hasPerm("attendance") && <AttendanceManage token={auth.token} role={role} students={students} subjects={subjects} canWrite={hasPerm("attendance", "write")} canDelete={hasPerm("attendance", "delete")} />}
-            {page === "attendance" && role === "teacher" && <TeacherAttendanceDashboard token={auth.token} teacherUuid={auth?.uuid} subjects={subjects} />}
+            {page === "attendance" && hasPerm("attendance") && <TeacherAttendanceFlow token={auth.token} allSubjects={subjects} role={role} authFullName={auth.full_name} authUsername={auth.username} canWrite={hasPerm("attendance", "write")} canDelete={hasPerm("attendance", "delete")} />}
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
             {page === "myledger" && role === "student" && <MyLedger token={auth.token} studentId={auth.student_id} authName={auth.full_name} authUsername={auth.username} />}
             {page === "permits"   && hasPerm("permits") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
@@ -1048,6 +1047,8 @@ function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
   );
 }
 
+// AttendanceManage kept for legacy spreadsheet reference (not rendered)
+// eslint-disable-next-line no-unused-vars
 function AttendanceManage({ token, role, students, subjects, canWrite, canDelete }) {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1580,142 +1581,392 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
   );
 }
 
-function TeacherAttendanceDashboard({ token, teacherUuid, subjects }) {
-  const [rows, setRows] = useState([]);
-  const [q, setQ] = useState("");
-  const [filterSubject, setFilterSubject] = useState("");
-  const [filterSem, setFilterSem] = useState("");
-  const [filterSlot, setFilterSlot] = useState(""); // eslint-disable-line no-unused-vars
-  const [page, setPage] = useState(1);
-  const [perPage] = useState(10);
+function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, authFullName, authUsername }) {
+  const todayFn = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+  const [step, setStep] = useState("pick"); // "pick" | "subjects" | "tracking"
+  const [teacherInput, setTeacherInput] = useState("");
+  const [showSug, setShowSug] = useState(false);
+  const [teacherSubjects, setTeacherSubjects] = useState([]);
+  const [activeSubject, setActiveSubject] = useState(null);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [attDate, setAttDate] = useState(() => todayFn());
+  const [attMap, setAttMap] = useState({});
+  const [tableId, setTableId] = useState(null);
   const [semesters, setSemesters] = useState([]);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({ subject_id: "", semester_id: "", time_slot: "" });
-  const slots = ["Morning Class","Afternoon Class","Evening Class"];
+  const [loading, setLoading] = useState(false);
+  const [loadingAtt, setLoadingAtt] = useState(false);
+  const [err, setErr] = useState("");
+
   useEffect(() => {
-    api("/semesters", {}, token).then(arr => setSemesters(Array.isArray(arr) ? arr : [])).catch(() => setSemesters([]));
+    api("/semesters", {}, token).then(r => setSemesters(Array.isArray(r) ? r : [])).catch(() => {});
   }, [token]);
-  const load = useCallback(async () => {
-    if (!teacherUuid) return;
-    const data = await api(`/attendance?teacher_id=${encodeURIComponent(teacherUuid)}`, {}, token);
-    setRows(data);
-  }, [teacherUuid, token]);
-  useEffect(() => { load(); }, [load]);
-  const filtered = rows.filter(r => {
-    const matchQ = q ? [r.course_name, r.class_identifier, r.block_number, r.academic_year].some(x => String(x).toLowerCase().includes(q.toLowerCase())) : true;
-    const matchSub = filterSubject ? r.subject_id === filterSubject : true;
-    const matchSem = filterSem ? String(r.semester_id) === String(filterSem) : true;
-    const matchSlot = filterSlot ? r.time_slot === filterSlot : true;
-    return matchQ && matchSub && matchSem && matchSlot;
-  });
-  const pages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const view = filtered.slice((page-1)*perPage, (page-1)*perPage + perPage);
-  const canEdit = (row) => String(row.created_by_teacher_id) === String(teacherUuid);
-  const submitCreate = async () => {
-    if (!form.subject_id || !form.semester_id || !form.time_slot) {
-      alert("All fields are required"); return;
+
+  // For teacher role: auto-populate their own name and jump to subjects
+  useEffect(() => {
+    if (role === "teacher" && (authFullName || authUsername)) {
+      const name = authFullName || authUsername;
+      setTeacherInput(name);
+      const matching = (allSubjects || []).filter(s => (s.professor || "").toLowerCase().includes(name.toLowerCase()));
+      setTeacherSubjects(matching);
+      setStep("subjects");
     }
+  }, [role, authFullName, authUsername, allSubjects]);
+
+  // Build autocomplete list from subjects professor field
+  const professors = useMemo(() => {
+    const names = new Set();
+    (allSubjects || []).forEach(s => { if (s.professor && s.professor.trim()) names.add(s.professor.trim()); });
+    return [...names].sort();
+  }, [allSubjects]);
+
+  const suggestions = teacherInput.trim()
+    ? professors.filter(p => p.toLowerCase().includes(teacherInput.trim().toLowerCase())).slice(0, 6)
+    : [];
+
+  const viewSubjects = () => {
+    const q = teacherInput.trim().toLowerCase();
+    if (!q) return setErr("Please enter a teacher name.");
+    setErr("");
+    const matching = (allSubjects || []).filter(s => (s.professor || "").toLowerCase().includes(q));
+    setTeacherSubjects(matching);
+    setStep("subjects");
+    setShowSug(false);
+  };
+
+  const openSubject = async (subject) => {
+    setLoading(true); setErr("");
     try {
-      await api("/attendance", { method: "POST", body: {
-        course_name: "Course",
-        class_identifier: "Class",
-        block_number: "Block",
-        academic_year: "2026-2027",
-        subject_id: form.subject_id,
-        semester_id: Number(form.semester_id),
-        time_slot: form.time_slot
-      } }, token);
-      setCreateOpen(false);
-      setForm({ subject_id: "", semester_id: "", time_slot: "" });
-      await load();
-    } catch (e) { alert(e.message); }
+      setActiveSubject(subject);
+      // 1. Get students who have grades in this subject
+      const students = await api(`/subjects/${encodeURIComponent(subject.id)}/students`, {}, token);
+      setEnrolledStudents(students);
+      // 2. Find or auto-create an attendance table for this subject
+      const tables = await api("/attendance/tables", {}, token);
+      let table = tables.find(t => t.subject_id === subject.id);
+      if (!table && canWrite) {
+        const semId = subject.semester_id || (semesters[0]?.id) || 1;
+        await api("/attendance", { method: "POST", body: {
+          course_name: subject.name || subject.id,
+          block_number: "1",
+          subject_id: subject.id,
+          semester_id: Number(semId),
+          time_slot: subject.time || "Morning Class",
+          term_period: "1st prelim"
+        }}, token);
+        const newTables = await api("/attendance/tables", {}, token);
+        table = newTables.find(t => t.subject_id === subject.id);
+      }
+      setTableId(table?.id || null);
+      // 3. Auto-enroll students (from grades) into the attendance table if needed
+      if (table && students.length > 0) {
+        const enroll = await api(`/attendance/tables/${table.id}/enrollments`, {}, token);
+        const alreadyIn = new Set(enroll.map(e => e.student_id));
+        for (const s of students) {
+          if (!alreadyIn.has(s.id)) {
+            try { await api(`/attendance/tables/${table.id}/enroll`, { method: "POST", body: { student_id: s.id } }, token); } catch {}
+          }
+        }
+      }
+      // 4. Load today's attendance
+      const today = todayFn();
+      setAttDate(today);
+      if (table) await loadAttendance(table.id, today);
+      setStep("tracking");
+    } catch (e) { setErr(e.message); }
+    setLoading(false);
   };
-  const onDelete = async (row) => {
-    if (!canEdit(row)) return;
-    if (!window.confirm("Delete this attendance record?")) return;
-    await api(`/attendance/${row.id}`, { method: "DELETE" }, token);
-    await load();
+
+  const loadAttendance = async (tid, date) => {
+    setLoadingAtt(true);
+    try {
+      const data = await api(`/attendance/tables/${tid}/attendance?date=${encodeURIComponent(date)}`, {}, token);
+      const map = {};
+      for (const r of data.rows || []) { if (r.attendance_status) map[r.student_id] = r.attendance_status; }
+      setAttMap(map);
+    } catch {}
+    setLoadingAtt(false);
   };
+
+  const setStatus = async (studentId, statusKey) => {
+    const send = statusKey === "excuse" ? "excuse" : statusKey;
+    try {
+      await api(`/attendance/tables/${tableId}/attendance/${studentId}`, { method: "PUT", body: { status: send, date: attDate } }, token);
+      setAttMap(m => ({ ...m, [studentId]: send }));
+    } catch (e) { setErr(e.message); }
+  };
+
+  const presentAll = async () => {
+    if (!window.confirm(`Mark ALL students as Present for ${attDate}?`)) return;
+    try {
+      await api(`/attendance/tables/${tableId}/attendance/present-all`, { method: "POST", body: { date: attDate } }, token);
+      await loadAttendance(tableId, attDate);
+    } catch (e) { setErr(e.message); }
+  };
+
+  const shiftDate = (days) => {
+    const d = new Date(attDate + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    const nd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    setAttDate(nd);
+    if (tableId) loadAttendance(tableId, nd);
+  };
+
+  const fmtDate = (s) => {
+    try { return new Date(s + "T00:00:00").toLocaleDateString("en-PH", { weekday: "short", year: "numeric", month: "long", day: "numeric" }); }
+    catch { return s; }
+  };
+
+  const stats = { present: 0, absent: 0, late: 0, leave: 0 };
+  for (const v of Object.values(attMap)) {
+    if (v === "present") stats.present++;
+    else if (v === "absent") stats.absent++;
+    else if (v === "late") stats.late++;
+    else if (v === "excuse") stats.leave++;
+  }
+
+  const MARKS = [
+    { key: "present", label: "Present", color: "#10b981", bg: "rgba(16,185,129,0.15)", shadow: "#10b98133" },
+    { key: "absent",  label: "Absent",  color: "#f87171", bg: "rgba(248,113,113,0.15)", shadow: "#f8717133" },
+    { key: "late",    label: "Late",    color: "#fbbf24", bg: "rgba(251,191,36,0.15)",  shadow: "#fbbf2433" },
+    { key: "excuse",  label: "Leave",   color: "#60a5fa", bg: "rgba(96,165,250,0.15)",  shadow: "#60a5fa33" },
+  ];
+  const ACCENT = ["#44d7ff", "#2563eb", "#7c3aed", "#10b981", "#fbbf24"];
+
   return (
     <div>
-      <Card title="My Attendance Records" action={<Btn onClick={() => setCreateOpen(true)}>+ New</Btn>}>
-        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 6, display: "block" }}>Search</label>
-            <input placeholder="Search records..." value={q} onChange={e => { setQ(e.target.value); setPage(1); }} 
-              style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border-color)", borderRadius: 10, background: "#0f172a", color: "#ffffff", outline: "none" }} />
-          </div>
-          <div style={{ width: 180 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 6, display: "block" }}>Subject</label>
-            <select value={filterSubject} onChange={e => { setFilterSubject(e.target.value); setPage(1); }}
-              style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10, background: "#0f172a", color: "#ffffff", outline: "none" }}>
-              <option value="">All Subjects</option>
-              {subjects.map(s => <option key={s.id} value={s.id} style={{ background: "#0f172a" }}>{s.name}</option>)}
-            </select>
-          </div>
-          <div style={{ width: 180 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 6, display: "block" }}>Semester</label>
-            <select value={filterSem} onChange={e => { setFilterSem(e.target.value); setPage(1); }}
-              style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10, background: "#0f172a", color: "#ffffff", outline: "none" }}>
-              <option value="">All Semesters</option>
-              {semesters.map(s => <option key={s.id} value={s.id} style={{ background: "#0f172a" }}>{s.school_year} · {s.term}</option>)}
-            </select>
+      <PageHeader title={<span>{"\u{1F5D3}"} Attendance Management</span>} sub="Teacher-centric attendance — select a teacher to begin" />
+
+      {err && <div style={{ background:"rgba(248,113,113,0.1)", border:"1px solid #f87171", color:"#f87171", borderRadius:8, padding:"10px 16px", marginBottom:16, fontSize:13, fontWeight:600 }}>{err}</div>}
+
+      {/* Breadcrumb Navigation */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:24, fontSize:12, flexWrap:"wrap" }}>
+        <span style={{ cursor: step !== "pick" ? "pointer" : "default", color: step !== "pick" ? "var(--neon-blue)" : "white", fontWeight:700 }}
+          onClick={() => step !== "pick" && setStep("pick")}>Attendance</span>
+        {(step === "subjects" || step === "tracking") && (<>
+          <span style={{ color:"var(--text-dim)" }}>›</span>
+          <span style={{ cursor: step === "tracking" ? "pointer" : "default", color: step === "tracking" ? "var(--neon-blue)" : "white", fontWeight:700 }}
+            onClick={() => step === "tracking" && setStep("subjects")}>{teacherInput || "Teacher"}</span>
+        </>)}
+        {step === "tracking" && (<>
+          <span style={{ color:"var(--text-dim)" }}>›</span>
+          <span style={{ color:"white", fontWeight:700 }}>{activeSubject?.id} — {activeSubject?.name}</span>
+        </>)}
+      </div>
+
+      {/* ═══════════════ STEP 1: PICK TEACHER ═══════════════ */}
+      {step === "pick" && (
+        <div style={{ display:"flex", justifyContent:"center" }}>
+          <div className="glass-card" style={{ padding:48, width:"100%", maxWidth:540, textAlign:"center" }}>
+            <div style={{ fontSize:58, marginBottom:16, lineHeight:1 }}>{"👨‍🏫"}</div>
+            <h2 style={{ fontSize:22, fontWeight:800, color:"white", margin:"0 0 10px" }}>Who's taking attendance?</h2>
+            <p style={{ fontSize:14, color:"var(--text-dim)", margin:"0 0 36px", lineHeight:1.6 }}>Type a teacher's name to browse their subjects and manage daily attendance.</p>
+
+            <div style={{ position:"relative", textAlign:"left" }}>
+              <label style={{ fontSize:11, fontWeight:700, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:8, display:"block" }}>Teacher Name</label>
+              <input
+                placeholder="Search teacher name..."
+                value={teacherInput}
+                onChange={e => { setTeacherInput(e.target.value); setShowSug(true); }}
+                onFocus={() => setShowSug(true)}
+                onBlur={() => setTimeout(() => setShowSug(false), 200)}
+                onKeyDown={e => { if (e.key === "Enter") viewSubjects(); }}
+                style={{ width:"100%", padding:"14px 18px", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:"1.5px solid var(--border-color)", borderRadius:12, fontSize:15, color:"white", outline:"none", transition:"border-color 0.2s" }}
+              />
+              {showSug && suggestions.length > 0 && (
+                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"#1e293b", border:"1px solid var(--border-color)", borderRadius:12, zIndex:200, overflow:"hidden", boxShadow:"0 10px 40px rgba(0,0,0,0.5)" }}>
+                  {suggestions.map(name => (
+                    <div key={name} onMouseDown={() => { setTeacherInput(name); setShowSug(false); }}
+                      style={{ padding:"12px 18px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:14, color:"white", fontWeight:600, display:"flex", alignItems:"center", gap:10 }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(68,215,255,0.08)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <span style={{ fontSize:16 }}>{"👤"}</span> {name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Btn variant="primary" onClick={viewSubjects} disabled={loading} style={{ width:"100%", marginTop:20, padding:"14px", fontSize:15, fontWeight:800 }}>
+              {loading ? "Loading..." : "View Teacher Subjects →"}
+            </Btn>
+
+            {professors.length > 0 && (
+              <div style={{ marginTop:20, fontSize:11, color:"var(--text-dim)" }}>
+                {professors.length} teacher{professors.length !== 1 ? "s" : ""} found in subject records
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
-          {view.map((r, idx) => (
-            <div key={r.id} className="glass-card" style={{ 
-              padding: 20, 
-              borderTop: `4px solid ${["#44d7ff", "#2563eb", "#7c3aed", "#10b981", "#fbbf24"][idx % 5]}`,
-              transition: "transform 0.2s"
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                <code style={{ fontSize: 10, background: "rgba(68, 215, 255, 0.1)", color: "var(--neon-blue)", padding: "2px 6px", borderRadius: 4, fontWeight: 800 }}>{r.id}</code>
-                <Badge text={r.time_slot} type="blue" />
+      {/* ═══════════════ STEP 2: SUBJECT CARDS ═══════════════ */}
+      {step === "subjects" && (
+        <div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+            <div>
+              <div style={{ fontSize:16, fontWeight:800, color:"white" }}>
+                Subjects by <span style={{ color:"var(--neon-blue)" }}>{teacherInput}</span>
               </div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "white", marginBottom: 4 }}>{r.subject_id}</div>
-              <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 16 }}>{r.course_name} · Block {r.block_number}</div>
-              
-              <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
-                <Btn variant="outline" disabled={!canEdit(r)} style={{ flex: 1, fontSize: 12 }}>Edit</Btn>
-                <Btn variant="danger" disabled={!canEdit(r)} onClick={() => onDelete(r)} style={{ fontSize: 12 }}>🗑️</Btn>
+              <div style={{ fontSize:12, color:"var(--text-dim)", marginTop:4 }}>{teacherSubjects.length} subject{teacherSubjects.length !== 1 ? "s" : ""} found</div>
+            </div>
+            {role !== "teacher" && <Btn variant="ghost" onClick={() => setStep("pick")} style={{ padding:"10px 18px", fontSize:13 }}>← Change Teacher</Btn>}
+          </div>
+
+          {teacherSubjects.length === 0 ? (
+            <div className="glass-card" style={{ padding:60, textAlign:"center" }}>
+              <div style={{ fontSize:48, marginBottom:16 }}>{"📭"}</div>
+              <div style={{ fontSize:17, fontWeight:700, color:"white", marginBottom:8 }}>No subjects found</div>
+              <div style={{ fontSize:13, color:"var(--text-dim)", marginBottom:24 }}>Make sure the teacher name matches what's entered in the professor field of each subject.</div>
+              {role !== "teacher" && <Btn variant="ghost" onClick={() => setStep("pick")}>← Go Back</Btn>}
+            </div>
+          ) : (
+            <div className="grid-1-on-mobile" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(300px, 1fr))", gap:18 }}>
+              {teacherSubjects.map((s, idx) => {
+                const ac = ACCENT[idx % ACCENT.length];
+                return (
+                  <div key={s.id} className="glass-card"
+                    style={{ padding:24, borderLeft:`4px solid ${ac}`, display:"flex", flexDirection:"column", gap:0, transition:"transform 0.2s, box-shadow 0.2s" }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = `0 10px 32px ${ac}22`; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                      <code style={{ fontSize:12, background:`${ac}22`, color:ac, padding:"4px 10px", borderRadius:6, fontWeight:800 }}>{s.id}</code>
+                      {s.schedule && <span style={{ fontSize:11, color:"var(--text-dim)" }}>{s.schedule}</span>}
+                    </div>
+                    <div style={{ fontSize:17, fontWeight:800, color:"white", marginBottom:6, lineHeight:1.3, flexGrow:1 }}>{s.name}</div>
+                    <div style={{ fontSize:12, color:"var(--text-dim)", marginBottom:20 }}>
+                      {[s.units && `${s.units} units`, s.room, s.campus].filter(Boolean).join(" · ")}
+                    </div>
+                    <button onClick={() => openSubject(s)} disabled={loading}
+                      style={{ width:"100%", padding:"12px 0", borderRadius:10, background:ac, border:"none", color:"white", fontWeight:800, fontSize:14, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, transition:"opacity 0.2s" }}>
+                      {loading ? "Loading..." : "Open \u2192"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════ STEP 3: ATTENDANCE SHEET ═══════════════ */}
+      {step === "tracking" && activeSubject && (
+        <div>
+          {/* Date Nav + Stats Bar */}
+          <div className="glass-card" style={{ padding:"16px 24px", marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <button onClick={() => shiftDate(-1)} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid var(--border-color)", color:"white", borderRadius:8, width:38, height:38, cursor:"pointer", fontSize:22, display:"flex", alignItems:"center", justifyContent:"center" }}>{"‹"}</button>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:15, fontWeight:800, color:"white" }}>{fmtDate(attDate)}</div>
+                <div style={{ fontSize:11, color:"var(--text-dim)" }}>{attDate} · Click arrows to navigate dates</div>
+              </div>
+              <button onClick={() => shiftDate(1)} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid var(--border-color)", color:"white", borderRadius:8, width:38, height:38, cursor:"pointer", fontSize:22, display:"flex", alignItems:"center", justifyContent:"center" }}>{"›"}</button>
+            </div>
+
+            <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+              {[
+                { k:"present", ico:"✅", c:"#10b981", v: stats.present },
+                { k:"absent",  ico:"❌", c:"#f87171", v: stats.absent },
+                { k:"late",    ico:"🕐", c:"#fbbf24", v: stats.late },
+                { k:"leave",   ico:"📋", c:"#60a5fa", v: stats.leave },
+              ].map(x => (
+                <div key={x.k} style={{ fontSize:12, fontWeight:700, color:x.c, background:`${x.c}18`, padding:"5px 12px", borderRadius:20, whiteSpace:"nowrap" }}>
+                  {x.ico} {x.k.charAt(0).toUpperCase()+x.k.slice(1)}: {x.v}
+                </div>
+              ))}
+              {canWrite && (
+                <button onClick={presentAll} style={{ padding:"8px 16px", borderRadius:8, background:"rgba(16,185,129,0.15)", border:"1.5px solid #10b981", color:"#10b981", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+                  ✅ Present All
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Student Roster Table */}
+          <div className="glass-card" style={{ overflow:"hidden", padding:0 }}>
+            <div style={{ padding:"20px 24px", borderBottom:"1px solid var(--border-color)", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
+              <div>
+                <div style={{ fontSize:15, fontWeight:800, color:"white" }}>{activeSubject.id} — {activeSubject.name}</div>
+                <div style={{ fontSize:12, color:"var(--text-dim)", marginTop:3 }}>{enrolledStudents.length} students • {tableId ? "Attendance table linked" : "No table found"}</div>
+              </div>
+              <div style={{ fontSize:11, color:"var(--text-dim)", padding:"5px 12px", background:"rgba(255,255,255,0.04)", borderRadius:20, border:"1px solid var(--border-color)" }}>
+                Keyboard: [P] Present · [A] Absent · [L] Late · [E] Leave
               </div>
             </div>
-          ))}
-          {view.length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 40, color: "var(--text-dim)" }}>No attendance records found.</div>}
-        </div>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 20, alignItems: "center", justifyContent: "center" }}>
-          <Btn variant="outline" disabled={page<=1} onClick={() => setPage(p => Math.max(1, p-1))} style={{ padding: "8px 16px" }}>Prev</Btn>
-          <div style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 600 }}>Page {page} of {pages}</div>
-          <Btn variant="outline" disabled={page>=pages} onClick={() => setPage(p => Math.min(pages, p+1))} style={{ padding: "8px 16px" }}>Next</Btn>
-        </div>
-      </Card>
-      <Modal show={createOpen} title="Create Attendance" onClose={() => setCreateOpen(false)} width={520}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-          <Input label="Teacher UUID" value={teacherUuid || ""} readOnly />
-          <Select label="Subject" value={form.subject_id} onChange={e => setForm(f => ({ ...f, subject_id: e.target.value }))}>
-            <option value="">-- Choose Subject --</option>
-            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </Select>
-          <Select label="Semester" value={form.semester_id} onChange={e => setForm(f => ({ ...f, semester_id: e.target.value }))}>
-            <option value="">-- Choose Semester --</option>
-            {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
-          </Select>
-          <Select label="Class Time Slot" value={form.time_slot} onChange={e => setForm(f => ({ ...f, time_slot: e.target.value }))}>
-            <option value="">-- Choose Time Slot --</option>
-            {slots.map(v => <option key={v} value={v}>{v}</option>)}
-          </Select>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={submitCreate}>Create</Btn>
-            <Btn variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Btn>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                <thead>
+                  <tr style={{ background:"rgba(255,255,255,0.025)" }}>
+                    {["ID", "Name", "Course", "Status", "Mark Attendance"].map((h, i) => (
+                      <th key={h} style={{ padding:"13px 20px", textAlign: i===4 ? "center" : "left", fontSize:10, fontWeight:700, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:0.5, borderBottom:"1px solid var(--border-color)", whiteSpace:"nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingAtt ? (
+                    <tr><td colSpan={5} style={{ textAlign:"center", padding:48, color:"var(--text-dim)" }}>
+                      <div style={{ fontSize:24, marginBottom:10 }}>⏳</div>
+                      Loading attendance records...
+                    </td></tr>
+                  ) : enrolledStudents.length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign:"center", padding:56 }}>
+                      <div style={{ fontSize:40, marginBottom:14 }}>📭</div>
+                      <div style={{ fontSize:15, fontWeight:700, color:"white", marginBottom:8 }}>No students found</div>
+                      <div style={{ fontSize:12, color:"var(--text-dim)" }}>Students need a grade record in this subject first (Grades → assign subject).</div>
+                    </td></tr>
+                  ) : enrolledStudents.map(s => {
+                    const cur = attMap[s.id] || "";
+                    return (
+                      <tr key={s.id}
+                        style={{ borderBottom:"1px solid rgba(255,255,255,0.04)", transition:"background 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <td style={{ padding:"14px 20px" }}>
+                          <code style={{ fontSize:11, background:"rgba(68,215,255,0.1)", color:"var(--neon-blue)", padding:"3px 8px", borderRadius:6, fontWeight:800 }}>{s.id}</code>
+                        </td>
+                        <td style={{ padding:"14px 20px", fontWeight:700, color:"white" }}>{s.name}</td>
+                        <td style={{ padding:"14px 20px", fontSize:12, color:"var(--text-dim)" }}>{s.course}{s.year ? ` · ${s.year}` : ""}</td>
+                        <td style={{ padding:"14px 20px" }}>
+                          {s.status && <Badge text={s.status} type={s.status === "Active" ? "green" : "red"} />}
+                        </td>
+                        <td style={{ padding:"12px 20px" }}>
+                          <div style={{ display:"flex", gap:6, justifyContent:"center", flexWrap:"wrap" }}>
+                            {MARKS.map(({ key, label, color, bg, shadow }) => {
+                              const active = cur === key;
+                              return (
+                                <button key={key}
+                                  onClick={() => canWrite && setStatus(s.id, key)}
+                                  disabled={!canWrite}
+                                  style={{
+                                    padding:"5px 14px", borderRadius:20, fontSize:11, fontWeight:700,
+                                    cursor: canWrite ? "pointer" : "default",
+                                    border: `1.5px solid ${active ? color : "rgba(255,255,255,0.1)"}`,
+                                    background: active ? bg : "transparent",
+                                    color: active ? color : "var(--text-dim)",
+                                    transition: "all 0.15s",
+                                    boxShadow: active ? `0 0 10px ${shadow}` : "none",
+                                  }}
+                                  onMouseEnter={e => { if (canWrite && !active) { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; }}}
+                                  onMouseLeave={e => { if (canWrite && !active) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "var(--text-dim)"; }}}>
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   );
 }
+
 /*
 function MyAttendance({ token }) {
   const [rows, setRows] = useState([]);
@@ -2513,6 +2764,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
   useEffect(() => { localStorage.setItem("printAssessor", printAssessor); }, [printAssessor]);
   useEffect(() => { localStorage.setItem("printChecker", printChecker); }, [printChecker]);
 
+  // eslint-disable-next-line no-unused-vars
   const [payments, setPayments] = useState([]);
   const [ledger, setLedger] = useState({
     petition_class: "", regular_units: "", total_units: "", tuition_fee: "", misc_fee: "", internship_fee: "",
@@ -2733,6 +2985,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
   </div>
 </div>
 
+// eslint-disable-next-line no-useless-escape
 <script>window.onload = function(){ window.print(); };<\/script>
 </body>
 </html>`;

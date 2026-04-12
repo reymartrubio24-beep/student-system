@@ -127,6 +127,23 @@ app.get("/teacher/subjects/:id/students", authRequired, requireRole("students"),
     res.json(result);
 });
 
+// Admin: get students enrolled in a subject (via grades), no teacher ownership check
+app.get("/subjects/:subjectId/students", authRequired, requireRole("subjects"), async (req, res) => {
+  const { subjectId } = req.params;
+  try {
+    const students = await all(`
+      SELECT DISTINCT s.id, s.name, s.course, s.year, s.status
+      FROM students s
+      JOIN grades g ON g.student_id = s.id
+      WHERE g.subject_id = ? AND s.deleted_at IS NULL
+      ORDER BY s.name ASC
+    `, [subjectId]);
+    res.json(students);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post(
   "/auth/change-password",
   authRequired,
