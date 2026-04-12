@@ -888,23 +888,21 @@ function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
       </div>
 
       <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, marginBottom: 32 }}>
-        {hasPerm("students", "read") ? (
-          <Card title="Department Statistics (Student Population)">
-            <div style={{ height: 260, display: "flex", alignItems: "flex-end", gap: 20, paddingBottom: 20 }}>
-              {(stats.departmentCounts || []).length > 0 ? stats.departmentCounts.slice(0, 6).map((d, i) => {
-                const max = Math.max(...stats.departmentCounts.map(x => x.total), 1);
-                const height = (d.total / max) * 180;
-                return (
-                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "var(--neon-blue)" }}>{d.total}</div>
-                    <div style={{ width: "100%", height, background: "var(--accent-gradient)", borderRadius: "8px 8px 0 0", boxShadow: "0 4px 15px rgba(68,215,255,0.2)" }} />
-                    <div style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 700, textAlign: "center", height: 30 }}>{d.department}</div>
-                  </div>
-                );
-              }) : <div style={{ color: "var(--text-dim)", width: "100%", textAlign: "center" }}>No department data available.</div>}
-            </div>
-          </Card>
-        ) : <div />}
+        <Card title="Department Statistics (Student Population)">
+          <div style={{ height: 260, display: "flex", alignItems: "flex-end", gap: 20, paddingBottom: 20 }}>
+            {(stats.departmentCounts || []).length > 0 ? stats.departmentCounts.slice(0, 6).map((d, i) => {
+              const max = Math.max(...stats.departmentCounts.map(x => x.total), 1);
+              const height = (d.total / max) * 180;
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--neon-blue)" }}>{d.total}</div>
+                  <div style={{ width: "100%", height, background: "var(--accent-gradient)", borderRadius: "8px 8px 0 0", boxShadow: "0 4px 15px rgba(68,215,255,0.2)" }} />
+                  <div style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 700, textAlign: "center", height: 30 }}>{d.department}</div>
+                </div>
+              );
+            }) : <div style={{ color: "var(--text-dim)", width: "100%", textAlign: "center" }}>No department data available.</div>}
+          </div>
+        </Card>
 
         <Card title="School Founder & Leadership" action={canEditFounder && <Btn variant="outline" onClick={() => setEditLeaderOpen(true)} style={{ fontSize: 11, padding: "4px 8px" }}>Edit</Btn>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
