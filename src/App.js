@@ -4924,10 +4924,11 @@ function MyLedger({ token, studentId, authName, authUsername }) {
   const totalCharges = totalFees - Number(ledger.discount || 0) + Number(ledger.bank_account || 0);
   const fmt = n => Number(n) > 0 ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-.-';
   const fmtDate = d => { try { return new Date(d).toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' }); } catch { return d; } };
-  const pmtSorted = [...pmts].sort((a,b) => new Date(a.created_at)-new Date(b.created_at));
+  const tuitionPmts = pmts.filter(p => !p.payment_type || p.payment_type === 'Tuition');
+  const pmtSorted = [...tuitionPmts].sort((a,b) => new Date(a.created_at)-new Date(b.created_at));
   let runBal = totalCharges;
   const pmtRows = pmtSorted.map(p => { runBal -= Number(p.amount||0); return {...p, balance: runBal}; }).reverse();
-  const totalPaid = pmts.reduce((s,p) => s + Number(p.amount||0), 0);
+  const totalPaid = tuitionPmts.reduce((s,p) => s + Number(p.amount||0), 0);
   const outstanding = totalCharges - totalPaid;
   const stColor = s => s==='confirmed'?'#10b981':s==='pending'?'#fbbf24':'#f87171';
 
@@ -5005,7 +5006,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                 <thead>
                   <tr style={{ background:'rgba(68,215,255,0.06)' }}>
-                    {['Date','Reference','Type','Amount','Balance','Status'].map(h => (
+                    {['Date','Reference','Amount','Balance','Status'].map(h => (
                       <th key={h} style={{ padding:'8px 8px', textAlign:'left', color:'var(--neon-blue)', fontWeight:700, fontSize:10, textTransform:'uppercase', borderBottom:'1px solid var(--border-color)', whiteSpace:'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -5017,7 +5018,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
                       onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                       <td style={{ padding:'10px 8px', color:'var(--text-dim)', whiteSpace:'nowrap' }}>{fmtDate(p.created_at)}</td>
                       <td style={{ padding:'10px 8px' }}><code style={{ fontSize:10, background:'rgba(68,215,255,0.08)', color:'var(--neon-blue)', padding:'2px 6px', borderRadius:4, fontWeight:700 }}>{p.reference||'—'}</code></td>
-                      <td style={{ padding:'10px 8px', color:'var(--text-dim)' }}>{p.payment_type||'Tuition'}</td>
+                      
                       <td style={{ padding:'10px 8px', fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>+&#8369;{fmt(p.amount)}</td>
                       <td style={{ padding:'10px 8px', fontWeight:700, color:p.balance>0?'#fbbf24':'#10b981', whiteSpace:'nowrap' }}>&#8369;{fmt(Math.max(0,p.balance))}</td>
                       <td style={{ padding:'10px 8px' }}><span style={{ fontSize:10, fontWeight:700, color:stColor(p.status), background:`${stColor(p.status)}18`, padding:'2px 8px', borderRadius:20, textTransform:'capitalize' }}>{p.status||'confirmed'}</span></td>
@@ -5029,7 +5030,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
           )}
           {totalPaid > 0 && (
             <div style={{ marginTop:12, padding:'10px 14px', background:'rgba(16,185,129,0.06)', borderRadius:8, border:'1px solid rgba(16,185,129,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontSize:12, color:'var(--text-dim)' }}>{pmts.length} payment{pmts.length!==1?'s':''} recorded</span>
+              <span style={{ fontSize:12, color:'var(--text-dim)' }}>{tuitionPmts.length} payment{tuitionPmts.length!==1?'s':''} recorded</span>
               <span style={{ fontSize:13, fontWeight:800, color:'#10b981' }}>Total Paid: &#8369;{fmt(totalPaid)}</span>
             </div>
           )}
