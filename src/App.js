@@ -4873,6 +4873,7 @@ function RolePermissionsView({ token, auth, syncAuth }) {
 
 function MyLedger({ token, studentId, authName, authUsername }) {
   const [ledger, setLedger] = useState(null);
+  const [pmts, setPmts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -4885,9 +4886,13 @@ function MyLedger({ token, studentId, authName, authUsername }) {
     let mounted = true;
     const load = async () => {
       try {
-        const ledgerData = await api(`/ledgers/${encodeURIComponent(studentId)}`, {}, token);
+        const [ledgerData, pmtData] = await Promise.all([
+          api(`/ledgers/${encodeURIComponent(studentId)}`, {}, token),
+          api(`/payments/${encodeURIComponent(studentId)}`, {}, token).catch(() => []),
+        ]);
         if (mounted) {
           setLedger(ledgerData);
+          setPmts(Array.isArray(pmtData) ? pmtData : []);
           setLoading(false);
         }
       } catch (e) {
@@ -4918,6 +4923,13 @@ function MyLedger({ token, studentId, authName, authUsername }) {
   const totalFees = feeItems.reduce((s, f) => s + Number(ledger[f.key] || 0), 0);
   const totalCharges = totalFees - Number(ledger.discount || 0) + Number(ledger.bank_account || 0);
   const fmt = n => Number(n) > 0 ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-.-';
+  const fmtDate = d => { try { return new Date(d).toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' }); } catch { return d; } };
+  const pmtSorted = [...pmts].sort((a,b) => new Date(a.created_at)-new Date(b.created_at));
+  let runBal = totalCharges;
+  const pmtRows = pmtSorted.map(p => { runBal -= Number(p.amount||0); return {...p, balance: runBal}; }).reverse();
+  const totalPaid = pmts.reduce((s,p) => s + Number(p.amount||0), 0);
+  const outstanding = totalCharges - totalPaid;
+  const stColor = s => s==='confirmed'?'#10b981':s==='pending'?'#fbbf24':'#f87171';
 
   return (
     <div>
@@ -4976,37 +4988,51 @@ function MyLedger({ token, studentId, authName, authUsername }) {
           )}
         </div>
         <div className="glass-card" style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--neon-blue)', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border-color)' }}>Payment History</div>
-          {totalCharges > 0 && (
-            <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 10 }}>
-              Bill per Exam: <span style={{ fontWeight: 700, color: '#f87171' }}>&#8369;{fmt(totalCharges / 5)}</span>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, paddingBottom:8, borderBottom:'1px solid var(--border-color)' }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'var(--neon-blue)' }}>Payment History</div>
+            <div style={{ fontSize:11, fontWeight:700, color: outstanding>0?'#fbbf24':'#10b981', background: outstanding>0?'rgba(251,191,36,0.1)':'rgba(16,185,129,0.1)', padding:'3px 10px', borderRadius:20 }}>
+              {outstanding>0 ? `Balance: ₱${fmt(outstanding)}` : '✅ Fully Paid'}
+            </div>
+          </div>
+          {pmtRows.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'32px 0', color:'var(--text-dim)' }}>
+              <div style={{ fontSize:32, marginBottom:10 }}>&#128173;</div>
+              <div style={{ fontSize:13, fontWeight:700, color:'white', marginBottom:6 }}>No payments recorded yet</div>
+              <div style={{ fontSize:11 }}>Visit the cashier office to record a payment.</div>
+            </div>
+          ) : (
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                <thead>
+                  <tr style={{ background:'rgba(68,215,255,0.06)' }}>
+                    {['Date','Reference','Type','Amount','Balance','Status'].map(h => (
+                      <th key={h} style={{ padding:'8px 8px', textAlign:'left', color:'var(--neon-blue)', fontWeight:700, fontSize:10, textTransform:'uppercase', borderBottom:'1px solid var(--border-color)', whiteSpace:'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pmtRows.map((p,i) => (
+                    <tr key={p.id||i} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
+                      onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.02)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <td style={{ padding:'10px 8px', color:'var(--text-dim)', whiteSpace:'nowrap' }}>{fmtDate(p.created_at)}</td>
+                      <td style={{ padding:'10px 8px' }}><code style={{ fontSize:10, background:'rgba(68,215,255,0.08)', color:'var(--neon-blue)', padding:'2px 6px', borderRadius:4, fontWeight:700 }}>{p.reference||'—'}</code></td>
+                      <td style={{ padding:'10px 8px', color:'var(--text-dim)' }}>{p.payment_type||'Tuition'}</td>
+                      <td style={{ padding:'10px 8px', fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>+&#8369;{fmt(p.amount)}</td>
+                      <td style={{ padding:'10px 8px', fontWeight:700, color:p.balance>0?'#fbbf24':'#10b981', whiteSpace:'nowrap' }}>&#8369;{fmt(Math.max(0,p.balance))}</td>
+                      <td style={{ padding:'10px 8px' }}><span style={{ fontSize:10, fontWeight:700, color:stColor(p.status), background:`${stColor(p.status)}18`, padding:'2px 8px', borderRadius:20, textTransform:'capitalize' }}>{p.status||'confirmed'}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12, fontStyle: 'italic' }}>Payments are recorded manually by the cashier. Visit the SAPS office for inquiries.</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
-                {['Date', 'Receipt No.', 'Amount Paid', 'Balance', "Cashier's Initial"].map(h => (
-                  <th key={h} style={{ padding: '9px 6px', textAlign: 'center', color: 'var(--neon-blue)', fontWeight: 700, fontSize: 10, textTransform: 'uppercase', borderBottom: '1px solid var(--border-color)' }}>{h}</th>
-                ))}
-              </tr>
-              <tr>
-                <td colSpan={3} />
-                <td style={{ padding: '6px', textAlign: 'center', fontWeight: 800, color: '#f87171', fontSize: 13, borderBottom: '1px solid var(--border-color)' }}>&#8369;{fmt(totalCharges)}</td>
-                <td style={{ borderBottom: '1px solid var(--border-color)' }} />
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: 10 }).map((_, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', height: 30 }}>
-                  <td /><td /><td /><td /><td />
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ marginTop: 12, fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'right' }}>
-            Assessed by: Manrey C. Almario Jr. � Checked by: Sherwin D. Maghuyop
-          </div>
+          {totalPaid > 0 && (
+            <div style={{ marginTop:12, padding:'10px 14px', background:'rgba(16,185,129,0.06)', borderRadius:8, border:'1px solid rgba(16,185,129,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontSize:12, color:'var(--text-dim)' }}>{pmts.length} payment{pmts.length!==1?'s':''} recorded</span>
+              <span style={{ fontSize:13, fontWeight:800, color:'#10b981' }}>Total Paid: &#8369;{fmt(totalPaid)}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
