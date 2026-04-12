@@ -4298,7 +4298,7 @@ function AuthScreen({ onAuthed, logo }) {
 function PermissionsEditor({ userId, token }) {
   const [perms, setPerms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const modules = ["dashboard", "students", "subjects", "grades", "permits", "semesters", "payments", "search", "attendance", "users", "debug"];
+  const modules = ["dashboard", "students", "subjects", "grades", "permits", "semesters", "payments", "search", "attendance", "users", "logs", "rolepermissions", "debug"];
 
   useEffect(() => {
     api(`/users/${userId}/permissions`, {}, token)
