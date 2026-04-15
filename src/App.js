@@ -5254,8 +5254,18 @@ function RolePermissionsView({ token, auth, syncAuth }) {
 function MyLedger({ token, studentId, authName, authUsername }) {
   const [ledger, setLedger] = useState(null);
   const [pmts, setPmts] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemId, setSelectedSemId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    api('/semesters', {}, token).then(r => {
+      const list = Array.isArray(r) ? r : [];
+      setSemesters(list);
+      if (list.length > 0) setSelectedSemId(String(list[0].id));
+    }).catch(() => {});
+  }, [token]);
 
   useEffect(() => {
     if (!studentId) {
@@ -5263,16 +5273,18 @@ function MyLedger({ token, studentId, authName, authUsername }) {
       setLoading(false);
       return;
     }
+    if (!selectedSemId) return;
     let mounted = true;
+    setLoading(true);
     const load = async () => {
       try {
         const [ledgerData, pmtData] = await Promise.all([
-          api(`/ledgers/${encodeURIComponent(studentId)}`, {}, token),
-          api(`/payments/${encodeURIComponent(studentId)}`, {}, token).catch(() => []),
+          api(`/ledgers/${encodeURIComponent(studentId)}?semester_id=${selectedSemId}`, {}, token),
+          api(`/payments/${encodeURIComponent(studentId)}?semester_id=${selectedSemId}`, {}, token).catch(() => []),
         ]);
         if (mounted) {
           setLedger(ledgerData);
-          setPmts(Array.isArray(pmtData) ? pmtData : []);
+          setPmts(Array.isArray(pmtData) ? pmtData.filter(p => !p.payment_type || p.payment_type === 'Tuition') : []);
           setLoading(false);
         }
       } catch (e) {
@@ -5281,7 +5293,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
     };
     load();
     return () => { mounted = false; };
-  }, [studentId, token]);
+  }, [studentId, token, selectedSemId]);
 
   if (loading) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-dim)' }}>Loading your ledger...</div>;
   if (error) return <div style={{ textAlign: 'center', padding: 60, color: '#f87171', fontWeight: 600 }}>&#10060; {error}</div>;
@@ -5314,7 +5326,24 @@ function MyLedger({ token, studentId, authName, authUsername }) {
 
   return (
     <div>
-      <PageHeader title="My Ledger" sub="Your current semester billing and payment record" />
+      <PageHeader title="My Ledger" sub="Your historic billing and payment record" />
+
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 700 }}>School Year / Semester:</span>
+        <select
+          value={selectedSemId}
+          onChange={e => setSelectedSemId(e.target.value)}
+          style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border-color)', background: '#0f172a', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+        >
+          {semesters.length === 0 && <option value="">No semesters active</option>}
+          {semesters.map(s => (
+            <option key={s.id} value={String(s.id)} style={{ background: '#1e293b' }}>
+              {s.school_year} - {s.term}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="glass-card" style={{ padding: '20px 28px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'white' }}>{displayName}</div>
@@ -5325,7 +5354,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Total Charges</div>
           <div style={{ fontSize: 30, fontWeight: 800, color: totalCharges > 0 ? '#f87171' : '#4ade80' }}>&#8369;{fmt(totalCharges)}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>Second Semester � SY 2025-2026</div>
+                    {(() => { const sem = semesters.find(s => String(s.id) === String(selectedSemId)); return sem ? <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>{sem.term} ({sem.school_year})</div> : null; })()}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
