@@ -3999,6 +3999,17 @@ function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAut
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [subjectSemesters, setSubjectSemesters] = useState([]);
+  const [subjectSemId, setSubjectSemId] = useState("");
+
+  useEffect(() => {
+    if (role === "student") {
+      api("/semesters", {}, token).then(r => {
+        const list = Array.isArray(r) ? r : [];
+        setSubjectSemesters(list);
+      }).catch(() => {});
+    }
+  }, [role, token]);
 
   const displaySubjects = useMemo(() => {
     if (role === "student" && studentIdFromAuth && grades) {
@@ -4009,9 +4020,10 @@ function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAut
   }, [subjects, role, studentIdFromAuth, grades]);
 
   const filtered = displaySubjects.filter(s =>
-    s.id.toLowerCase().includes(search.toLowerCase()) ||
+    (s.id.toLowerCase().includes(search.toLowerCase()) ||
     s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.professor.toLowerCase().includes(search.toLowerCase())
+    s.professor.toLowerCase().includes(search.toLowerCase())) &&
+    (role !== "student" || !subjectSemId || String(s.semester_id || "") === String(subjectSemId))
   );
   const flash = m => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
   const openAdd = () => {
@@ -4063,11 +4075,25 @@ function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAut
       {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8,
         padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
       <Card>
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
           <input placeholder="🔍  Search by code, name, or professor..."
             value={search} onChange={e => setSearch(e.target.value)}
-            style={{ flex: 1, padding: "9px 13px", border: "1px solid #d1d5db",
+            style={{ flex: 1, minWidth: 180, padding: "9px 13px", border: "1px solid #d1d5db",
               borderRadius: 8, fontSize: 13, outline: "none" }} />
+          {role === "student" && subjectSemesters.length > 0 && (
+            <select
+              value={subjectSemId}
+              onChange={e => setSubjectSemId(e.target.value)}
+              style={{ padding: "9px 14px", borderRadius: 8, border: "1.5px solid var(--border-color)", background: "#0f172a", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              <option value="">All Semesters</option>
+              {subjectSemesters.map(s => (
+                <option key={s.id} value={String(s.id)} style={{ background: "#1e293b" }}>
+                  {s.school_year} - {s.term}
+                </option>
+              ))}
+            </select>
+          )}
           {canWrite && (
             <Btn variant="primary" onClick={openAdd}>+ Add Subject</Btn>
           )}
@@ -4495,15 +4521,22 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
             <Card><div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>Select a student to begin.</div></Card>
           ) : (
             <>
-              {role === "student" && (
-                <Card title="Filters">
-                  <div>
-                    <Select label="Semester" value={semesterId} onChange={e => setSemesterId(e.target.value)}>
-                      <option value="">All Semesters</option>
-                      {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
-                    </Select>
-                  </div>
-                </Card>
+              {role === "student" && semesters.length > 0 && (
+                <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 700 }}>School Year / Semester:</span>
+                  <select
+                    value={semesterId}
+                    onChange={e => setSemesterId(e.target.value)}
+                    style={{ padding: "8px 14px", borderRadius: 8, border: "1.5px solid var(--border-color)", background: "#0f172a", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    <option value="">All Semesters</option>
+                    {semesters.map(s => (
+                      <option key={s.id} value={String(s.id)} style={{ background: "#1e293b" }}>
+                        {s.school_year} - {s.term}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
               <div style={{ background: "linear-gradient(135deg,#0f2340,#1e3a5f)", color: "white", borderRadius: 11, padding: "16px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
