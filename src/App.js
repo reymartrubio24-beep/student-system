@@ -2741,6 +2741,16 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [filterMethod, setFilterMethod] = useState("");
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemId, setSelectedSemId] = useState("");
+
+  useEffect(() => {
+    api("/semesters", {}, token).then(r => {
+      const list = Array.isArray(r) ? r : [];
+      setSemesters(list);
+      if (list.length > 0) setSelectedSemId(String(list[0].id));
+    }).catch(() => {});
+  }, [token]);
 
   useEffect(() => {
     if (role === "student" && studentIdFromAuth) {
@@ -2756,19 +2766,20 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
       if (fromDate) qs.push(`from=${encodeURIComponent(fromDate)}`);
       if (toDate) qs.push(`to=${encodeURIComponent(toDate)}`);
       if (filterMethod) qs.push(`method=${encodeURIComponent(filterMethod)}`);
+      if (selectedSemId) qs.push(`semester_id=${encodeURIComponent(selectedSemId)}`);
       const p = await api(`/payments/${encodeURIComponent(studentId)}${qs.length ? "?" + qs.join("&") : ""}`, {}, token);
       setPayments(p);
     } catch (e) {
       setMsg(e.message);
     }
-  }, [studentId, token, fromDate, toDate, filterMethod]);
+  }, [studentId, token, fromDate, toDate, filterMethod, selectedSemId]);
 
   useEffect(() => {
     if (studentId) loadBalance();
   }, [studentId, loadBalance]);
   const submitPayment = async () => {
     try {
-      const data = { student_id: studentId.trim(), amount: parseFloat(amount), method: method.trim(), reference: reference.trim(), payment_type: paymentType };
+      const data = { student_id: studentId.trim(), amount: parseFloat(amount), method: method.trim(), reference: reference.trim(), payment_type: paymentType, semester_id: selectedSemId ? Number(selectedSemId) : undefined };
       await api("/payments", { method: "POST", body: data }, token);
       setMsg("Payment recorded.");
       setAmount(""); setMethod(""); setReference(""); setPaymentType("Tuition");
@@ -2784,6 +2795,21 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
       
       {canWrite && (
         <Card title="Record Payment">
+          <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 700 }}>Semester:</span>
+            <select
+              value={selectedSemId}
+              onChange={e => setSelectedSemId(e.target.value)}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border-color)', background: '#0f172a', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            >
+              <option value="">-- No Semester --</option>
+              {semesters.map(s => (
+                <option key={s.id} value={String(s.id)} style={{ background: '#1e293b' }}>
+                  {s.school_year} - {s.term}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1.5fr 1fr", gap: 10, alignItems: "end" }}>
             <Input label="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} />
             <Input label="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
@@ -2806,6 +2832,22 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
       )}
 
       <Card title="Filter Transactions">
+        {/* School Year / Semester Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 700 }}>School Year:</span>
+          <select
+            value={selectedSemId}
+            onChange={e => setSelectedSemId(e.target.value)}
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border-color)', background: '#0f172a', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          >
+            <option value="">All Semesters</option>
+            {semesters.map(s => (
+              <option key={s.id} value={String(s.id)} style={{ background: '#1e293b' }}>
+                {s.school_year} - {s.term}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: role === 'student' ? "1fr 1fr 1fr" : "2fr 1fr 1fr 1fr", gap: 10 }}>
           {role !== "student" && <Input label="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} />}
           <Input label="From (YYYY-MM-DD)" value={fromDate} onChange={e => setFromDate(e.target.value)} placeholder="2026-01-01" />
@@ -2814,7 +2856,7 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
           <Btn variant="outline" onClick={() => { if (studentId) loadBalance(); }} disabled={role === "student" && !studentId}>Apply Filters</Btn>
-          <Btn variant="ghost" onClick={() => { setFromDate(""); setToDate(""); setFilterMethod(""); if (studentId) loadBalance(); }}>Clear</Btn>
+          <Btn variant="ghost" onClick={() => { setFromDate(""); setToDate(""); setFilterMethod(""); setSelectedSemId(""); if (studentId) loadBalance(); }}>Clear</Btn>
         </div>
       </Card>
 
@@ -3029,6 +3071,8 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
 function LedgerModal({ studentId, students, assignedSubjects, token, onClose, onSave }) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemId, setSelectedSemId] = useState("");
   const [printTerm, setPrintTerm] = useState("Second Semester");
   const [printSy, setPrintSy] = useState("2025-2026");
   const [printAssessor, setPrintAssessor] = useState(() => localStorage.getItem("printAssessor") || "Manrey C. Almario Jr.");
@@ -3040,7 +3084,9 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
   // eslint-disable-next-line no-unused-vars
   const [payments, setPayments] = useState([]);
   const [ledger, setLedger] = useState({
-    petition_class: "", regular_units: "", total_units: "", tuition_fee: "", misc_fee: "", internship_fee: "",
+    petition_class: "", regular_units: "", total_units: "",
+    regular_unit_price: 204, petition_unit_price: 0,
+    tuition_fee: "", misc_fee: "", internship_fee: "",
     computer_lab_fee: "", chem_lab_fee: "", aircon_fee: "", shop_fee: "", other_fees: "",
     id_fee: "", subscription_fee: "", discount: "", bank_account: "", bill_of_payment: "", notes: ""
   });
@@ -3049,17 +3095,30 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
   const regularUnits = assignedSubjects?.reduce((acc, s) => acc + (s.units || 0), 0) || 0;
   const parsedYear = parseInt(student?.year) || "";
 
+  // Fetch semesters on mount
   useEffect(() => {
+    api("/semesters", {}, token).then(r => {
+      const list = Array.isArray(r) ? r : [];
+      setSemesters(list);
+      if (list.length > 0 && !selectedSemId) setSelectedSemId(String(list[0].id));
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // Re-fetch ledger whenever semester changes
+  useEffect(() => {
+    if (!selectedSemId) return;
     let mounted = true;
+    setLoading(true);
     const fetchLedger = async () => {
       try {
         const [led, pays] = await Promise.all([
-          api(`/ledgers/${encodeURIComponent(studentId)}`, {}, token),
-          api(`/payments?student_id=${encodeURIComponent(studentId)}`, {}, token)
+          api(`/ledgers/${encodeURIComponent(studentId)}?semester_id=${selectedSemId}`, {}, token),
+          api(`/payments/${encodeURIComponent(studentId)}?semester_id=${selectedSemId}`, {}, token)
         ]);
         if (mounted) {
           setLedger(led || {});
-          setPayments(pays || []);
+          setPayments(Array.isArray(pays) ? pays.filter(p => p.payment_type === 'Tuition' || !p.payment_type) : []);
           setLoading(false);
         }
       } catch (err) {
@@ -3069,11 +3128,25 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
     };
     fetchLedger();
     return () => { mounted = false; };
-  }, [studentId, token]);
+  }, [studentId, token, selectedSemId]);
+
+  // Auto-calculate tuition fee when units or prices change
+  useEffect(() => {
+    const regUnits = parseInt(ledger.regular_units || regularUnits) || 0;
+    const petUnits = parseInt(ledger.petition_class) || 0;
+    const regPrice = parseFloat(ledger.regular_unit_price) || 0;
+    const petPrice = parseFloat(ledger.petition_unit_price) || 0;
+    const calculated = (regUnits * regPrice) + (petUnits * petPrice);
+    if (calculated > 0) {
+      setLedger(prev => ({ ...prev, tuition_fee: calculated }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledger.regular_units, ledger.petition_class, ledger.regular_unit_price, ledger.petition_unit_price, regularUnits]);
 
   const handleSave = async () => {
+    if (!selectedSemId) return alert("Please select a semester first.");
     try {
-      const payload = { ...ledger };
+      const payload = { ...ledger, semester_id: Number(selectedSemId) };
       [
         "tuition_fee", "misc_fee", "internship_fee", "computer_lab_fee", "chem_lab_fee", 
         "aircon_fee", "shop_fee", "other_fees", "id_fee", "subscription_fee", "discount", "bank_account"
@@ -3272,6 +3345,9 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
+  const regUnits = parseInt(ledger.regular_units || regularUnits) || 0;
+  const petUnits = parseInt(ledger.petition_class) || 0;
+
   const totalFees = 
     Number(ledger.tuition_fee||0) + Number(ledger.misc_fee||0) + 
     Number(ledger.internship_fee||0) + Number(ledger.computer_lab_fee||0) + 
@@ -3374,6 +3450,22 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
         `}</style>
 
         <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20, alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+          {/* School Year / Semester Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 700 }}>School Year:</span>
+            <select
+              value={selectedSemId}
+              onChange={e => setSelectedSemId(e.target.value)}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border-color)', background: '#0f172a', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            >
+              {semesters.length === 0 && <option value="">No semesters</option>}
+              {semesters.map(s => (
+                <option key={s.id} value={String(s.id)} style={{ background: '#1e293b' }}>
+                  {s.school_year} - {s.term}
+                </option>
+              ))}
+            </select>
+          </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
             <Select value={printTerm} onChange={e => setPrintTerm(e.target.value)} style={{ width: 160 }}>
               <option value="First Semester">First Semester</option>
@@ -3474,8 +3566,8 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
                    <tbody>
                      <tr>
                        <td>Regular Units Enrolled:</td>
-                       <td style={{ padding: 2 }}><input className="paper-input paper-input-center bold-val" value={ledger.regular_units !== undefined ? ledger.regular_units : regularUnits} onChange={e => setLedger({...ledger, regular_units: e.target.value})} placeholder={String(regularUnits)} /></td>
-                       <td></td>
+                       <td style={{ padding: 2 }}><input className="paper-input paper-input-center bold-val" value={ledger.regular_units ?? regularUnits} onChange={e => setLedger({...ledger, regular_units: e.target.value})} placeholder={String(regularUnits)} /></td>
+                       <td style={{ textAlign: 'right' }}>-</td>
                      </tr>
                      <tr>
                        <td>Petition Class :</td>
@@ -3485,12 +3577,23 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
                      <tr><td colSpan="3">&nbsp;</td></tr>
                      <tr>
                        <td style={{ fontWeight: 'bold' }}>Total Units Enrolled:</td>
-                       <td style={{ textAlign: 'center' }} className="bold-val">{(parseInt(ledger.regular_units || regularUnits) || 0) + parseInt(ledger.petition_class || 0)}</td>
+                       <td style={{ textAlign: 'center' }} className="bold-val">{regUnits + petUnits}</td>
                        <td></td>
                      </tr>
                      <tr><td colSpan="3">&nbsp;</td></tr>
+                     <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
+                       <td style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>Price per Regular Unit (₱):</td>
+                       <td></td>
+                       <td style={{ padding: 2 }}><input className="paper-input bold-val" type="number" value={ledger.regular_unit_price ?? 204} onChange={e => setLedger({...ledger, regular_unit_price: e.target.value})} placeholder="204" style={{ textAlign: 'right' }} /></td>
+                     </tr>
+                     <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
+                       <td style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>Price per Petition Unit (₱):</td>
+                       <td></td>
+                       <td style={{ padding: 2 }}><input className="paper-input bold-val" type="number" value={ledger.petition_unit_price ?? 0} onChange={e => setLedger({...ledger, petition_unit_price: e.target.value})} placeholder="0" style={{ textAlign: 'right' }} /></td>
+                     </tr>
+                     <tr><td colSpan="3">&nbsp;</td></tr>
                      {[
-                       { label: "Tuition Fee:", key: "tuition_fee" },
+                       { label: "Tuition Fee:", key: "tuition_fee", readOnly: true },
                        { label: "Miscellaneous Fee:", key: "misc_fee" },
                        { label: "Internship Fee:", key: "internship_fee" },
                        { label: "Computer Lab. Fee:", key: "computer_lab_fee" },
@@ -4034,6 +4137,8 @@ function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAut
             <option value="Friday">Friday</option>
             <option value="Saturday">Saturday</option>
             <option value="Sunday">Sunday</option>
+            <option value="MWF">MWF</option>
+            <option value="TTHS">TTHS</option>
           </Select>
           <Select label="Campus" value={form.campus} onChange={e => setForm(f => ({ ...f, campus: e.target.value }))}>
             <option value="main campus">main campus</option>
@@ -4262,6 +4367,8 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
             <option value="Friday">Friday</option>
             <option value="Saturday">Saturday</option>
             <option value="Sunday">Sunday</option>
+            <option value="MWF">MWF</option>
+            <option value="TTHS">TTHS</option>
           </Select>
           <Select label="Campus" value={editForm.campus} onChange={e => setEditForm(f => ({ ...f, campus: e.target.value }))}>
             <option value="main campus">main campus</option>

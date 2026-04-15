@@ -98,13 +98,15 @@ export async function initDB() {
     CREATE TABLE IF NOT EXISTS payments (
       id SERIAL PRIMARY KEY,
       student_id TEXT NOT NULL,
+      semester_id INTEGER,
       amount DECIMAL NOT NULL,
       reference TEXT,
       method TEXT,
       payment_type TEXT DEFAULT 'Tuition',
       status TEXT DEFAULT 'posted',
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+      FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE SET NULL
     );
     -- Ensure payment_type exists if upgrading from older schema
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'Tuition';
@@ -162,10 +164,13 @@ export async function initDB() {
     );
 
     CREATE TABLE IF NOT EXISTS student_ledgers (
-      student_id TEXT PRIMARY KEY,
+      student_id TEXT,
+      semester_id INTEGER,
       petition_class TEXT,
       regular_units TEXT,
       total_units TEXT,
+      regular_unit_price DECIMAL DEFAULT 204,
+      petition_unit_price DECIMAL DEFAULT 0,
       tuition_fee DECIMAL DEFAULT 0,
       misc_fee DECIMAL DEFAULT 0,
       internship_fee DECIMAL DEFAULT 0,
@@ -180,7 +185,9 @@ export async function initDB() {
       bank_account TEXT,
       bill_of_payment TEXT,
       notes TEXT,
-      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      PRIMARY KEY (student_id, semester_id),
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+      FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS "authorization" (
@@ -275,6 +282,39 @@ export async function initDB() {
   
   const subStudent = await get("SELECT 1 FROM \"authorization\" WHERE role='student' AND module='subjects'");
   if (!subStudent) await run("INSERT INTO \"authorization\" (role,module,can_read,can_write,can_delete) VALUES ('student','subjects',1,0,0)");
+
+  console.log("[DB] Running schema migrations for multi-semester ledgers...");
+  try {
+    const checkPayment = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='payments' AND column_name='semester_id'");
+    if (checkPayment.rows.length === 0) {
+      await pool.query("ALTER TABLE payments ADD COLUMN semester_id INTEGER REFERENCES semesters(id) ON DELETE SET NULL");
+    }
+    
+    const checkLedger = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='student_ledgers' AND column_name='semester_id'");
+    if (checkLedger.rows.length === 0) {
+      await pool.query("ALTER TABLE student_ledgers ADD COLUMN semester_id INTEGER REFERENCES semesters(id) ON DELETE CASCADE");
+      await pool.query("ALTER TABLE student_ledgers ADD COLUMN regular_unit_price DECIMAL DEFAULT 204");
+      await pool.query("ALTER TABLE student_ledgers ADD COLUMN petition_unit_price DECIMAL DEFAULT 0");
+      
+      const firstSem = await pool.query("SELECT id FROM semesters ORDER BY id ASC LIMIT 1");
+      const sid = firstSem?.rows?.[0]?.id;
+      if (sid) {
+        await pool.query("UPDATE payments SET semester_id = $1 WHERE semester_id IS NULL", [sid]);
+        await pool.query("UPDATE student_ledgers SET semester_id = $1 WHERE semester_id IS NULL", [sid]);
+      }
+      
+      await pool.query("ALTER TABLE student_ledgers DROP CONSTRAINT IF EXISTS student_ledgers_pkey CASCADE");
+      // Clean up orphaned dupes just in case before setting PK
+      await pool.query(`
+        DELETE FROM student_ledgers a USING student_ledgers b
+        WHERE a.student_id = b.student_id AND a.semester_id = b.semester_id AND a.ctid < b.ctid
+      `);
+      await pool.query("ALTER TABLE student_ledgers ADD PRIMARY KEY (student_id, semester_id)");
+      console.log("[DB] Finished semester tracking migrations.");
+    }
+  } catch (e) {
+    console.log("[DB] Migration handled/skipped:", e.message);
+  }
 
   console.log("[DB] Initialization completed.");
 }

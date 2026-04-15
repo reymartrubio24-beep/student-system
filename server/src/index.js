@@ -1682,7 +1682,8 @@ app.post(
       method: z.string().optional(),
       reference: z.string().optional(),
       payment_type: z.string().optional(),
-      status: z.enum(["posted","void","pending"]).optional()
+      status: z.enum(["posted","void","pending"]).optional(),
+      semester_id: z.number().int().positive().optional()
     });
     const parsed = shape.safeParse(req.body || {});
     if (!parsed.success)
@@ -1700,9 +1701,10 @@ app.post(
       }
 
       await run(
-        "INSERT INTO payments (student_id, amount, method, reference, payment_type, status) VALUES ($1,$2,$3,$4,$5,$6)",
+        "INSERT INTO payments (student_id, semester_id, amount, method, reference, payment_type, status) VALUES ($1,$2,$3,$4,$5,$6,$7)",
         [
           parsed.data.student_id,
+          parsed.data.semester_id || null,
           parsed.data.amount,
           parsed.data.method || null,
           ref,
@@ -1732,18 +1734,20 @@ app.get(
     const from = req.query.from ? String(req.query.from) : null;
     const to = req.query.to ? String(req.query.to) : null;
     const method = req.query.method ? String(req.query.method) : null;
+    const semester_id = req.query.semester_id ? Number(req.query.semester_id) : null;
     const clauses = [];
     const params = [];
     if (from) { clauses.push("created_at >= ?"); params.push(from); }
     if (to) { clauses.push("created_at <= ?"); params.push(to); }
     if (method) { clauses.push("COALESCE(method,'') = ?"); params.push(method); }
+    if (semester_id) { clauses.push("semester_id = ?"); params.push(semester_id); }
     const where = clauses.length ? ` AND ${clauses.join(" AND ")}` : "";
     if (role === "student") {
       const rows = await all(
-      "SELECT id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=$1"+where+" ORDER BY created_at DESC",
+      "SELECT id, semester_id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=$1"+where+" ORDER BY created_at DESC",
         [student_id, ...params],
       );
-      await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(student_id), details: { from, to, method } });
+      await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(student_id), details: { from, to, method, semester_id } });
       return res.json(rows);
     }
     const rows = await all(
@@ -1762,21 +1766,23 @@ app.get(
     const from = req.query.from ? String(req.query.from) : null;
     const to = req.query.to ? String(req.query.to) : null;
     const method = req.query.method ? String(req.query.method) : null;
+    const semester_id = req.query.semester_id ? Number(req.query.semester_id) : null;
     const clauses = [];
     const params = [];
     if (from) { clauses.push("created_at >= ?"); params.push(from); }
     if (to) { clauses.push("created_at <= ?"); params.push(to); }
     if (method) { clauses.push("COALESCE(method,'') = ?"); params.push(method); }
+    if (semester_id) { clauses.push("semester_id = ?"); params.push(semester_id); }
     const where = clauses.length ? ` AND ${clauses.join(" AND ")}` : "";
     if (req.user.role === "student" && sid !== req.user.student_id) {
        await logAction({ userId: req.user.id, action: "ACCESS_DENIED", entity: "payment", entityId: sid, details: { path: "/payments/:studentId" } });
        return res.status(403).json({ error: "Forbidden" });
     }
     const rows = await all(
-      "SELECT id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=$1"+where+" ORDER BY created_at DESC",
+      "SELECT id, semester_id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=$1"+where+" ORDER BY created_at DESC",
       [sid, ...params],
     );
-    await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(sid), details: { from, to, method } });
+    await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(sid), details: { from, to, method, semester_id } });
     res.json(rows);
   },
 );
@@ -1973,10 +1979,19 @@ app.get("/students/:id/subjects", authRequired, requireRole("students"), async (
 app.get("/ledgers/:id", authRequired, async (req, res) => {
   const id = String(req.params.id);
   if (req.user.role === "student" && id !== req.user.student_id) return res.status(403).json({ error: "Forbidden" });
-  let ledger = await get("SELECT * FROM student_ledgers WHERE student_id = ?", [id]);
+  const semester_id = req.query.semester_id ? Number(req.query.semester_id) : null;
+  let ledger;
+  if (semester_id) {
+    ledger = await get("SELECT * FROM student_ledgers WHERE student_id = ? AND semester_id = ?", [id, semester_id]);
+  } else {
+    // Fallback: get most recently updated ledger for this student
+    ledger = await get("SELECT * FROM student_ledgers WHERE student_id = ? ORDER BY semester_id DESC LIMIT 1", [id]);
+  }
   if (!ledger) {
     ledger = {
-      student_id: id, petition_class: "", regular_units: "", total_units: "", tuition_fee: 0, misc_fee: 0, internship_fee: 0,
+      student_id: id, semester_id: semester_id, petition_class: "", regular_units: "", total_units: "",
+      regular_unit_price: 204, petition_unit_price: 0,
+      tuition_fee: 0, misc_fee: 0, internship_fee: 0,
       computer_lab_fee: 0, chem_lab_fee: 0, aircon_fee: 0, shop_fee: 0, other_fees: 0,
       id_fee: 0, subscription_fee: 0, discount: 0, bank_account: "", bill_of_payment: "", notes: ""
     };
@@ -1987,17 +2002,29 @@ app.get("/ledgers/:id", authRequired, async (req, res) => {
 app.put("/ledgers/:id", authRequired, requireRole("students", "write"), async (req, res) => {
   const id = String(req.params.id);
   const data = req.body;
-  const existing = await get("SELECT student_id FROM student_ledgers WHERE student_id = ?", [id]);
+  const semester_id = data.semester_id ? Number(data.semester_id) : null;
+  if (!semester_id) return res.status(400).json({ error: "semester_id is required" });
+  const existing = await get("SELECT student_id FROM student_ledgers WHERE student_id = ? AND semester_id = ?", [id, semester_id]);
   if (existing) {
     await run(`UPDATE student_ledgers SET 
-      petition_class = ?, regular_units = ?, total_units = ?, tuition_fee = ?, misc_fee = ?, internship_fee = ?, computer_lab_fee = ?, chem_lab_fee = ?, aircon_fee = ?, shop_fee = ?, other_fees = ?, id_fee = ?, subscription_fee = ?, discount = ?, bank_account = ?, bill_of_payment = ?, notes = ? WHERE student_id = ?`,
-      [data.petition_class, data.regular_units, data.total_units, data.tuition_fee, data.misc_fee, data.internship_fee, data.computer_lab_fee, data.chem_lab_fee, data.aircon_fee, data.shop_fee, data.other_fees, data.id_fee, data.subscription_fee, data.discount, data.bank_account, data.bill_of_payment, data.notes, id]);
+      petition_class = ?, regular_units = ?, total_units = ?, regular_unit_price = ?, petition_unit_price = ?,
+      tuition_fee = ?, misc_fee = ?, internship_fee = ?, computer_lab_fee = ?, chem_lab_fee = ?,
+      aircon_fee = ?, shop_fee = ?, other_fees = ?, id_fee = ?, subscription_fee = ?,
+      discount = ?, bank_account = ?, bill_of_payment = ?, notes = ?
+      WHERE student_id = ? AND semester_id = ?`,
+      [data.petition_class, data.regular_units, data.total_units, data.regular_unit_price || 204, data.petition_unit_price || 0,
+       data.tuition_fee, data.misc_fee, data.internship_fee, data.computer_lab_fee, data.chem_lab_fee,
+       data.aircon_fee, data.shop_fee, data.other_fees, data.id_fee, data.subscription_fee,
+       data.discount, data.bank_account, data.bill_of_payment, data.notes, id, semester_id]);
   } else {
-    await run(`INSERT INTO student_ledgers (student_id, petition_class, regular_units, total_units, tuition_fee, misc_fee, internship_fee, computer_lab_fee, chem_lab_fee, aircon_fee, shop_fee, other_fees, id_fee, subscription_fee, discount, bank_account, bill_of_payment, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, data.petition_class, data.regular_units, data.total_units, data.tuition_fee, data.misc_fee, data.internship_fee, data.computer_lab_fee, data.chem_lab_fee, data.aircon_fee, data.shop_fee, data.other_fees, data.id_fee, data.subscription_fee, data.discount, data.bank_account, data.bill_of_payment, data.notes]);
+    await run(`INSERT INTO student_ledgers (student_id, semester_id, petition_class, regular_units, total_units, regular_unit_price, petition_unit_price, tuition_fee, misc_fee, internship_fee, computer_lab_fee, chem_lab_fee, aircon_fee, shop_fee, other_fees, id_fee, subscription_fee, discount, bank_account, bill_of_payment, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, semester_id, data.petition_class, data.regular_units, data.total_units, data.regular_unit_price || 204, data.petition_unit_price || 0,
+       data.tuition_fee, data.misc_fee, data.internship_fee, data.computer_lab_fee, data.chem_lab_fee,
+       data.aircon_fee, data.shop_fee, data.other_fees, data.id_fee, data.subscription_fee,
+       data.discount, data.bank_account, data.bill_of_payment, data.notes]);
   }
-  await logAction({ userId: req.user.id, action: "UPDATE", entity: "student_ledger", entityId: id });
+  await logAction({ userId: req.user.id, action: "UPDATE", entity: "student_ledger", entityId: id, details: { semester_id } });
   res.json({ ok: true });
 });
 
