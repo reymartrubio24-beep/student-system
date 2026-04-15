@@ -1744,7 +1744,7 @@ app.get(
     const where = clauses.length ? ` AND ${clauses.join(" AND ")}` : "";
     if (role === "student") {
       const rows = await all(
-      "SELECT id, semester_id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=$1"+where+" ORDER BY created_at DESC",
+      "SELECT id, semester_id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
         [student_id, ...params],
       );
       await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(student_id), details: { from, to, method, semester_id } });
@@ -1779,7 +1779,7 @@ app.get(
        return res.status(403).json({ error: "Forbidden" });
     }
     const rows = await all(
-      "SELECT id, semester_id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=$1"+where+" ORDER BY created_at DESC",
+      "SELECT id, semester_id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
       [sid, ...params],
     );
     await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(sid), details: { from, to, method, semester_id } });
