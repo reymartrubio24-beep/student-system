@@ -21,6 +21,11 @@ export const pool = new Pool({
   }
 });
 
+// Prevent Node crashes on unexpected idle client errors (e.g. Supabase closing connection)
+pool.on('error', (err, client) => {
+  console.error('[DB ERROR] Unexpected error on idle client', err.message);
+});
+
 // Helper to convert SQLite '?' placeholders to PostgreSQL '$1, $2, ...'
 function convertSql(sql) {
   let count = 0;
