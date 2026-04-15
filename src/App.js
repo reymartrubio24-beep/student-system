@@ -757,7 +757,7 @@ export default function App() {
             {page === "attendance" && hasPerm("attendance") && <TeacherAttendanceFlow token={auth.token} allSubjects={subjects} role={role} authFullName={auth.full_name} authUsername={auth.username} canWrite={hasPerm("attendance", "write")} canDelete={hasPerm("attendance", "delete")} />}
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
             {page === "myledger" && role === "student" && <MyLedger token={auth.token} studentId={auth.student_id} authName={auth.full_name} authUsername={auth.username} />}
-            {page === "permits"   && hasPerm("permits") && <PermitsView token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
+            {page === "permits"   && hasPerm("permits") && <PermitsModule token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} full_name={auth.full_name} subjects={subjects} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
             {page === "semesters" && hasPerm("semesters") && <SemestersView token={auth.token} canWrite={hasPerm("semesters", "write")} canDelete={hasPerm("semesters", "delete")} />}
             {page === "payments"  && hasPerm("payments") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("payments", "write")} canDelete={hasPerm("payments", "delete")} />}
             {page === "users"     && hasPerm("users") && <UsersAdmin token={auth.token} />}
@@ -2061,8 +2061,6 @@ function ChangePasswordModal({ show, onClose, token, username }) {
 function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
   const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState("");
-  const [syInput, setSyInput] = useState("");
-  const [termInput, setTermInput] = useState("");
   const [periods, setPeriods] = useState([]);
   const [periodId, setPeriodId] = useState("");
   const [number, setNumber] = useState("");
@@ -2072,12 +2070,6 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
     if (!show || !token) return;
     api("/semesters", {}, token).then(setSemesters).catch(console.error);
   }, [show, token]);
-
-  useEffect(() => {
-    const match = semesters.find(s => s.school_year === syInput && s.term === termInput);
-    if (match) setSemesterId(match.id);
-    else setSemesterId("");
-  }, [syInput, termInput, semesters]);
 
   useEffect(() => {
     if (!semesterId || !token) { setPeriods([]); setPeriodId(""); return; }
@@ -2109,37 +2101,16 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
   return (
     <Modal show={show} title={`🎫 Assign Permit to ${student?.name}`} onClose={onClose} width={450}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-        <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1 }}>
-            <Input 
-              label="School Year" 
-              placeholder="e.g. 2026-2027" 
-              value={syInput} 
-              onChange={e => setSyInput(e.target.value)} 
-              list="sy-list-permit"
-            />
-            <datalist id="sy-list-permit">
-              {[...new Set(semesters.map(s => s.school_year))].map(y => <option key={y} value={y} />)}
-            </datalist>
-          </div>
-          <div style={{ flex: 1 }}>
-            <Select 
-              label="Select Semester" 
-              value={termInput} 
-              onChange={e => setTermInput(e.target.value)}
-            >
-              <option value="">-- Choose Term --</option>
-              <option value="1st Semester">1st Semester</option>
-              <option value="2nd Semester">2nd Semester</option>
-              <option value="Summer">Summer</option>
-            </Select>
-          </div>
-        </div>
-        {!semesterId && syInput && termInput && (
-           <div style={{ fontSize: 11, color: "#f87171", marginTop: -8 }}>
-             📅 This semester doesn't exist in the database. Please add it via Manage Semesters in the sidebar.
-           </div>
-        )}
+        <Select 
+          label="Select Semester / School Year" 
+          value={semesterId} 
+          onChange={e => setSemesterId(e.target.value)}
+        >
+          <option value="">-- Choose Semester --</option>
+          {semesters.map(s => (
+            <option key={s.id} value={s.id}>{s.school_year} — {s.term}</option>
+          ))}
+        </Select>
         <Select id="assign-period" label="Select Period" value={periodId} onChange={e => setPeriodId(e.target.value)} disabled={!semesterId}>
           <option value="">-- Choose Period --</option>
           {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2249,6 +2220,313 @@ function PermitsSidebar({ token, onSelectSemester, selectedSemester }) {
     </div>
   );
 }
+function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUsername }) {
+  const [step, setStep] = useState("pick"); // "pick" | "subjects" | "tracking"
+  const [teacherInput, setTeacherInput] = useState("");
+  const [showSug, setShowSug] = useState(false);
+  const [teacherSubjects, setTeacherSubjects] = useState([]);
+  const [activeSubject, setActiveSubject] = useState(null);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [subjectPeriods, setSubjectPeriods] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemId, setSelectedSemId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Fetch all semesters for the dropdown
+  useEffect(() => {
+    api("/semesters", {}, token).then(r => setSemesters(Array.isArray(r) ? r : [])).catch(() => {});
+  }, [token]);
+
+  // For teacher role: auto skip pick step
+  useEffect(() => {
+    if (role === "teacher" && (authFullName || authUsername)) {
+      const name = authFullName || authUsername;
+      setTeacherInput(name);
+      const matching = (allSubjects || []).filter(s => (s.professor || "").toLowerCase().includes(name.toLowerCase()));
+      setTeacherSubjects(matching);
+      setStep("subjects");
+    }
+  }, [role, authFullName, authUsername, allSubjects]);
+
+  const professors = useMemo(() => {
+    const names = new Set();
+    (allSubjects || []).forEach(s => { if (s.professor && s.professor.trim()) names.add(s.professor.trim()); });
+    return [...names].sort();
+  }, [allSubjects]);
+
+  const suggestions = teacherInput.trim()
+    ? professors.filter(p => p.toLowerCase().includes(teacherInput.trim().toLowerCase())).slice(0, 6)
+    : [];
+
+  const viewSubjects = () => {
+    const q = teacherInput.trim().toLowerCase();
+    if (!q) return setErr("Please enter a teacher name.");
+    setErr("");
+    const matching = (allSubjects || []).filter(s => (s.professor || "").toLowerCase().includes(q));
+    setTeacherSubjects(matching);
+    setStep("subjects");
+    setShowSug(false);
+  };
+
+  const loadPermitData = async (subjectId, semId) => {
+    setTableLoading(true);
+    try {
+      const qs = semId ? `?semesterId=${semId}` : "";
+      const data = await api(`/teacher/subjects/${encodeURIComponent(subjectId)}/students-permits${qs}`, {}, token);
+      setEnrolledStudents(data.students || []);
+      setSubjectPeriods(data.periods || []);
+    } catch (e) { setErr(e.message); }
+    setTableLoading(false);
+  };
+
+  const openSubject = async (subject) => {
+    setLoading(true); setErr("");
+    try {
+      setActiveSubject(subject);
+      // Try to use the subject's own semester_id, fallback to first semester
+      const semId = subject.semester_id ? String(subject.semester_id) : (semesters[0]?.id ? String(semesters[0].id) : "");
+      setSelectedSemId(semId);
+      await loadPermitData(subject.id, semId);
+      setStep("tracking");
+    } catch (e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  const handleSemesterChange = async (newSemId) => {
+    setSelectedSemId(newSemId);
+    if (activeSubject) await loadPermitData(activeSubject.id, newSemId);
+  };
+
+  return (
+    <div>
+      <PageHeader
+        title={<span>{"\u{1F3AB}"} Class Permits</span>}
+        sub="View your enrolled students and their permit status per school year"
+      />
+
+      {err && (
+        <div style={{ background:"rgba(248,113,113,0.1)", border:"1px solid #f87171", color:"#f87171", borderRadius:8, padding:"10px 16px", marginBottom:16, fontSize:13, fontWeight:600 }}>
+          {err}
+        </div>
+      )}
+
+      {/* Breadcrumb */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:24, fontSize:12, flexWrap:"wrap" }}>
+        <span
+          style={{ cursor: step !== "pick" ? "pointer" : "default", color: step !== "pick" ? "var(--neon-blue)" : "white", fontWeight:700 }}
+          onClick={() => step !== "pick" && setStep("pick")}>Teachers</span>
+        {(step === "subjects" || step === "tracking") && (<>
+          <span style={{ color:"var(--text-dim)" }}>{">"}</span>
+          <span
+            style={{ cursor: step === "tracking" ? "pointer" : "default", color: step === "tracking" ? "var(--neon-blue)" : "white", fontWeight:700 }}
+            onClick={() => step === "tracking" && setStep("subjects")}>{teacherInput || "Teacher"}</span>
+        </>)}
+        {step === "tracking" && (<>
+          <span style={{ color:"var(--text-dim)" }}>{">"}</span>
+          <span style={{ color:"white", fontWeight:700 }}>{activeSubject?.id} - {activeSubject?.name}</span>
+        </>)}
+      </div>
+
+      {/* === STEP 1: PICK TEACHER === */}
+      {step === "pick" && (
+        <div style={{ display:"flex", justifyContent:"center" }}>
+          <div className="glass-card" style={{ padding:48, width:"100%", maxWidth:540, textAlign:"center" }}>
+            <div style={{ fontSize:58, marginBottom:16, lineHeight:1 }}>{"\u{1F468}\u200D\u{1F3EB}"}</div>
+            <h2 style={{ fontSize:22, fontWeight:800, color:"white", margin:"0 0 10px" }}>Select Teacher</h2>
+            <p style={{ fontSize:14, color:"var(--text-dim)", margin:"0 0 36px", lineHeight:1.6 }}>
+              Type a teacher name to view their class permits.
+            </p>
+            <div style={{ position:"relative", textAlign:"left", zIndex:100 }}>
+              <label style={{ fontSize:11, fontWeight:700, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:8, display:"block" }}>Teacher Name</label>
+              <input
+                placeholder="Search teacher name..."
+                value={teacherInput}
+                onChange={e => { setTeacherInput(e.target.value); setShowSug(true); }}
+                onFocus={() => setShowSug(true)}
+                onBlur={() => setTimeout(() => setShowSug(false), 200)}
+                onKeyDown={e => { if (e.key === "Enter") viewSubjects(); }}
+                style={{ width:"100%", padding:"14px 18px", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:"1.5px solid var(--border-color)", borderRadius:12, fontSize:15, color:"white", outline:"none" }}
+              />
+              {showSug && suggestions.length > 0 && (
+                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"#1e293b", border:"1px solid var(--border-color)", borderRadius:12, zIndex:200, overflow:"hidden", boxShadow:"0 10px 40px rgba(0,0,0,0.5)" }}>
+                  {suggestions.map(name => (
+                    <div key={name} onMouseDown={() => { setTeacherInput(name); setShowSug(false); }}
+                      style={{ padding:"12px 18px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:14, color:"white", fontWeight:600, display:"flex", alignItems:"center", gap:10 }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(68,215,255,0.08)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      {"\u{1F464}"} {name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Btn variant="primary" onClick={viewSubjects} disabled={loading} style={{ width:"100%", marginTop:20, padding:"14px", fontSize:15, fontWeight:800 }}>
+              {loading ? "Loading..." : "View Subjects"}
+            </Btn>
+          </div>
+        </div>
+      )}
+
+      {/* === STEP 2: SELECT SUBJECT === */}
+      {step === "subjects" && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:20 }}>
+          {teacherSubjects.length === 0 ? (
+            <div style={{ gridColumn:"1/-1", textAlign:"center", padding:40, color:"var(--text-dim)", background:"rgba(255,255,255,0.02)", borderRadius:16, border:"1px solid rgba(255,255,255,0.05)" }}>
+              No subjects found for this teacher.
+            </div>
+          ) : teacherSubjects.map(sub => (
+            <div key={sub.id} className="glass-card subject-card" onClick={() => openSubject(sub)}
+              style={{ padding:24, cursor:"pointer", transition:"all 0.3s", border:"1px solid transparent" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
+                <div style={{ fontSize:15, fontWeight:800, color:"var(--neon-blue)", letterSpacing:0.5 }}>{sub.id}</div>
+                <div style={{ padding:"2px 8px", background:"rgba(255,255,255,0.1)", borderRadius:6, fontSize:11, fontWeight:700 }}>{sub.units} Units</div>
+              </div>
+              <div style={{ fontSize:18, fontWeight:700, color:"white", margin:"12px 0", lineHeight:1.3 }}>{sub.name}</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8, fontSize:13, color:"var(--text-dim)", marginBottom:16 }}>
+                <div>{"\u{1F552}"} {sub.schedule || sub.time || "TBA"}</div>
+                <div>{"\u{1F6AA}"} {sub.room || "TBA"}</div>
+              </div>
+              <Btn style={{ width:"100%", padding:"8px", fontSize:13 }} disabled={loading}>
+                {loading ? "Loading..." : "Open Class"}
+              </Btn>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* === STEP 3: PERMIT TRACKING === */}
+      {step === "tracking" && (
+        <Card>
+          <div style={{ marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
+            <div>
+              <h3 style={{ margin:0, fontSize:18, color:"white" }}>Student Permit Status</h3>
+              <div style={{ fontSize:13, color:"var(--text-dim)", marginTop:4 }}>
+                {enrolledStudents.length} Students enrolled in {activeSubject?.name}
+              </div>
+            </div>
+            {/* School Year Selector */}
+            <div style={{ display:"flex", alignItems:"center", gap:10, background:"rgba(255,255,255,0.04)", border:"1px solid var(--border-color)", borderRadius:10, padding:"8px 14px" }}>
+              <span style={{ fontSize:12, color:"var(--text-dim)", fontWeight:700, whiteSpace:"nowrap" }}>School Year:</span>
+              <select
+                value={selectedSemId}
+                onChange={e => handleSemesterChange(e.target.value)}
+                style={{ background:"transparent", border:"none", color:"white", fontSize:13, fontWeight:700, outline:"none", cursor:"pointer" }}
+              >
+                {semesters.length === 0 && <option value="">No semesters found</option>}
+                {semesters.map(s => (
+                  <option key={s.id} value={String(s.id)} style={{ background:"#1e293b", color:"white" }}>
+                    {s.school_year} - {s.term}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {subjectPeriods.length === 0 && !tableLoading && (
+            <div style={{ background:"rgba(251,191,36,0.08)", border:"1px solid rgba(251,191,36,0.3)", borderRadius:8, padding:"10px 16px", marginBottom:16, fontSize:13, color:"#fbbf24" }}>
+              No permit periods found for this school year. Ask admin to add periods (Prelim, Midterm, etc.) in the Semesters module.
+            </div>
+          )}
+
+          {tableLoading ? (
+            <div style={{ padding:32, textAlign:"center", color:"var(--text-dim)" }}>Loading permit data...</div>
+          ) : (
+            <div className="table-container">
+              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:500 }}>
+                <thead>
+                  <tr>
+                    <Th>Student ID</Th>
+                    <Th>Name</Th>
+                    <Th>Course / Year</Th>
+                    {subjectPeriods.map(p => (
+                      <Th key={p.id} style={{ textAlign:"center", minWidth:140 }}>{p.name}</Th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {enrolledStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={3 + subjectPeriods.length} style={{ padding:32, textAlign:"center", color:"var(--text-dim)", fontSize:14 }}>
+                        No enrolled students found for this class.
+                      </td>
+                    </tr>
+                  ) : enrolledStudents.map(s => {
+                    const pMap = {};
+                    (s.permits || []).forEach(p => { pMap[p.period_id] = p; });
+                    return (
+                      <tr key={s.id} style={{ borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+                        <Td style={{ fontWeight:700, color:"var(--text-sub)", fontSize:13 }}>{s.id}</Td>
+                        <Td style={{ fontWeight:600, color:"white" }}>{s.name}</Td>
+                        <Td style={{ color:"var(--text-dim)", fontSize:13 }}>{s.course} - {s.year}</Td>
+                        {subjectPeriods.map(p => {
+                          const permit = pMap[p.id];
+                          const isActive = permit && permit.status === "active";
+                          return (
+                            <Td key={p.id} style={{ textAlign:"center" }}>
+                              {isActive ? (
+                                <div style={{ display:"inline-flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                                  <span style={{ background:"rgba(74,222,128,0.15)", border:"1px solid rgba(74,222,128,0.4)", color:"#4ade80", borderRadius:6, padding:"3px 10px", fontSize:12, fontWeight:700 }}>
+                                    Has Permit
+                                  </span>
+                                  {permit.permit_number && (
+                                    <span style={{ fontSize:11, color:"#86efac", fontWeight:700, letterSpacing:0.5 }}>
+                                      #{permit.permit_number}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ background:"rgba(248,113,113,0.15)", border:"1px solid rgba(248,113,113,0.4)", color:"#f87171", borderRadius:6, padding:"3px 10px", fontSize:12, fontWeight:700 }}>
+                                  No Permit
+                                </span>
+                              )}
+                            </Td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function PermitsModule({ token, semesterId, role, username, full_name, subjects, canWrite, canDelete }) {
+  const defaultMode = role === "teacher" ? "class" : "student";
+  const [viewMode, setViewMode] = useState(defaultMode);
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      {role !== "teacher" && (
+        <div style={{ display:"flex", gap:8, padding:"6px", background:"rgba(255,255,255,0.03)", border:"1px solid var(--border-color)", borderRadius:12, width:"fit-content", marginBottom:"8px" }}>
+          <button
+            onClick={() => setViewMode("student")}
+            style={{ background: viewMode === "student" ? "var(--accent-gradient)" : "transparent", color: viewMode === "student" ? "white" : "var(--text-dim)", border:"none", padding:"8px 16px", borderRadius:8, cursor:"pointer", fontWeight:700, transition:"all 0.2s" }}>
+            {"\u{1F50E}"} By Student
+          </button>
+          <button
+            onClick={() => setViewMode("class")}
+            style={{ background: viewMode === "class" ? "var(--accent-gradient)" : "transparent", color: viewMode === "class" ? "white" : "var(--text-dim)", border:"none", padding:"8px 16px", borderRadius:8, cursor:"pointer", fontWeight:700, transition:"all 0.2s" }}>
+            {"\u{1F468}\u200D\u{1F3EB}"} By Class / Teacher
+          </button>
+        </div>
+      )}
+
+      {viewMode === "class" ? (
+        <TeacherPermitsFlow token={token} allSubjects={subjects} role={role} authFullName={full_name} authUsername={username} />
+      ) : (
+        <PermitsView token={token} semesterId={semesterId} role={role} username={username} canWrite={canWrite} canDelete={canDelete} />
+      )}
+    </div>
+  );
+}
+
 function PermitsView({ token, semesterId, role, username, canWrite, canDelete }) {
   // All roles share the same state
   const [students, setStudents] = useState([]);

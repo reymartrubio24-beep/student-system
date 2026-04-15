@@ -127,6 +127,52 @@ app.get("/teacher/subjects/:id/students", authRequired, requireRole("students"),
     res.json(result);
 });
 
+// Teacher: get all students in a subject with their full permit info per period
+// This is teacher-accessible (requires only 'students' role) - read-only permit view
+app.get("/teacher/subjects/:id/students-permits", authRequired, requireRole("students"), async (req, res) => {
+  const { id: subjectId } = req.params;
+  const { semesterId } = req.query; // optional semester filter
+  try {
+    // Get students enrolled in this subject via grades
+    const students = await all(`
+      SELECT DISTINCT s.id, s.name, s.course, s.year
+      FROM students s
+      JOIN grades g ON g.student_id = s.id
+      WHERE g.subject_id = ? AND s.deleted_at IS NULL
+      ORDER BY s.name ASC
+    `, [subjectId]);
+
+    // Get permit periods for the semester (or all if not specified)
+    let periods;
+    if (semesterId) {
+      periods = await all(
+        "SELECT * FROM permit_periods WHERE semester_id=? ORDER BY sort_order ASC, name ASC",
+        [semesterId]
+      );
+    } else {
+      periods = await all(
+        "SELECT * FROM permit_periods ORDER BY sort_order ASC, name ASC"
+      );
+    }
+
+    // For each student, get all their permit statuses
+    const studentsWithPermits = await Promise.all(students.map(async s => {
+      const permits = await all(`
+        SELECT sp.permit_number, sp.status, sp.issue_date, pp.id AS period_id, pp.name AS period_name
+        FROM student_permits sp
+        JOIN permit_periods pp ON pp.id = sp.permit_period_id
+        WHERE sp.student_id = ?
+        ORDER BY pp.sort_order ASC
+      `, [s.id]);
+      return { ...s, permits };
+    }));
+
+    res.json({ students: studentsWithPermits, periods });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Admin: get students enrolled in a subject (via grades), no teacher ownership check
 app.get("/subjects/:subjectId/students", authRequired, requireRole("subjects"), async (req, res) => {
   const { subjectId } = req.params;
