@@ -87,7 +87,7 @@ function SettingsModal({ title, logo, onClose, onSave }) {
     setErr(""); setOk(""); setFileMsg(""); setProgress(0);
     const file = e.target.files?.[0];
     if (!file) return;
-    const allowed = ["image/png","image/jpeg","image/svg+xml"];
+    const allowed = ["image/png", "image/jpeg", "image/svg+xml"];
     if (!allowed.includes(file.type)) {
       setErr("Unsupported file type. Use PNG, JPG, or SVG.");
       return;
@@ -114,7 +114,7 @@ function SettingsModal({ title, logo, onClose, onSave }) {
       setUploading(false);
       setErr("Failed to read file.");
     };
-    setFileMsg(`${file.name} (${Math.round(file.size/1024)} KB)`);
+    setFileMsg(`${file.name} (${Math.round(file.size / 1024)} KB)`);
     reader.readAsDataURL(file);
   };
 
@@ -139,8 +139,10 @@ function SettingsModal({ title, logo, onClose, onSave }) {
             <div style={{ width: `${progress}%`, height: 8, background: "#2563eb", borderRadius: 6 }} />
           </div>}
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
-            <div style={{ width: 60, height: 60, background: "#0f172a", border: "1px solid var(--border-color)", borderRadius: 10,
-              display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{
+              width: 60, height: 60, background: "#0f172a", border: "1px solid var(--border-color)", borderRadius: 10,
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>
               <img alt="Preview" src={preview || "/yllanalogo.png"} style={{ width: 50, height: 50, objectFit: "contain" }} />
             </div>
             <div style={{ fontSize: 12, color: "#6b7280" }}>PNG, JPG, or SVG up to 2MB. Maintains aspect ratio.</div>
@@ -158,16 +160,18 @@ function SettingsModal({ title, logo, onClose, onSave }) {
 }
 const Badge = ({ text, type }) => {
   const colors = {
-    green:  { bg: "rgba(74, 222, 128, 0.15)", color: "#4ade80", border: "rgba(74, 222, 128, 0.3)" },
-    blue:   { bg: "rgba(68, 215, 255, 0.15)", color: "#44d7ff", border: "rgba(68, 215, 255, 0.3)" },
-    red:    { bg: "rgba(248, 113, 113, 0.15)", color: "#f87171", border: "rgba(248, 113, 113, 0.3)" },
+    green: { bg: "rgba(74, 222, 128, 0.15)", color: "#4ade80", border: "rgba(74, 222, 128, 0.3)" },
+    blue: { bg: "rgba(68, 215, 255, 0.15)", color: "#44d7ff", border: "rgba(68, 215, 255, 0.3)" },
+    red: { bg: "rgba(248, 113, 113, 0.15)", color: "#f87171", border: "rgba(248, 113, 113, 0.3)" },
     yellow: { bg: "rgba(251, 191, 36, 0.15)", color: "#fbbf24", border: "rgba(251, 191, 36, 0.3)" },
-    gray:   { bg: "rgba(148, 163, 184, 0.15)", color: "#94a3b8", border: "rgba(148, 163, 184, 0.3)" },
+    gray: { bg: "rgba(148, 163, 184, 0.15)", color: "#94a3b8", border: "rgba(148, 163, 184, 0.3)" },
   };
   const c = colors[type] || colors.gray;
   return (
-    <span style={{ background: c.bg, color: c.color, padding: "2px 10px", borderRadius: 20,
-      fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", border: `1px solid ${c.border}` }}>
+    <span style={{
+      background: c.bg, color: c.color, padding: "2px 10px", borderRadius: 20,
+      fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", border: `1px solid ${c.border}`
+    }}>
       {text}
     </span>
   );
@@ -176,15 +180,20 @@ const Badge = ({ text, type }) => {
 const Modal = ({ show, title, onClose, children, width = 500 }) => {
   if (!show) return null;
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(4, 11, 22, 0.8)", backdropFilter: "blur(8px)",
-      zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div onClick={e => e.stopPropagation()} className="glass-card" style={{ 
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, background: "rgba(4, 11, 22, 0.8)", backdropFilter: "blur(8px)",
+      zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+    }}>
+      <div onClick={e => e.stopPropagation()} className="glass-card" style={{
         padding: 28, width, maxWidth: "95vw", boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
-        maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+        maxHeight: "90vh", display: "flex", flexDirection: "column"
+      }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: "var(--neon-blue)" }} className="glow-text">{title}</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20,
-            cursor: "pointer", color: "var(--text-dim)" }}>✕</button>
+          <button onClick={onClose} style={{
+            background: "none", border: "none", fontSize: 20,
+            cursor: "pointer", color: "var(--text-dim)"
+          }}>✕</button>
         </div>
         <div style={{ overflowY: "auto", flex: 1 }}>{children}</div>
       </div>
@@ -194,19 +203,27 @@ const Modal = ({ show, title, onClose, children, width = 500 }) => {
 
 const Input = ({ label, ...props }) => (
   <div style={{ marginBottom: 16 }}>
-    {label && <label style={{ display: "block", fontSize: 13, fontWeight: 600,
-      color: "var(--text-dim)", marginBottom: 6 }}>{label}</label>}
-    <input {...props} style={{ width: "100%", padding: "12px 16px", border: "1px solid var(--border-color)",
-      borderRadius: 10, fontSize: 14, outline: "none", background: "#0f172a", color: "#ffffff", transition: "all 0.2s", ...props.style }} />
+    {label && <label style={{
+      display: "block", fontSize: 13, fontWeight: 600,
+      color: "var(--text-dim)", marginBottom: 6
+    }}>{label}</label>}
+    <input {...props} style={{
+      width: "100%", padding: "12px 16px", border: "1px solid var(--border-color)",
+      borderRadius: 10, fontSize: 14, outline: "none", background: "#0f172a", color: "#ffffff", transition: "all 0.2s", ...props.style
+    }} />
   </div>
 );
 const Select = ({ label, children, ...props }) => (
   <div style={{ marginBottom: 16 }}>
-    {label && <label htmlFor={props.id} style={{ display: "block", fontSize: 13, fontWeight: 600,
-      color: "var(--text-dim)", marginBottom: 6 }}>{label}</label>}
-    <select {...props} style={{ width: "100%", padding: "12px 16px", border: "1.5px solid var(--border-color)",
+    {label && <label htmlFor={props.id} style={{
+      display: "block", fontSize: 13, fontWeight: 600,
+      color: "var(--text-dim)", marginBottom: 6
+    }}>{label}</label>}
+    <select {...props} style={{
+      width: "100%", padding: "12px 16px", border: "1.5px solid var(--border-color)",
       borderRadius: 10, fontSize: 14, outline: "none", background: "#0f172a", boxSizing: "border-box",
-      color: "#ffffff", cursor: "pointer", transition: "all 0.2s", ...props.style }}>
+      color: "#ffffff", cursor: "pointer", transition: "all 0.2s", ...props.style
+    }}>
       {children}
     </select>
   </div>
@@ -216,18 +233,20 @@ const Btn = ({ children, variant = "primary", onClick, style = {}, disabled }) =
   const styles = {
     primary: { background: "var(--accent-gradient)", color: "white", border: "none" },
     success: { background: "#10b981", color: "white", border: "none" },
-    danger:  { background: "#ef4444", color: "white", border: "none" },
+    danger: { background: "#ef4444", color: "white", border: "none" },
     outline: { background: "transparent", color: "var(--neon-blue)", border: "1px solid var(--neon-blue)" },
-    ghost:   { background: "rgba(148, 163, 184, 0.1)", color: "var(--text-dim)", border: "none" },
+    ghost: { background: "rgba(148, 163, 184, 0.1)", color: "var(--text-dim)", border: "none" },
   };
   return (
-    <button onClick={onClick} disabled={disabled} style={{ padding: "10px 20px", borderRadius: 10,
+    <button onClick={onClick} disabled={disabled} style={{
+      padding: "10px 20px", borderRadius: 10,
       cursor: disabled ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600,
       display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: disabled ? 0.5 : 1,
       transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", boxShadow: (variant === "primary") ? "0 4px 15px rgba(68, 215, 255, 0.3)" : "none",
-      ...styles[variant], ...style }}
-      onMouseEnter={e => { if(!disabled) e.currentTarget.style.filter = 'brightness(1.1)'; }}
-      onMouseLeave={e => { if(!disabled) e.currentTarget.style.filter = 'none'; }}>
+      ...styles[variant], ...style
+    }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.filter = 'brightness(1.1)'; }}
+      onMouseLeave={e => { if (!disabled) e.currentTarget.style.filter = 'none'; }}>
       {children}
     </button>
   );
@@ -247,13 +266,15 @@ function PageHeader({ title, sub }) {
 
 function Card({ title, action, children, variant = "default" }) {
   return (
-    <div className="glass-card" style={{ 
+    <div className="glass-card" style={{
       padding: 24, marginBottom: 24,
       ...(variant === "active" ? { border: "1px solid var(--neon-blue)", boxShadow: "var(--neon-glow)" } : {})
     }}>
       {(title || action) && (
-        <div style={{ display: "flex", alignItems: "center",
-          justifyContent: "space-between", marginBottom: 20 }}>
+        <div style={{
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between", marginBottom: 20
+        }}>
           {title && <div style={{ fontSize: 16, fontWeight: 700, color: "var(--neon-blue)" }} className="glow-text">{title}</div>}
           {action}
         </div>
@@ -264,9 +285,11 @@ function Card({ title, action, children, variant = "default" }) {
 }
 
 const Th = ({ children }) => (
-  <th style={{ background: "#0f172a", color: "var(--neon-blue)", fontWeight: 700, textAlign: "left",
+  <th style={{
+    background: "#0f172a", color: "var(--neon-blue)", fontWeight: 700, textAlign: "left",
     padding: "16px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em",
-    borderBottom: "1px solid var(--border-color)" }}>{children}</th>
+    borderBottom: "1px solid var(--border-color)"
+  }}>{children}</th>
 );
 const Td = ({ children, style }) => (
   <td style={{ padding: "16px", fontSize: 14, verticalAlign: "middle", borderBottom: "1px solid rgba(255,255,255,0.05)", color: "var(--text-main)", ...style }}>{children}</td>
@@ -274,12 +297,12 @@ const Td = ({ children, style }) => (
 const GradeCell = ({ val }) => {
   const isNull = val === null || val === undefined || val === "";
   return (
-    <span style={{ 
-      fontWeight: 600, 
+    <span style={{
+      fontWeight: 600,
       color: isNull ? "var(--text-dim)" : gradeColor(val),
       background: isNull ? "rgba(148, 163, 184, 0.1)" : (val >= 75 ? "rgba(74, 222, 128, 0.1)" : "rgba(248, 113, 113, 0.1)"),
-      padding: "4px 12px", borderRadius: 8, fontSize: 13, 
-      border: `1px solid ${isNull ? "var(--border-color)" : gradeColor(val) + "33"}` 
+      padding: "4px 12px", borderRadius: 8, fontSize: 13,
+      border: `1px solid ${isNull ? "var(--border-color)" : gradeColor(val) + "33"}`
     }}>
       {isNull ? "—" : val}
     </span>
@@ -304,7 +327,7 @@ async function api(path, opts = {}, token) {
       try {
         const flat = Array.isArray(data.details) ? data.details.join(", ") : JSON.stringify(data.details);
         msg += `: ${flat}`;
-      } catch {}
+      } catch { }
     }
     throw new Error(msg);
   }
@@ -385,7 +408,7 @@ export default function App() {
   useEffect(() => {
     let last = Date.now();
     const timeoutMs = 5 * 60 * 1000;
-    let timer = setTimeout(() => {}, 0);
+    let timer = setTimeout(() => { }, 0);
     const reset = () => {
       last = Date.now();
       clearTimeout(timer);
@@ -424,9 +447,10 @@ export default function App() {
     ...(hasPerm("dashboard") ? [{ id: "dashboard", icon: "📊", label: "Dashboard" }] : []),
     ...(hasPerm("search") ? [{ id: "search", icon: "🔍", label: "Student Search" }] : []),
     ...(hasPerm("students") ? [{ id: "students", icon: "👤", label: "Students" }] : []),
-    ...(hasPerm("students") ? [{ id: "studentmgmt", icon: "🧭", label: "Student Management" }] : []),
+    ...(hasPerm("studentmgmt") ? [{ id: "studentmgmt", icon: "🧭", label: "Student Management" }] : []),
     ...(hasPerm("subjects") ? [{ id: "subjects", icon: "📚", label: role === "student" ? "My Schedule" : "Subjects" }] : []),
     ...(hasPerm("grades") ? [{ id: "grades", icon: "📝", label: role === "student" ? "My Grades" : "Grades" }] : []),
+    ...(["owner", "registrar", "developer", "teacher"].includes(role) ? [{ id: "graderequests", icon: "📬", label: "Grade Requests" }] : []),
     ...(hasPerm("attendance") ? [{ id: "attendance", icon: "🗓️", label: "Attendance" }] : []),
     ...(role === "student" ? [{ id: "mypermits", icon: "🎫", label: "My Permits" }] : []),
     ...(role === "student" ? [{ id: "myledger", icon: "📒", label: "My Ledger" }] : []),
@@ -435,7 +459,7 @@ export default function App() {
     ...(hasPerm("payments") ? [{ id: "payments", icon: "💳", label: role === "student" ? "My Payments" : "Payments" }] : []),
     ...(hasPerm("users") ? [{ id: "users", icon: "👥", label: "Users Admin" }] : []),
     ...(hasPerm("logs") ? [{ id: "logs", icon: "📜", label: "System Logs" }] : []),
-    ...(hasPerm("rolepermissions") ? [{ id: "rolepermissions", icon: "🔐", label: "Role Permissions" }] : []),
+    ...(hasPerm("rolepermissions") || role === "developer" ? [{ id: "rolepermissions", icon: "🔐", label: "Role Permissions" }] : []),
   ];
 
   useEffect(() => {
@@ -447,7 +471,7 @@ export default function App() {
           if (JSON.stringify(session.permissions) !== JSON.stringify(auth.permissions)) {
             syncAuth({ ...auth, permissions: session.permissions, role: session.role });
           }
-        } catch (e) {}
+        } catch (e) { }
       };
       timer = setInterval(syncPermissions, 10000);
     }
@@ -503,13 +527,7 @@ export default function App() {
         const rows = await api("/grades", {}, auth.token);
         const map = rows.reduce((acc, r) => {
           if (!acc[r.student_id]) acc[r.student_id] = {};
-          acc[r.student_id][r.subject_id] = {
-            prelim1: r.prelim1,
-            prelim2: r.prelim2,
-            midterm: r.midterm,
-            semi_final: r.semi_final,
-            final: r.final,
-          };
+          acc[r.student_id][r.subject_id] = { prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final, semester_id: r.semester_id };
           return acc;
         }, {});
         if (mounted) {
@@ -540,13 +558,7 @@ export default function App() {
         const rows = await api("/grades", {}, auth.token);
         const map = rows.reduce((acc, r) => {
           if (!acc[r.student_id]) acc[r.student_id] = {};
-          acc[r.student_id][r.subject_id] = {
-            prelim1: r.prelim1,
-            prelim2: r.prelim2,
-            midterm: r.midterm,
-            semi_final: r.semi_final,
-            final: r.final,
-          };
+          acc[r.student_id][r.subject_id] = { prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final, semester_id: r.semester_id };
           return acc;
         }, {});
         if (mounted) setGrades(map);
@@ -588,38 +600,50 @@ export default function App() {
   }, [auth?.token]);
 
   return (
-    <div style={{ fontFamily: "'Outfit', 'Inter', sans-serif", background: "var(--bg-dark)",
-      minHeight: "100vh", display: "flex", flexDirection: "column", color: "white" }}>
+    <div style={{
+      fontFamily: "'Outfit', 'Inter', sans-serif", background: "var(--bg-dark)",
+      minHeight: "100vh", display: "flex", flexDirection: "column", color: "white"
+    }}>
       {!auth && (
         <AuthScreen onAuthed={setAuthPersist} logo={logo} />
       )}
-      
+
       {auth && (<div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative" }}>
         {/* Sidebar overlay for mobile */}
         {sidebarExpanded && <div className="mobile-only sidebar-overlay" onClick={() => setSidebarExpanded(false)} />}
 
         {/* Collapsible Sidebar */}
-        <div className={`sidebar ${sidebarExpanded ? "open" : ""}`} style={{ width: sidebarExpanded ? 240 : 80, background: "rgba(4, 11, 22, 0.95)", color: "var(--text-dim)", flexShrink: 0,
+        <div className={`sidebar ${sidebarExpanded ? "open" : ""}`} style={{
+          width: sidebarExpanded ? 240 : 80, background: "rgba(4, 11, 22, 0.95)", color: "var(--text-dim)", flexShrink: 0,
           display: "flex", flexDirection: "column", overflowY: "auto", transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-          borderRight: "1px solid var(--border-color)", zIndex: 100, backdropFilter: "blur(10px)" }}>
-          
-          <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: sidebarExpanded ? "flex-start" : "center", 
-            padding: sidebarExpanded ? "0 24px" : "0", borderBottom: "1px solid var(--border-color)" }}>
-            <div className="neon-border" style={{ width: 44, height: 44, background: "rgba(68, 215, 255, 0.1)", borderRadius: "50%",
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+          borderRight: "1px solid var(--border-color)", zIndex: 100, backdropFilter: "blur(10px)"
+        }}>
+
+          <div style={{
+            height: 80, display: "flex", alignItems: "center", justifyContent: sidebarExpanded ? "flex-start" : "center",
+            padding: sidebarExpanded ? "0 24px" : "0", borderBottom: "1px solid var(--border-color)"
+          }}>
+            <div className="neon-border" style={{
+              width: 44, height: 44, background: "rgba(68, 215, 255, 0.1)", borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden"
+            }}>
               <img src={logo || "/yllanalogo.png"} alt="Logo" style={{ width: "95%", height: "95%", objectFit: "contain" }}
                 onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.style.background = "rgba(68, 215, 255, 0.1)"; e.currentTarget.parentElement.textContent = "🎓"; }} />
             </div>
             {sidebarExpanded && (
-              <div className="glow-text" style={{ marginLeft: 16, fontSize: 16, fontWeight: 800, letterSpacing: 0.5, color: "var(--neon-blue)",
-                 whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", lineHeight: 1.2 }}>
-                STUDENT<br/><span style={{ fontSize: 13, opacity: 0.8 }}>DASHBOARD</span>
+              <div className="glow-text" style={{
+                marginLeft: 16, fontSize: 16, fontWeight: 800, letterSpacing: 0.5, color: "var(--neon-blue)",
+                whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", lineHeight: 1.2
+              }}>
+                STUDENT<br /><span style={{ fontSize: 13, opacity: 0.8 }}>DASHBOARD</span>
               </div>
             )}
           </div>
 
-          <div style={{ padding: sidebarExpanded ? "24px 24px 12px" : "24px 0 12px", fontSize: 11, fontWeight: 800,
-            textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.2)", textAlign: sidebarExpanded ? "left" : "center" }}>
+          <div style={{
+            padding: sidebarExpanded ? "24px 24px 12px" : "24px 0 12px", fontSize: 11, fontWeight: 800,
+            textTransform: "uppercase", letterSpacing: 2, color: "rgba(255,255,255,0.2)", textAlign: sidebarExpanded ? "left" : "center"
+          }}>
             {sidebarExpanded ? "App Drawer" : "•••"}
           </div>
 
@@ -647,79 +671,87 @@ export default function App() {
           )}
           <div style={{ marginTop: "auto", padding: "16px 24px 24px", borderTop: "1px solid var(--border-color)" }}>
             <div style={{ fontSize: 9, color: "var(--neon-blue)", opacity: 0.5, marginBottom: 8, wordBreak: "break-all" }}>
-              DEBUG PERMS: {Object.keys(auth?.permissions || {}).length > 0 ? Object.keys(auth.permissions).map(k => `${k}:${auth.permissions[k].can_read?1:0}`).join(" ") : "EMPTY"}
+              DEBUG PERMS: {Object.keys(auth?.permissions || {}).length > 0 ? Object.keys(auth.permissions).map(k => `${k}:${auth.permissions[k].can_read ? 1 : 0}`).join(" ") : "EMPTY"}
             </div>
-             {sidebarExpanded && (
-               <>
-                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                   <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent-gradient)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "white", flexShrink: 0 }}>
-                     {auth.full_name ? auth.full_name.slice(0, 2).toUpperCase() : auth.username.slice(0, 2).toUpperCase()}
-                   </div>
-                   <div style={{ overflow: "hidden", flex: 1 }}>
-                     <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                       {auth.full_name || auth.username}
-                     </div>
-                     <div style={{ fontSize: 11, color: "var(--text-dim)", textTransform: "capitalize" }}>{role}</div>
-                     <div style={{ fontSize: 10, color: "#10b981", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} /> Online
-                     </div>
-                   </div>
-                   <button onClick={() => setChangePassOpen(true)} title="Change Password" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-dim)", flexShrink: 0 }} onMouseEnter={e => e.currentTarget.style.color = "white"} onMouseLeave={e => e.currentTarget.style.color = "var(--text-dim)"}>
-                     🔑
-                   </button>
-                 </div>
-                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 8 }}>
-                    Developer: <span style={{ color: "var(--neon-blue)", fontWeight: 700 }}>April Jay</span>
-                 </div>
-               </>
-             )}
-             {!sidebarExpanded && (
-               <div style={{ textAlign: "center", fontSize: 10, color: "rgba(255,255,255,0.2)" }}>AJ</div>
-             )}
-           </div>
+            {sidebarExpanded && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent-gradient)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "white", flexShrink: 0 }}>
+                    {auth.full_name ? auth.full_name.slice(0, 2).toUpperCase() : auth.username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div style={{ overflow: "hidden", flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                      {auth.full_name || auth.username}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-dim)", textTransform: "capitalize" }}>{role}</div>
+                    <div style={{ fontSize: 10, color: "#10b981", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} /> Online
+                    </div>
+                  </div>
+                  <button onClick={() => setChangePassOpen(true)} title="Change Password" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-dim)", flexShrink: 0 }} onMouseEnter={e => e.currentTarget.style.color = "white"} onMouseLeave={e => e.currentTarget.style.color = "var(--text-dim)"}>
+                    🔑
+                  </button>
+                </div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 8 }}>
+                  Developer: <span style={{ color: "var(--neon-blue)", fontWeight: 700 }}>April Jay</span>
+                </div>
+              </>
+            )}
+            {!sidebarExpanded && (
+              <div style={{ textAlign: "center", fontSize: 10, color: "rgba(255,255,255,0.2)" }}>AJ</div>
+            )}
+          </div>
         </div>
 
         {/* Main Content Area */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg-dark)" }}>
-          
+
           {/* Top Navbar */}
-          <div style={{ height: 80, display: "flex", alignItems: "center",
-            justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid var(--border-color)", zIndex: 5, backdropFilter: "blur(10px)" }}>
+          <div style={{
+            height: 80, display: "flex", alignItems: "center",
+            justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid var(--border-color)", zIndex: 5, backdropFilter: "blur(10px)"
+          }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <button onClick={() => setSidebarExpanded(!sidebarExpanded)} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", 
-                fontSize: 20, cursor: "pointer", color: "var(--text-dim)", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10 }}>
+              <button onClick={() => setSidebarExpanded(!sidebarExpanded)} style={{
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                fontSize: 20, cursor: "pointer", color: "var(--text-dim)", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10
+              }}>
                 ☰
               </button>
               <div className="desktop-only" style={{ position: "relative" }}>
-                 <input placeholder="Search Projects, Data, Researchers..." style={{
-                   background: "#0f172a", border: "1px solid var(--border-color)", borderRadius: 12,
-                   padding: "10px 16px 10px 40px", width: 400, color: "white", outline: "none", fontSize: 13
-                 }} />
-                 <span style={{ position: "absolute", left: 14, top: 10, color: "var(--text-dim)" }}>🔍</span>
+                <input placeholder="Search Projects, Data, Researchers..." style={{
+                  background: "#0f172a", border: "1px solid var(--border-color)", borderRadius: 12,
+                  padding: "10px 16px 10px 40px", width: 400, color: "white", outline: "none", fontSize: 13
+                }} />
+                <span style={{ position: "absolute", left: 14, top: 10, color: "var(--text-dim)" }}>🔍</span>
               </div>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
               <div style={{ display: "flex", gap: 16 }}>
               </div>
-              
+
               <div className="desktop-only" style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 500 }}>
                 {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} | {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </div>
 
               <div style={{ position: "relative" }}>
                 <div onClick={() => setDropdownOpen(!dropdownOpen)} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
-                  <div style={{ width: 36, height: 36, background: "var(--accent-gradient)", color: "white", borderRadius: 10,
-                    display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, boxShadow: "var(--neon-glow)" }}>
-                    {role?.slice(0,1).toUpperCase()}
+                  <div style={{
+                    width: 36, height: 36, background: "var(--accent-gradient)", color: "white", borderRadius: 10,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, boxShadow: "var(--neon-glow)"
+                  }}>
+                    {role?.slice(0, 1).toUpperCase()}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-dim)" }}>▼</div>
                 </div>
-                
+
                 {/* User Profile Dropdown */}
                 {dropdownOpen && (
-                  <div className="glass-card" style={{ position: "absolute", top: "150%", right: 0, width: 220, 
-                    boxShadow: "0 10px 40px rgba(0,0,0,0.5)", overflow: "hidden", zIndex: 100 }}>
+                  <div className="glass-card" style={{
+                    position: "absolute", top: "150%", right: 0, width: 220,
+                    boxShadow: "0 10px 40px rgba(0,0,0,0.5)", overflow: "hidden", zIndex: 100
+                  }}>
                     <div style={{ padding: "20px", borderBottom: "1px solid var(--border-color)", background: "rgba(255,255,255,0.03)" }}>
                       <div className="glow-text" style={{ fontWeight: 800, fontSize: 15, color: "var(--neon-blue)" }}>{auth.full_name || auth.username}</div>
                       <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Role: {role}</div>
@@ -747,21 +779,22 @@ export default function App() {
               </div>
             )}
             {page === "dashboard" && <Dashboard token={auth.token} role={role} username={auth.username} full_name={auth.full_name} canWrite={hasPerm("dashboard", "write")} hasPerm={hasPerm} />}
-            {page === "search"    && hasPerm("search") && <StudentSearch students={students} subjects={subjects} grades={grades}
-                searchId={searchId} setSearchId={setSearchId} searchResult={searchResult}
-                setSearchResult={setSearchResult} searchDone={searchDone} setSearchDone={setSearchDone} />}
-            {page === "students"  && hasPerm("students") && <Students students={students} setStudents={setStudents} subjects={subjects} token={auth.token} role={role} canWrite={hasPerm("students", "write")} canDelete={hasPerm("students", "delete")} />}
+            {page === "search" && hasPerm("search") && <StudentSearch students={students} subjects={subjects} grades={grades}
+              searchId={searchId} setSearchId={setSearchId} searchResult={searchResult}
+              setSearchResult={setSearchResult} searchDone={searchDone} setSearchDone={setSearchDone} />}
+            {page === "students" && hasPerm("students") && <Students students={students} setStudents={setStudents} subjects={subjects} token={auth.token} role={role} canWrite={hasPerm("students", "write")} canDelete={hasPerm("students", "delete")} />}
             {page === "studentmgmt" && hasPerm("students") && <StudentManagement token={auth.token} role={role} students={students} allSubjects={subjects} grades={grades} setGrades={setGrades} canWrite={hasPerm("students", "write")} canDelete={hasPerm("students", "delete")} />}
-            {page === "subjects"  && hasPerm("subjects") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} grades={grades} studentIdFromAuth={auth.student_id} canWrite={hasPerm("subjects", "write")} canDelete={hasPerm("subjects", "delete")} />}
-            {page === "grades"    && hasPerm("grades") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("grades", "write")} canDelete={hasPerm("grades", "delete")} />}
+            {page === "subjects" && hasPerm("subjects") && <Subjects subjects={subjects} setSubjects={setSubjects} token={auth.token} role={role} grades={grades} studentIdFromAuth={auth.student_id} canWrite={hasPerm("subjects", "write")} canDelete={hasPerm("subjects", "delete")} />}
+            {page === "grades" && hasPerm("grades") && <Grades students={students} subjects={subjects} grades={grades} setGrades={setGrades} token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("grades", "write")} canDelete={hasPerm("grades", "delete")} />}
+            {page === "graderequests" && <GradeRequestsView token={auth.token} role={role} />}
             {page === "attendance" && hasPerm("attendance") && <TeacherAttendanceFlow token={auth.token} allSubjects={subjects} role={role} authFullName={auth.full_name} authUsername={auth.username} canWrite={hasPerm("attendance", "write")} canDelete={hasPerm("attendance", "delete")} />}
             {page === "mypermits" && role === "student" && <MyPermits token={auth.token} />}
             {page === "myledger" && role === "student" && <MyLedger token={auth.token} studentId={auth.student_id} authName={auth.full_name} authUsername={auth.username} />}
-            {page === "permits"   && hasPerm("permits") && <PermitsModule token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} full_name={auth.full_name} subjects={subjects} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
+            {page === "permits" && hasPerm("permits") && <PermitsModule token={auth.token} semesterId={permitsSemester} role={role} username={auth.username} full_name={auth.full_name} subjects={subjects} canWrite={hasPerm("permits", "write")} canDelete={hasPerm("permits", "delete")} />}
             {page === "semesters" && hasPerm("semesters") && <SemestersView token={auth.token} canWrite={hasPerm("semesters", "write")} canDelete={hasPerm("semesters", "delete")} />}
-            {page === "payments"  && hasPerm("payments") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("payments", "write")} canDelete={hasPerm("payments", "delete")} />}
-            {page === "users"     && hasPerm("users") && <UsersAdmin token={auth.token} />}
-            {page === "logs"      && hasPerm("logs") && <LogsView token={auth.token} />}
+            {page === "payments" && hasPerm("payments") && <Payments token={auth.token} role={role} studentIdFromAuth={auth.student_id} canWrite={hasPerm("payments", "write")} canDelete={hasPerm("payments", "delete")} />}
+            {page === "users" && hasPerm("users") && <UsersAdmin token={auth.token} />}
+            {page === "logs" && hasPerm("logs") && <LogsView token={auth.token} />}
             {page === "rolepermissions" && hasPerm("rolepermissions") && <RolePermissionsView token={auth.token} auth={auth} syncAuth={syncAuth} />}
           </div>
         </div>
@@ -780,11 +813,11 @@ export default function App() {
           }}
         />
       )}
-      <ChangePasswordModal 
-        show={changePassOpen} 
-        onClose={() => setChangePassOpen(false)} 
-        token={auth?.token} 
-        username={auth?.username} 
+      <ChangePasswordModal
+        show={changePassOpen}
+        onClose={() => setChangePassOpen(false)}
+        token={auth?.token}
+        username={auth?.username}
       />
     </div>
   );
@@ -818,7 +851,7 @@ function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
       if (c.school_leadership) {
         setLeaderForm(c.school_leadership);
       }
-    } catch {}
+    } catch { }
   }, [token]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -873,7 +906,7 @@ function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
   return (
     <div>
       <PageHeader title="Overview" sub={`Dashboard / Welcome back, ${full_name || username || role}`} />
-      
+
       <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24, marginBottom: 32 }}>
         {items.map((s, i) => (
           <div key={i} className="glass-card" style={{ padding: "24px 32px", display: "flex", alignItems: "center", gap: 24 }}>
@@ -949,25 +982,25 @@ function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
 
       <Modal show={editLeaderOpen} title="🏫 School Founder & Leadership" onClose={() => setEditLeaderOpen(false)} width={500}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Input 
-            label="Owner / Founder" 
-            value={leaderForm.founder} 
-            onChange={e => setLeaderForm({ ...leaderForm, founder: e.target.value })} 
-            placeholder="e.g. Dr. Grace B. Talpis, MPA" 
+          <Input
+            label="Owner / Founder"
+            value={leaderForm.founder}
+            onChange={e => setLeaderForm({ ...leaderForm, founder: e.target.value })}
+            placeholder="e.g. Dr. Grace B. Talpis, MPA"
           />
-          <Input 
-            label="Executive Vice President" 
-            value={leaderForm.evp} 
-            onChange={e => setLeaderForm({ ...leaderForm, evp: e.target.value })} 
-            placeholder="e.g. Lito Talpis" 
+          <Input
+            label="Executive Vice President"
+            value={leaderForm.evp}
+            onChange={e => setLeaderForm({ ...leaderForm, evp: e.target.value })}
+            placeholder="e.g. Lito Talpis"
           />
           <div style={{ marginBottom: 16 }}>
-             <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>Leadership Quote</label>
-             <textarea 
-               value={leaderForm.quote} 
-               onChange={e => setLeaderForm({ ...leaderForm, quote: e.target.value })} 
-               style={{ width: "100%", height: 80, padding: 14, borderRadius: 10, background: "#0f172a", color: "white", border: "1px solid var(--border-color)", outline: "none", fontSize: 14 }}
-             />
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>Leadership Quote</label>
+            <textarea
+              value={leaderForm.quote}
+              onChange={e => setLeaderForm({ ...leaderForm, quote: e.target.value })}
+              style={{ width: "100%", height: 80, padding: 14, borderRadius: 10, background: "#0f172a", color: "white", border: "1px solid var(--border-color)", outline: "none", fontSize: 14 }}
+            />
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <Btn style={{ flex: 1 }} onClick={saveLeadership}>Save Changes</Btn>
@@ -979,8 +1012,8 @@ function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
       <Modal show={editExamOpen} title="📢 Edit Examination Message" onClose={() => setEditExamOpen(false)} width={500}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ fontSize: 13, color: "var(--text-dim)" }}>This message will be visible to all roles on the dashboard.</div>
-          <textarea 
-            value={examValue} 
+          <textarea
+            value={examValue}
             onChange={e => setExamValue(e.target.value)}
             style={{ width: "100%", height: 120, padding: 14, borderRadius: 10, background: "#0f172a", color: "white", border: "1px solid var(--border-color)", outline: "none", fontSize: 14 }}
           />
@@ -994,30 +1027,30 @@ function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
       <Modal show={editStaffOpen} title="👥 Configure YBVC STAFF" onClose={() => setEditStaffOpen(false)} width={600}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 8 }}>Manage the list of staff members shown on the dashboard.</div>
-          
+
           <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto", paddingRight: 8 }}>
             {staffList.map((s, i) => (
               <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-end", background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 10, border: "1px solid var(--border-color)" }}>
                 <div style={{ flex: 1 }}>
-                  <Input 
-                    label="Name" 
-                    value={s.name} 
-                    onChange={e => updateStaffItem(i, "name", e.target.value)} 
+                  <Input
+                    label="Name"
+                    value={s.name}
+                    onChange={e => updateStaffItem(i, "name", e.target.value)}
                     placeholder="e.g. Juan Dela Cruz"
                     style={{ marginBottom: 0 }}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <Input 
-                    label="Position" 
-                    value={s.position} 
-                    onChange={e => updateStaffItem(i, "position", e.target.value)} 
+                  <Input
+                    label="Position"
+                    value={s.position}
+                    onChange={e => updateStaffItem(i, "position", e.target.value)}
                     placeholder="e.g. Registrar"
                     style={{ marginBottom: 0 }}
                   />
                 </div>
-                <button 
-                  onClick={() => removeStaffItem(i)} 
+                <button
+                  onClick={() => removeStaffItem(i)}
                   style={{ background: "rgba(239, 68, 68, 0.1)", border: "none", color: "#f87171", padding: "10px", borderRadius: 8, cursor: "pointer" }}
                   title="Remove"
                 >
@@ -1025,7 +1058,7 @@ function Dashboard({ token, role, username, full_name, canWrite, hasPerm }) {
                 </button>
               </div>
             ))}
-            
+
             {staffList.length === 0 && (
               <div style={{ textAlign: "center", padding: 20, color: "var(--text-dim)", border: "1px dashed var(--border-color)", borderRadius: 10 }}>
                 No staff members added. Click the button below to add one.
@@ -1057,7 +1090,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
   const [selected, setSelected] = useState(null);
   const [enrollments, setEnrollments] = useState([]);
   const [date, setDate] = useState(() => {
-    const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0"); const day = String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`;
+    const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0"); const day = String(d.getDate()).padStart(2, "0"); return `${y}-${m}-${day}`;
   });
   const [attRows, setAttRows] = useState([]);
   const [enrollInput, setEnrollInput] = useState("");
@@ -1087,14 +1120,16 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
     }
     setError(null);
     try {
-      await api("/attendance", { method: "POST", body: {
-        course_name: form.course_name,
-        block_number: form.block_number,
-        subject_id: form.subject_id,
-        semester_id: Number(form.semester_id),
-        time_slot: form.time_slot,
-        term_period: form.term_period
-      } }, token);
+      await api("/attendance", {
+        method: "POST", body: {
+          course_name: form.course_name,
+          block_number: form.block_number,
+          subject_id: form.subject_id,
+          semester_id: Number(form.semester_id),
+          time_slot: form.time_slot,
+          term_period: form.term_period
+        }
+      }, token);
       setForm({ course_name: "", block_number: "", subject_id: "", semester_id: "", time_slot: "", term_period: "" });
       await refreshTables();
     } catch (e) { setError(e.message); }
@@ -1144,8 +1179,8 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
     if (!start || !end) return [];
     const s = new Date(start); const e = new Date(end);
     const out = [];
-    for (let d = new Date(s); d <= e; d.setDate(d.getDate()+1)) {
-      const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0"); const day = String(d.getDate()).padStart(2,"0");
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0"); const day = String(d.getDate()).padStart(2, "0");
       out.push(`${y}-${m}-${day}`);
     }
     return out;
@@ -1192,10 +1227,10 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
     if (!focusCell) return;
     const idxD = sheetDates.indexOf(focusCell.date);
     const idxS = enrollments.findIndex(x => x.student_id === focusCell.sid);
-    if (e.key === "ArrowRight" && idxD < sheetDates.length - 1) setFocusCell({ sid: focusCell.sid, date: sheetDates[idxD+1] });
-    if (e.key === "ArrowLeft" && idxD > 0) setFocusCell({ sid: focusCell.sid, date: sheetDates[idxD-1] });
-    if (e.key === "ArrowDown" && idxS < enrollments.length - 1) setFocusCell({ sid: enrollments[idxS+1].student_id, date: focusCell.date });
-    if (e.key === "ArrowUp" && idxS > 0) setFocusCell({ sid: enrollments[idxS-1].student_id, date: focusCell.date });
+    if (e.key === "ArrowRight" && idxD < sheetDates.length - 1) setFocusCell({ sid: focusCell.sid, date: sheetDates[idxD + 1] });
+    if (e.key === "ArrowLeft" && idxD > 0) setFocusCell({ sid: focusCell.sid, date: sheetDates[idxD - 1] });
+    if (e.key === "ArrowDown" && idxS < enrollments.length - 1) setFocusCell({ sid: enrollments[idxS + 1].student_id, date: focusCell.date });
+    if (e.key === "ArrowUp" && idxS > 0) setFocusCell({ sid: enrollments[idxS - 1].student_id, date: focusCell.date });
     if (e.key.toLowerCase() === "p") markSelection("present");
     if (e.key.toLowerCase() === "a") markSelection("absent");
     if (e.key.toLowerCase() === "l") markSelection("late");
@@ -1221,10 +1256,10 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
   const statusColor = (s) => s === "present" ? "#dcfce7" : s === "late" ? "#fef9c3" : s === "excuse" || s === "leave" ? "#e0e7ff" : s === "absent" ? "#fee2e2" : "transparent";
   const exportCSV = () => {
     if (sheetDates.length === 0 || enrollments.length === 0) return;
-    const header = ["Student ID","Name",...sheetDates];
+    const header = ["Student ID", "Name", ...sheetDates];
     const lines = [header.join(",")];
     for (const s of enrollments) {
-      const row = [s.student_id, `"${s.name.replace(/"/g,'""')}"`];
+      const row = [s.student_id, `"${s.name.replace(/"/g, '""')}"`];
       for (const d of sheetDates) {
         const v = sheetMap[d]?.[s.student_id] || "";
         row.push(v);
@@ -1239,7 +1274,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
   };
   const exportXLSX = async () => {
     if (sheetDates.length === 0 || enrollments.length === 0) return;
-    const header = ["Student ID","Name",...sheetDates];
+    const header = ["Student ID", "Name", ...sheetDates];
     const data = [header];
     for (const s of enrollments) {
       const row = [s.student_id, s.name];
@@ -1252,7 +1287,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
     const ws = XLSX.utils.aoa_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, "Attendance");
     // Summary with formulas
-    const summary = [["Student ID","Name","Present","Absent","Late","Leave","Rate"]];
+    const summary = [["Student ID", "Name", "Present", "Absent", "Late", "Leave", "Rate"]];
     const startColIdx = 3; // C
     const endColIdx = 2 + sheetDates.length;
     const colLetter = (n) => {
@@ -1372,8 +1407,10 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
           <input placeholder="🔍 Search tables by course, term or subject..."
             value={searchTables} onChange={e => setSearchTables(e.target.value)}
-            style={{ flex: 1, padding: "10px 14px", border: "1px solid var(--border-color)",
-              borderRadius: 10, fontSize: 13, outline: "none", background: "#0f172a", color: "white" }} />
+            style={{
+              flex: 1, padding: "10px 14px", border: "1px solid var(--border-color)",
+              borderRadius: 10, fontSize: 13, outline: "none", background: "#0f172a", color: "white"
+            }} />
         </div>
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>Loading tables...</div> : (
           <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
@@ -1381,8 +1418,8 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
               const q = searchTables.toLowerCase();
               return !q || [t.course_name, t.term_period, t.id, t.subject_id].some(v => String(v).toLowerCase().includes(q));
             }).map((t, idx) => (
-              <div key={t.id} className="glass-card" style={{ 
-                padding: 20, 
+              <div key={t.id} className="glass-card" style={{
+                padding: 20,
                 borderTop: `4px solid ${["#44d7ff", "#2563eb", "#7c3aed", "#10b981", "#fbbf24"][idx % 5]}`,
                 transition: "transform 0.2s",
                 cursor: "default"
@@ -1395,7 +1432,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
                   </div>
                   <Badge text={t.term_period} type={t.term_period?.includes("final") ? "green" : "blue"} />
                 </div>
-                
+
                 <div style={{ padding: "12px 0", borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)", marginBottom: 16 }}>
                   <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 6 }}>
                     <span style={{ marginRight: 8 }}>🕒</span> {t.time_slot || "Scheduled Class"}
@@ -1582,7 +1619,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
 }
 
 function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, authFullName, authUsername }) {
-  const todayFn = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+  const todayFn = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
   const [step, setStep] = useState("pick"); // "pick" | "subjects" | "tracking"
   const [teacherInput, setTeacherInput] = useState("");
   const [showSug, setShowSug] = useState(false);
@@ -1598,7 +1635,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    api("/semesters", {}, token).then(r => setSemesters(Array.isArray(r) ? r : [])).catch(() => {});
+    api("/semesters", {}, token).then(r => setSemesters(Array.isArray(r) ? r : [])).catch(() => { });
   }, [token]);
 
   // For teacher role: auto-populate their own name and jump to subjects
@@ -1645,14 +1682,16 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
       let table = tables.find(t => t.subject_id === subject.id);
       if (!table && canWrite) {
         const semId = subject.semester_id || (semesters[0]?.id) || 1;
-        await api("/attendance", { method: "POST", body: {
-          course_name: subject.name || subject.id,
-          block_number: "1",
-          subject_id: subject.id,
-          semester_id: Number(semId),
-          time_slot: "Morning Class",
-          term_period: "1st prelim"
-        }}, token);
+        await api("/attendance", {
+          method: "POST", body: {
+            course_name: subject.name || subject.id,
+            block_number: "1",
+            subject_id: subject.id,
+            semester_id: Number(semId),
+            time_slot: "Morning Class",
+            term_period: "1st prelim"
+          }
+        }, token);
         const newTables = await api("/attendance/tables", {}, token);
         table = newTables.find(t => t.subject_id === subject.id);
       }
@@ -1663,7 +1702,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
         const alreadyIn = new Set(enroll.map(e => e.student_id));
         for (const s of students) {
           if (!alreadyIn.has(s.id)) {
-            try { await api(`/attendance/tables/${table.id}/enroll`, { method: "POST", body: { student_id: s.id } }, token); } catch {}
+            try { await api(`/attendance/tables/${table.id}/enroll`, { method: "POST", body: { student_id: s.id } }, token); } catch { }
           }
         }
       }
@@ -1683,7 +1722,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
       const map = {};
       for (const r of data.rows || []) { if (r.attendance_status) map[r.student_id] = r.attendance_status; }
       setAttMap(map);
-    } catch {}
+    } catch { }
     setLoadingAtt(false);
   };
 
@@ -1706,7 +1745,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
   const shiftDate = (days) => {
     const d = new Date(attDate + "T00:00:00");
     d.setDate(d.getDate() + days);
-    const nd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const nd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     setAttDate(nd);
     if (tableId) loadAttendance(tableId, nd);
   };
@@ -1726,9 +1765,9 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
 
   const MARKS = [
     { key: "present", label: "Present", color: "#10b981", bg: "rgba(16,185,129,0.15)", shadow: "#10b98133" },
-    { key: "absent",  label: "Absent",  color: "#f87171", bg: "rgba(248,113,113,0.15)", shadow: "#f8717133" },
-    { key: "late",    label: "Late",    color: "#fbbf24", bg: "rgba(251,191,36,0.15)",  shadow: "#fbbf2433" },
-    { key: "excuse",  label: "Leave",   color: "#60a5fa", bg: "rgba(96,165,250,0.15)",  shadow: "#60a5fa33" },
+    { key: "absent", label: "Absent", color: "#f87171", bg: "rgba(248,113,113,0.15)", shadow: "#f8717133" },
+    { key: "late", label: "Late", color: "#fbbf24", bg: "rgba(251,191,36,0.15)", shadow: "#fbbf2433" },
+    { key: "excuse", label: "Leave", color: "#60a5fa", bg: "rgba(96,165,250,0.15)", shadow: "#60a5fa33" },
   ];
   const ACCENT = ["#44d7ff", "#2563eb", "#7c3aed", "#10b981", "#fbbf24"];
 
@@ -1736,33 +1775,33 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
     <div>
       <PageHeader title={<span>{"\u{1F5D3}"} Attendance Management</span>} sub="Teacher-centric attendance — select a teacher to begin" />
 
-      {err && <div style={{ background:"rgba(248,113,113,0.1)", border:"1px solid #f87171", color:"#f87171", borderRadius:8, padding:"10px 16px", marginBottom:16, fontSize:13, fontWeight:600 }}>{err}</div>}
+      {err && <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid #f87171", color: "#f87171", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, fontWeight: 600 }}>{err}</div>}
 
       {/* Breadcrumb Navigation */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:24, fontSize:12, flexWrap:"wrap" }}>
-        <span style={{ cursor: step !== "pick" ? "pointer" : "default", color: step !== "pick" ? "var(--neon-blue)" : "white", fontWeight:700 }}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, fontSize: 12, flexWrap: "wrap" }}>
+        <span style={{ cursor: step !== "pick" ? "pointer" : "default", color: step !== "pick" ? "var(--neon-blue)" : "white", fontWeight: 700 }}
           onClick={() => step !== "pick" && setStep("pick")}>Attendance</span>
         {(step === "subjects" || step === "tracking") && (<>
-          <span style={{ color:"var(--text-dim)" }}>›</span>
-          <span style={{ cursor: step === "tracking" ? "pointer" : "default", color: step === "tracking" ? "var(--neon-blue)" : "white", fontWeight:700 }}
+          <span style={{ color: "var(--text-dim)" }}>›</span>
+          <span style={{ cursor: step === "tracking" ? "pointer" : "default", color: step === "tracking" ? "var(--neon-blue)" : "white", fontWeight: 700 }}
             onClick={() => step === "tracking" && setStep("subjects")}>{teacherInput || "Teacher"}</span>
         </>)}
         {step === "tracking" && (<>
-          <span style={{ color:"var(--text-dim)" }}>›</span>
-          <span style={{ color:"white", fontWeight:700 }}>{activeSubject?.id} — {activeSubject?.name}</span>
+          <span style={{ color: "var(--text-dim)" }}>›</span>
+          <span style={{ color: "white", fontWeight: 700 }}>{activeSubject?.id} — {activeSubject?.name}</span>
         </>)}
       </div>
 
       {/* ═══════════════ STEP 1: PICK TEACHER ═══════════════ */}
       {step === "pick" && (
-        <div style={{ display:"flex", justifyContent:"center" }}>
-          <div className="glass-card" style={{ padding:48, width:"100%", maxWidth:540, textAlign:"center" }}>
-            <div style={{ fontSize:58, marginBottom:16, lineHeight:1 }}>{"👨‍🏫"}</div>
-            <h2 style={{ fontSize:22, fontWeight:800, color:"white", margin:"0 0 10px" }}>Who's taking attendance?</h2>
-            <p style={{ fontSize:14, color:"var(--text-dim)", margin:"0 0 36px", lineHeight:1.6 }}>Type a teacher's name to browse their subjects and manage daily attendance.</p>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <div className="glass-card" style={{ padding: 48, width: "100%", maxWidth: 540, textAlign: "center" }}>
+            <div style={{ fontSize: 58, marginBottom: 16, lineHeight: 1 }}>{"👨‍🏫"}</div>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: "white", margin: "0 0 10px" }}>Who's taking attendance?</h2>
+            <p style={{ fontSize: 14, color: "var(--text-dim)", margin: "0 0 36px", lineHeight: 1.6 }}>Type a teacher's name to browse their subjects and manage daily attendance.</p>
 
-            <div style={{ position:"relative", textAlign:"left" }}>
-              <label style={{ fontSize:11, fontWeight:700, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:8, display:"block" }}>Teacher Name</label>
+            <div style={{ position: "relative", textAlign: "left" }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, display: "block" }}>Teacher Name</label>
               <input
                 placeholder="Search teacher name..."
                 value={teacherInput}
@@ -1770,28 +1809,28 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
                 onFocus={() => setShowSug(true)}
                 onBlur={() => setTimeout(() => setShowSug(false), 200)}
                 onKeyDown={e => { if (e.key === "Enter") viewSubjects(); }}
-                style={{ width:"100%", padding:"14px 18px", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:"1.5px solid var(--border-color)", borderRadius:12, fontSize:15, color:"white", outline:"none", transition:"border-color 0.2s" }}
+                style={{ width: "100%", padding: "14px 18px", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", border: "1.5px solid var(--border-color)", borderRadius: 12, fontSize: 15, color: "white", outline: "none", transition: "border-color 0.2s" }}
               />
               {showSug && suggestions.length > 0 && (
-                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"#1e293b", border:"1px solid var(--border-color)", borderRadius:12, zIndex:200, overflow:"hidden", boxShadow:"0 10px 40px rgba(0,0,0,0.5)" }}>
+                <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#1e293b", border: "1px solid var(--border-color)", borderRadius: 12, zIndex: 200, overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,0.5)" }}>
                   {suggestions.map(name => (
                     <div key={name} onMouseDown={() => { setTeacherInput(name); setShowSug(false); }}
-                      style={{ padding:"12px 18px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:14, color:"white", fontWeight:600, display:"flex", alignItems:"center", gap:10 }}
+                      style={{ padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 14, color: "white", fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}
                       onMouseEnter={e => e.currentTarget.style.background = "rgba(68,215,255,0.08)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                      <span style={{ fontSize:16 }}>{"👤"}</span> {name}
+                      <span style={{ fontSize: 16 }}>{"👤"}</span> {name}
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <Btn variant="primary" onClick={viewSubjects} disabled={loading} style={{ width:"100%", marginTop:20, padding:"14px", fontSize:15, fontWeight:800 }}>
+            <Btn variant="primary" onClick={viewSubjects} disabled={loading} style={{ width: "100%", marginTop: 20, padding: "14px", fontSize: 15, fontWeight: 800 }}>
               {loading ? "Loading..." : "View Teacher Subjects →"}
             </Btn>
 
             {professors.length > 0 && (
-              <div style={{ marginTop:20, fontSize:11, color:"var(--text-dim)" }}>
+              <div style={{ marginTop: 20, fontSize: 11, color: "var(--text-dim)" }}>
                 {professors.length} teacher{professors.length !== 1 ? "s" : ""} found in subject records
               </div>
             )}
@@ -1802,42 +1841,42 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
       {/* ═══════════════ STEP 2: SUBJECT CARDS ═══════════════ */}
       {step === "subjects" && (
         <div>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontSize:16, fontWeight:800, color:"white" }}>
-                Subjects by <span style={{ color:"var(--neon-blue)" }}>{teacherInput}</span>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "white" }}>
+                Subjects by <span style={{ color: "var(--neon-blue)" }}>{teacherInput}</span>
               </div>
-              <div style={{ fontSize:12, color:"var(--text-dim)", marginTop:4 }}>{teacherSubjects.length} subject{teacherSubjects.length !== 1 ? "s" : ""} found</div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4 }}>{teacherSubjects.length} subject{teacherSubjects.length !== 1 ? "s" : ""} found</div>
             </div>
-            {role !== "teacher" && <Btn variant="ghost" onClick={() => setStep("pick")} style={{ padding:"10px 18px", fontSize:13 }}>← Change Teacher</Btn>}
+            {role !== "teacher" && <Btn variant="ghost" onClick={() => setStep("pick")} style={{ padding: "10px 18px", fontSize: 13 }}>← Change Teacher</Btn>}
           </div>
 
           {teacherSubjects.length === 0 ? (
-            <div className="glass-card" style={{ padding:60, textAlign:"center" }}>
-              <div style={{ fontSize:48, marginBottom:16 }}>{"📭"}</div>
-              <div style={{ fontSize:17, fontWeight:700, color:"white", marginBottom:8 }}>No subjects found</div>
-              <div style={{ fontSize:13, color:"var(--text-dim)", marginBottom:24 }}>Make sure the teacher name matches what's entered in the professor field of each subject.</div>
+            <div className="glass-card" style={{ padding: 60, textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>{"📭"}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "white", marginBottom: 8 }}>No subjects found</div>
+              <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 24 }}>Make sure the teacher name matches what's entered in the professor field of each subject.</div>
               {role !== "teacher" && <Btn variant="ghost" onClick={() => setStep("pick")}>← Go Back</Btn>}
             </div>
           ) : (
-            <div className="grid-1-on-mobile" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(300px, 1fr))", gap:18 }}>
+            <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 18 }}>
               {teacherSubjects.map((s, idx) => {
                 const ac = ACCENT[idx % ACCENT.length];
                 return (
                   <div key={s.id} className="glass-card"
-                    style={{ padding:24, borderLeft:`4px solid ${ac}`, display:"flex", flexDirection:"column", gap:0, transition:"transform 0.2s, box-shadow 0.2s" }}
+                    style={{ padding: 24, borderLeft: `4px solid ${ac}`, display: "flex", flexDirection: "column", gap: 0, transition: "transform 0.2s, box-shadow 0.2s" }}
                     onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = `0 10px 32px ${ac}22`; }}
                     onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                      <code style={{ fontSize:12, background:`${ac}22`, color:ac, padding:"4px 10px", borderRadius:6, fontWeight:800 }}>{s.id}</code>
-                      {s.schedule && <span style={{ fontSize:11, color:"var(--text-dim)" }}>{s.schedule}</span>}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                      <code style={{ fontSize: 12, background: `${ac}22`, color: ac, padding: "4px 10px", borderRadius: 6, fontWeight: 800 }}>{s.id}</code>
+                      {s.schedule && <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{s.schedule}</span>}
                     </div>
-                    <div style={{ fontSize:17, fontWeight:800, color:"white", marginBottom:6, lineHeight:1.3, flexGrow:1 }}>{s.name}</div>
-                    <div style={{ fontSize:12, color:"var(--text-dim)", marginBottom:20 }}>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "white", marginBottom: 6, lineHeight: 1.3, flexGrow: 1 }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 20 }}>
                       {[s.units && `${s.units} units`, s.room, s.campus].filter(Boolean).join(" · ")}
                     </div>
                     <button onClick={() => openSubject(s)} disabled={loading}
-                      style={{ width:"100%", padding:"12px 0", borderRadius:10, background:ac, border:"none", color:"white", fontWeight:800, fontSize:14, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, transition:"opacity 0.2s" }}>
+                      style={{ width: "100%", padding: "12px 0", borderRadius: 10, background: ac, border: "none", color: "white", fontWeight: 800, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, transition: "opacity 0.2s" }}>
                       {loading ? "Loading..." : "Open \u2192"}
                     </button>
                   </div>
@@ -1852,29 +1891,29 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
       {step === "tracking" && activeSubject && (
         <div>
           {/* Date Nav + Stats Bar */}
-          <div className="glass-card" style={{ padding:"16px 24px", marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-              <button onClick={() => shiftDate(-1)} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid var(--border-color)", color:"white", borderRadius:8, width:38, height:38, cursor:"pointer", fontSize:22, display:"flex", alignItems:"center", justifyContent:"center" }}>{"‹"}</button>
-              <div style={{ textAlign:"center" }}>
-                <div style={{ fontSize:15, fontWeight:800, color:"white" }}>{fmtDate(attDate)}</div>
-                <div style={{ fontSize:11, color:"var(--text-dim)" }}>{attDate} · Click arrows to navigate dates</div>
+          <div className="glass-card" style={{ padding: "16px 24px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button onClick={() => shiftDate(-1)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-color)", color: "white", borderRadius: 8, width: 38, height: 38, cursor: "pointer", fontSize: 22, display: "flex", alignItems: "center", justifyContent: "center" }}>{"‹"}</button>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "white" }}>{fmtDate(attDate)}</div>
+                <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{attDate} · Click arrows to navigate dates</div>
               </div>
-              <button onClick={() => shiftDate(1)} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid var(--border-color)", color:"white", borderRadius:8, width:38, height:38, cursor:"pointer", fontSize:22, display:"flex", alignItems:"center", justifyContent:"center" }}>{"›"}</button>
+              <button onClick={() => shiftDate(1)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-color)", color: "white", borderRadius: 8, width: 38, height: 38, cursor: "pointer", fontSize: 22, display: "flex", alignItems: "center", justifyContent: "center" }}>{"›"}</button>
             </div>
 
-            <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {[
-                { k:"present", ico:"✅", c:"#10b981", v: stats.present },
-                { k:"absent",  ico:"❌", c:"#f87171", v: stats.absent },
-                { k:"late",    ico:"🕐", c:"#fbbf24", v: stats.late },
-                { k:"leave",   ico:"📋", c:"#60a5fa", v: stats.leave },
+                { k: "present", ico: "✅", c: "#10b981", v: stats.present },
+                { k: "absent", ico: "❌", c: "#f87171", v: stats.absent },
+                { k: "late", ico: "🕐", c: "#fbbf24", v: stats.late },
+                { k: "leave", ico: "📋", c: "#60a5fa", v: stats.leave },
               ].map(x => (
-                <div key={x.k} style={{ fontSize:12, fontWeight:700, color:x.c, background:`${x.c}18`, padding:"5px 12px", borderRadius:20, whiteSpace:"nowrap" }}>
-                  {x.ico} {x.k.charAt(0).toUpperCase()+x.k.slice(1)}: {x.v}
+                <div key={x.k} style={{ fontSize: 12, fontWeight: 700, color: x.c, background: `${x.c}18`, padding: "5px 12px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                  {x.ico} {x.k.charAt(0).toUpperCase() + x.k.slice(1)}: {x.v}
                 </div>
               ))}
               {canWrite && (
-                <button onClick={presentAll} style={{ padding:"8px 16px", borderRadius:8, background:"rgba(16,185,129,0.15)", border:"1.5px solid #10b981", color:"#10b981", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+                <button onClick={presentAll} style={{ padding: "8px 16px", borderRadius: 8, background: "rgba(16,185,129,0.15)", border: "1.5px solid #10b981", color: "#10b981", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
                   ✅ Present All
                 </button>
               )}
@@ -1882,55 +1921,55 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
           </div>
 
           {/* Student Roster Table */}
-          <div className="glass-card" style={{ overflow:"hidden", padding:0 }}>
-            <div style={{ padding:"20px 24px", borderBottom:"1px solid var(--border-color)", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
+          <div className="glass-card" style={{ overflow: "hidden", padding: 0 }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
               <div>
-                <div style={{ fontSize:15, fontWeight:800, color:"white" }}>{activeSubject.id} — {activeSubject.name}</div>
-                <div style={{ fontSize:12, color:"var(--text-dim)", marginTop:3 }}>{enrolledStudents.length} students • {tableId ? "Attendance table linked" : "No table found"}</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "white" }}>{activeSubject.id} — {activeSubject.name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 3 }}>{enrolledStudents.length} students • {tableId ? "Attendance table linked" : "No table found"}</div>
               </div>
-              <div style={{ fontSize:11, color:"var(--text-dim)", padding:"5px 12px", background:"rgba(255,255,255,0.04)", borderRadius:20, border:"1px solid var(--border-color)" }}>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", padding: "5px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 20, border: "1px solid var(--border-color)" }}>
                 Keyboard: [P] Present · [A] Absent · [L] Late · [E] Leave
               </div>
             </div>
 
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ background:"rgba(255,255,255,0.025)" }}>
+                  <tr style={{ background: "rgba(255,255,255,0.025)" }}>
                     {["ID", "Name", "Course", "Status", "Mark Attendance"].map((h, i) => (
-                      <th key={h} style={{ padding:"13px 20px", textAlign: i===4 ? "center" : "left", fontSize:10, fontWeight:700, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:0.5, borderBottom:"1px solid var(--border-color)", whiteSpace:"nowrap" }}>{h}</th>
+                      <th key={h} style={{ padding: "13px 20px", textAlign: i === 4 ? "center" : "left", fontSize: 10, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: 0.5, borderBottom: "1px solid var(--border-color)", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {loadingAtt ? (
-                    <tr><td colSpan={5} style={{ textAlign:"center", padding:48, color:"var(--text-dim)" }}>
-                      <div style={{ fontSize:24, marginBottom:10 }}>⏳</div>
+                    <tr><td colSpan={5} style={{ textAlign: "center", padding: 48, color: "var(--text-dim)" }}>
+                      <div style={{ fontSize: 24, marginBottom: 10 }}>⏳</div>
                       Loading attendance records...
                     </td></tr>
                   ) : enrolledStudents.length === 0 ? (
-                    <tr><td colSpan={5} style={{ textAlign:"center", padding:56 }}>
-                      <div style={{ fontSize:40, marginBottom:14 }}>📭</div>
-                      <div style={{ fontSize:15, fontWeight:700, color:"white", marginBottom:8 }}>No students found</div>
-                      <div style={{ fontSize:12, color:"var(--text-dim)" }}>Students need a grade record in this subject first (Grades → assign subject).</div>
+                    <tr><td colSpan={5} style={{ textAlign: "center", padding: 56 }}>
+                      <div style={{ fontSize: 40, marginBottom: 14 }}>📭</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "white", marginBottom: 8 }}>No students found</div>
+                      <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Students need a grade record in this subject first (Grades → assign subject).</div>
                     </td></tr>
                   ) : enrolledStudents.map(s => {
                     const cur = attMap[s.id] || "";
                     return (
                       <tr key={s.id}
-                        style={{ borderBottom:"1px solid rgba(255,255,255,0.04)", transition:"background 0.15s" }}
+                        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", transition: "background 0.15s" }}
                         onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                        <td style={{ padding:"14px 20px" }}>
-                          <code style={{ fontSize:11, background:"rgba(68,215,255,0.1)", color:"var(--neon-blue)", padding:"3px 8px", borderRadius:6, fontWeight:800 }}>{s.id}</code>
+                        <td style={{ padding: "14px 20px" }}>
+                          <code style={{ fontSize: 11, background: "rgba(68,215,255,0.1)", color: "var(--neon-blue)", padding: "3px 8px", borderRadius: 6, fontWeight: 800 }}>{s.id}</code>
                         </td>
-                        <td style={{ padding:"14px 20px", fontWeight:700, color:"white" }}>{s.name}</td>
-                        <td style={{ padding:"14px 20px", fontSize:12, color:"var(--text-dim)" }}>{s.course}{s.year ? ` · ${s.year}` : ""}</td>
-                        <td style={{ padding:"14px 20px" }}>
+                        <td style={{ padding: "14px 20px", fontWeight: 700, color: "white" }}>{s.name}</td>
+                        <td style={{ padding: "14px 20px", fontSize: 12, color: "var(--text-dim)" }}>{s.course}{s.year ? ` · ${s.year}` : ""}</td>
+                        <td style={{ padding: "14px 20px" }}>
                           {s.status && <Badge text={s.status} type={s.status === "Active" ? "green" : "red"} />}
                         </td>
-                        <td style={{ padding:"12px 20px" }}>
-                          <div style={{ display:"flex", gap:6, justifyContent:"center", flexWrap:"wrap" }}>
+                        <td style={{ padding: "12px 20px" }}>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
                             {MARKS.map(({ key, label, color, bg, shadow }) => {
                               const active = cur === key;
                               return (
@@ -1938,7 +1977,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
                                   onClick={() => canWrite && setStatus(s.id, key)}
                                   disabled={!canWrite}
                                   style={{
-                                    padding:"5px 14px", borderRadius:20, fontSize:11, fontWeight:700,
+                                    padding: "5px 14px", borderRadius: 20, fontSize: 11, fontWeight: 700,
                                     cursor: canWrite ? "pointer" : "default",
                                     border: `1.5px solid ${active ? color : "rgba(255,255,255,0.1)"}`,
                                     background: active ? bg : "transparent",
@@ -1946,8 +1985,8 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
                                     transition: "all 0.15s",
                                     boxShadow: active ? `0 0 10px ${shadow}` : "none",
                                   }}
-                                  onMouseEnter={e => { if (canWrite && !active) { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; }}}
-                                  onMouseLeave={e => { if (canWrite && !active) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "var(--text-dim)"; }}}>
+                                  onMouseEnter={e => { if (canWrite && !active) { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; } }}
+                                  onMouseLeave={e => { if (canWrite && !active) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "var(--text-dim)"; } }}>
                                   {label}
                                 </button>
                               );
@@ -2062,7 +2101,7 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
   const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState("");
   const [periods, setPeriods] = useState([]);
-  const [periodId, setPeriodId] = useState("");
+  const [periodIds, setPeriodIds] = useState([]);
   const [number, setNumber] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -2072,22 +2111,24 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
   }, [show, token]);
 
   useEffect(() => {
-    if (!semesterId || !token) { setPeriods([]); setPeriodId(""); return; }
+    if (!semesterId || !token) { setPeriods([]); setPeriodIds([]); return; }
     api(`/semesters/${semesterId}/periods`, {}, token).then(setPeriods).catch(console.error);
   }, [semesterId, token]);
 
   const handleSave = async () => {
-    if (!semesterId || !periodId) return alert("Please select semester and period.");
+    if (!semesterId || periodIds.length === 0) return alert("Please select semester and at least one period.");
     try {
       setLoading(true);
-      await api(`/students/${encodeURIComponent(student.id)}/permits`, {
-        method: "POST",
-        body: {
-          permit_period_id: Number(periodId),
-          permit_number: number.trim() || undefined,
-          status: "active"
-        }
-      }, token);
+      await Promise.all(periodIds.map(pid => 
+        api(`/students/${encodeURIComponent(student.id)}/permits`, {
+          method: "POST",
+          body: {
+            permit_period_id: Number(pid),
+            permit_number: number.trim() || undefined,
+            status: "active"
+          }
+        }, token)
+      ));
       onAssigned();
     } catch (e) {
       alert(e.message);
@@ -2101,9 +2142,9 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
   return (
     <Modal show={show} title={`🎫 Assign Permit to ${student?.name}`} onClose={onClose} width={450}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-        <Select 
-          label="Select Semester / School Year" 
-          value={semesterId} 
+        <Select
+          label="Select Semester / School Year"
+          value={semesterId}
           onChange={e => setSemesterId(e.target.value)}
         >
           <option value="">-- Choose Semester --</option>
@@ -2111,13 +2152,27 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
             <option key={s.id} value={s.id}>{s.school_year} — {s.term}</option>
           ))}
         </Select>
-        <Select id="assign-period" label="Select Period" value={periodId} onChange={e => setPeriodId(e.target.value)} disabled={!semesterId}>
-          <option value="">-- Choose Period --</option>
-          {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </Select>
+        <div>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>Select Periods</label>
+          <div style={{ background: "#0f172a", border: "1.5px solid var(--border-color)", borderRadius: 10, padding: 8, maxHeight: 150, overflowY: "auto", opacity: !semesterId ? 0.5 : 1, pointerEvents: !semesterId ? "none" : "auto" }}>
+            {periods.length === 0 ? (
+              <div style={{ padding: "8px", fontSize: 13, color: "#6b7280", textAlign: "center" }}>No periods available</div>
+            ) : (
+              periods.map(p => (
+                <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", cursor: "pointer", borderRadius: 6, transition: "background 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <input type="checkbox" checked={periodIds.includes(p.id)} onChange={e => {
+                    if (e.target.checked) setPeriodIds([...periodIds, p.id]);
+                    else setPeriodIds(periodIds.filter(id => id !== p.id));
+                  }} style={{ accentColor: "var(--neon-blue)" }} />
+                  <span style={{ fontSize: 13, color: "white" }}>{p.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
         <Input label="Permit Number (Optional)" placeholder="Leave blank for auto-increment ID" value={number} onChange={e => setNumber(e.target.value)} />
         <div style={{ fontSize: 11, color: "#6b7280", marginTop: -6 }}>If left blank, the system will use the unique permit ID as the number.</div>
-        
+
         <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
           <Btn variant="primary" onClick={handleSave} disabled={loading} style={{ flex: 1 }}>
             {loading ? "Saving..." : "💾 Assign Permit"}
@@ -2163,17 +2218,17 @@ function MyPermits({ token }) {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
               {groups[sem].map(p => (
                 <Card key={p.id} title={p.period_name} action={<Badge text={p.status} type={p.status === "active" ? "green" : (p.status === "expired" ? "red" : "yellow")} />}>
-                   <div style={{ fontSize: 12, color: "#475569" }}>
-                     <div style={{ marginBottom: 4 }}>
-                       <strong>Permit #:</strong>{" "}
-                       <code>{(p.permit_number !== null && p.permit_number !== undefined && String(p.permit_number).trim() !== "") ? p.permit_number : "Not assigned"}</code>
-                     </div>
-                     <div><strong>Issued:</strong> {p.issue_date ? new Date(p.issue_date).toLocaleDateString() : (p.created_at ? new Date(p.created_at).toLocaleDateString() : "—")}</div>
-                     <div><strong>Valid Until:</strong> {p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</div>
-                   </div>
-                   <div style={{ marginTop: 12, borderTop: "1px dashed #e2e8f0", paddingTop: 8, fontSize: 10, color: "#94a3b8" }}>
-                     Show this permit during the {p.period_name} examination.
-                   </div>
+                  <div style={{ fontSize: 12, color: "#475569" }}>
+                    <div style={{ marginBottom: 4 }}>
+                      <strong>Permit #:</strong>{" "}
+                      <code>{(p.permit_number !== null && p.permit_number !== undefined && String(p.permit_number).trim() !== "") ? p.permit_number : "Not assigned"}</code>
+                    </div>
+                    <div><strong>Issued:</strong> {p.issue_date ? new Date(p.issue_date).toLocaleDateString() : (p.created_at ? new Date(p.created_at).toLocaleDateString() : "—")}</div>
+                    <div><strong>Valid Until:</strong> {p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</div>
+                  </div>
+                  <div style={{ marginTop: 12, borderTop: "1px dashed #e2e8f0", paddingTop: 8, fontSize: 10, color: "#94a3b8" }}>
+                    Show this permit during the {p.period_name} examination.
+                  </div>
                 </Card>
               ))}
             </div>
@@ -2190,7 +2245,7 @@ function PermitsSidebar({ token, onSelectSemester, selectedSemester }) {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      try { const rows = await api("/semesters", {}, token); if (mounted) setSemesters(rows); } catch {}
+      try { const rows = await api("/semesters", {}, token); if (mounted) setSemesters(rows); } catch { }
     };
     load();
     return () => { mounted = false; };
@@ -2236,7 +2291,7 @@ function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUserna
 
   // Fetch all semesters for the dropdown
   useEffect(() => {
-    api("/semesters", {}, token).then(r => setSemesters(Array.isArray(r) ? r : [])).catch(() => {});
+    api("/semesters", {}, token).then(r => setSemesters(Array.isArray(r) ? r : [])).catch(() => { });
   }, [token]);
 
   // For teacher role: auto skip pick step
@@ -2307,39 +2362,39 @@ function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUserna
       />
 
       {err && (
-        <div style={{ background:"rgba(248,113,113,0.1)", border:"1px solid #f87171", color:"#f87171", borderRadius:8, padding:"10px 16px", marginBottom:16, fontSize:13, fontWeight:600 }}>
+        <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid #f87171", color: "#f87171", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, fontWeight: 600 }}>
           {err}
         </div>
       )}
 
       {/* Breadcrumb */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:24, fontSize:12, flexWrap:"wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, fontSize: 12, flexWrap: "wrap" }}>
         <span
-          style={{ cursor: step !== "pick" ? "pointer" : "default", color: step !== "pick" ? "var(--neon-blue)" : "white", fontWeight:700 }}
+          style={{ cursor: step !== "pick" ? "pointer" : "default", color: step !== "pick" ? "var(--neon-blue)" : "white", fontWeight: 700 }}
           onClick={() => step !== "pick" && setStep("pick")}>Teachers</span>
         {(step === "subjects" || step === "tracking") && (<>
-          <span style={{ color:"var(--text-dim)" }}>{">"}</span>
+          <span style={{ color: "var(--text-dim)" }}>{">"}</span>
           <span
-            style={{ cursor: step === "tracking" ? "pointer" : "default", color: step === "tracking" ? "var(--neon-blue)" : "white", fontWeight:700 }}
+            style={{ cursor: step === "tracking" ? "pointer" : "default", color: step === "tracking" ? "var(--neon-blue)" : "white", fontWeight: 700 }}
             onClick={() => step === "tracking" && setStep("subjects")}>{teacherInput || "Teacher"}</span>
         </>)}
         {step === "tracking" && (<>
-          <span style={{ color:"var(--text-dim)" }}>{">"}</span>
-          <span style={{ color:"white", fontWeight:700 }}>{activeSubject?.id} - {activeSubject?.name}</span>
+          <span style={{ color: "var(--text-dim)" }}>{">"}</span>
+          <span style={{ color: "white", fontWeight: 700 }}>{activeSubject?.id} - {activeSubject?.name}</span>
         </>)}
       </div>
 
       {/* === STEP 1: PICK TEACHER === */}
       {step === "pick" && (
-        <div style={{ display:"flex", justifyContent:"center" }}>
-          <div className="glass-card" style={{ padding:48, width:"100%", maxWidth:540, textAlign:"center" }}>
-            <div style={{ fontSize:58, marginBottom:16, lineHeight:1 }}>{"\u{1F468}\u200D\u{1F3EB}"}</div>
-            <h2 style={{ fontSize:22, fontWeight:800, color:"white", margin:"0 0 10px" }}>Select Teacher</h2>
-            <p style={{ fontSize:14, color:"var(--text-dim)", margin:"0 0 36px", lineHeight:1.6 }}>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <div className="glass-card" style={{ padding: 48, width: "100%", maxWidth: 540, textAlign: "center" }}>
+            <div style={{ fontSize: 58, marginBottom: 16, lineHeight: 1 }}>{"\u{1F468}\u200D\u{1F3EB}"}</div>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: "white", margin: "0 0 10px" }}>Select Teacher</h2>
+            <p style={{ fontSize: 14, color: "var(--text-dim)", margin: "0 0 36px", lineHeight: 1.6 }}>
               Type a teacher name to view their class permits.
             </p>
-            <div style={{ position:"relative", textAlign:"left", zIndex:100 }}>
-              <label style={{ fontSize:11, fontWeight:700, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:8, display:"block" }}>Teacher Name</label>
+            <div style={{ position: "relative", textAlign: "left", zIndex: 100 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, display: "block" }}>Teacher Name</label>
               <input
                 placeholder="Search teacher name..."
                 value={teacherInput}
@@ -2347,13 +2402,13 @@ function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUserna
                 onFocus={() => setShowSug(true)}
                 onBlur={() => setTimeout(() => setShowSug(false), 200)}
                 onKeyDown={e => { if (e.key === "Enter") viewSubjects(); }}
-                style={{ width:"100%", padding:"14px 18px", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:"1.5px solid var(--border-color)", borderRadius:12, fontSize:15, color:"white", outline:"none" }}
+                style={{ width: "100%", padding: "14px 18px", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", border: "1.5px solid var(--border-color)", borderRadius: 12, fontSize: 15, color: "white", outline: "none" }}
               />
               {showSug && suggestions.length > 0 && (
-                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"#1e293b", border:"1px solid var(--border-color)", borderRadius:12, zIndex:200, overflow:"hidden", boxShadow:"0 10px 40px rgba(0,0,0,0.5)" }}>
+                <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#1e293b", border: "1px solid var(--border-color)", borderRadius: 12, zIndex: 200, overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,0.5)" }}>
                   {suggestions.map(name => (
                     <div key={name} onMouseDown={() => { setTeacherInput(name); setShowSug(false); }}
-                      style={{ padding:"12px 18px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:14, color:"white", fontWeight:600, display:"flex", alignItems:"center", gap:10 }}
+                      style={{ padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 14, color: "white", fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}
                       onMouseEnter={e => e.currentTarget.style.background = "rgba(68,215,255,0.08)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                       {"\u{1F464}"} {name}
@@ -2362,7 +2417,7 @@ function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUserna
                 </div>
               )}
             </div>
-            <Btn variant="primary" onClick={viewSubjects} disabled={loading} style={{ width:"100%", marginTop:20, padding:"14px", fontSize:15, fontWeight:800 }}>
+            <Btn variant="primary" onClick={viewSubjects} disabled={loading} style={{ width: "100%", marginTop: 20, padding: "14px", fontSize: 15, fontWeight: 800 }}>
               {loading ? "Loading..." : "View Subjects"}
             </Btn>
           </div>
@@ -2371,24 +2426,24 @@ function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUserna
 
       {/* === STEP 2: SELECT SUBJECT === */}
       {step === "subjects" && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
           {teacherSubjects.length === 0 ? (
-            <div style={{ gridColumn:"1/-1", textAlign:"center", padding:40, color:"var(--text-dim)", background:"rgba(255,255,255,0.02)", borderRadius:16, border:"1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 40, color: "var(--text-dim)", background: "rgba(255,255,255,0.02)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)" }}>
               No subjects found for this teacher.
             </div>
           ) : teacherSubjects.map(sub => (
             <div key={sub.id} className="glass-card subject-card" onClick={() => openSubject(sub)}
-              style={{ padding:24, cursor:"pointer", transition:"all 0.3s", border:"1px solid transparent" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:16 }}>
-                <div style={{ fontSize:15, fontWeight:800, color:"var(--neon-blue)", letterSpacing:0.5 }}>{sub.id}</div>
-                <div style={{ padding:"2px 8px", background:"rgba(255,255,255,0.1)", borderRadius:6, fontSize:11, fontWeight:700 }}>{sub.units} Units</div>
+              style={{ padding: 24, cursor: "pointer", transition: "all 0.3s", border: "1px solid transparent" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--neon-blue)", letterSpacing: 0.5 }}>{sub.id}</div>
+                <div style={{ padding: "2px 8px", background: "rgba(255,255,255,0.1)", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>{sub.units} Units</div>
               </div>
-              <div style={{ fontSize:18, fontWeight:700, color:"white", margin:"12px 0", lineHeight:1.3 }}>{sub.name}</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:8, fontSize:13, color:"var(--text-dim)", marginBottom:16 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "white", margin: "12px 0", lineHeight: 1.3 }}>{sub.name}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "var(--text-dim)", marginBottom: 16 }}>
                 <div>{"\u{1F552}"} {sub.schedule || sub.time || "TBA"}</div>
                 <div>{"\u{1F6AA}"} {sub.room || "TBA"}</div>
               </div>
-              <Btn style={{ width:"100%", padding:"8px", fontSize:13 }} disabled={loading}>
+              <Btn style={{ width: "100%", padding: "8px", fontSize: 13 }} disabled={loading}>
                 {loading ? "Loading..." : "Open Class"}
               </Btn>
             </div>
@@ -2399,24 +2454,24 @@ function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUserna
       {/* === STEP 3: PERMIT TRACKING === */}
       {step === "tracking" && (
         <Card>
-          <div style={{ marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
+          <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
             <div>
-              <h3 style={{ margin:0, fontSize:18, color:"white" }}>Student Permit Status</h3>
-              <div style={{ fontSize:13, color:"var(--text-dim)", marginTop:4 }}>
+              <h3 style={{ margin: 0, fontSize: 18, color: "white" }}>Student Permit Status</h3>
+              <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 4 }}>
                 {enrolledStudents.length} Students enrolled in {activeSubject?.name}
               </div>
             </div>
             {/* School Year Selector */}
-            <div style={{ display:"flex", alignItems:"center", gap:10, background:"rgba(255,255,255,0.04)", border:"1px solid var(--border-color)", borderRadius:10, padding:"8px 14px" }}>
-              <span style={{ fontSize:12, color:"var(--text-dim)", fontWeight:700, whiteSpace:"nowrap" }}>School Year:</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-color)", borderRadius: 10, padding: "8px 14px" }}>
+              <span style={{ fontSize: 12, color: "var(--text-dim)", fontWeight: 700, whiteSpace: "nowrap" }}>School Year:</span>
               <select
                 value={selectedSemId}
                 onChange={e => handleSemesterChange(e.target.value)}
-                style={{ background:"transparent", border:"none", color:"white", fontSize:13, fontWeight:700, outline:"none", cursor:"pointer" }}
+                style={{ background: "transparent", border: "none", color: "white", fontSize: 13, fontWeight: 700, outline: "none", cursor: "pointer" }}
               >
                 {semesters.length === 0 && <option value="">No semesters found</option>}
                 {semesters.map(s => (
-                  <option key={s.id} value={String(s.id)} style={{ background:"#1e293b", color:"white" }}>
+                  <option key={s.id} value={String(s.id)} style={{ background: "#1e293b", color: "white" }}>
                     {s.school_year} - {s.term}
                   </option>
                 ))}
@@ -2425,30 +2480,30 @@ function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUserna
           </div>
 
           {subjectPeriods.length === 0 && !tableLoading && (
-            <div style={{ background:"rgba(251,191,36,0.08)", border:"1px solid rgba(251,191,36,0.3)", borderRadius:8, padding:"10px 16px", marginBottom:16, fontSize:13, color:"#fbbf24" }}>
+            <div style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: "#fbbf24" }}>
               No permit periods found for this school year. Ask admin to add periods (Prelim, Midterm, etc.) in the Semesters module.
             </div>
           )}
 
           {tableLoading ? (
-            <div style={{ padding:32, textAlign:"center", color:"var(--text-dim)" }}>Loading permit data...</div>
+            <div style={{ padding: 32, textAlign: "center", color: "var(--text-dim)" }}>Loading permit data...</div>
           ) : (
             <div className="table-container">
-              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:500 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <thead>
                   <tr>
                     <Th>Student ID</Th>
                     <Th>Name</Th>
                     <Th>Course / Year</Th>
                     {subjectPeriods.map(p => (
-                      <Th key={p.id} style={{ textAlign:"center", minWidth:140 }}>{p.name}</Th>
+                      <Th key={p.id} style={{ textAlign: "center", minWidth: 140 }}>{p.name}</Th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {enrolledStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={3 + subjectPeriods.length} style={{ padding:32, textAlign:"center", color:"var(--text-dim)", fontSize:14 }}>
+                      <td colSpan={3 + subjectPeriods.length} style={{ padding: 32, textAlign: "center", color: "var(--text-dim)", fontSize: 14 }}>
                         No enrolled students found for this class.
                       </td>
                     </tr>
@@ -2456,28 +2511,28 @@ function TeacherPermitsFlow({ token, allSubjects, role, authFullName, authUserna
                     const pMap = {};
                     (s.permits || []).forEach(p => { pMap[p.period_id] = p; });
                     return (
-                      <tr key={s.id} style={{ borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
-                        <Td style={{ fontWeight:700, color:"var(--text-sub)", fontSize:13 }}>{s.id}</Td>
-                        <Td style={{ fontWeight:600, color:"white" }}>{s.name}</Td>
-                        <Td style={{ color:"var(--text-dim)", fontSize:13 }}>{s.course} - {s.year}</Td>
+                      <tr key={s.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <Td style={{ fontWeight: 700, color: "var(--text-sub)", fontSize: 13 }}>{s.id}</Td>
+                        <Td style={{ fontWeight: 600, color: "white" }}>{s.name}</Td>
+                        <Td style={{ color: "var(--text-dim)", fontSize: 13 }}>{s.course} - {s.year}</Td>
                         {subjectPeriods.map(p => {
                           const permit = pMap[p.id];
                           const isActive = permit && permit.status === "active";
                           return (
-                            <Td key={p.id} style={{ textAlign:"center" }}>
+                            <Td key={p.id} style={{ textAlign: "center" }}>
                               {isActive ? (
-                                <div style={{ display:"inline-flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-                                  <span style={{ background:"rgba(74,222,128,0.15)", border:"1px solid rgba(74,222,128,0.4)", color:"#4ade80", borderRadius:6, padding:"3px 10px", fontSize:12, fontWeight:700 }}>
+                                <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                                  <span style={{ background: "rgba(74,222,128,0.15)", border: "1px solid rgba(74,222,128,0.4)", color: "#4ade80", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
                                     Has Permit
                                   </span>
                                   {permit.permit_number && (
-                                    <span style={{ fontSize:11, color:"#86efac", fontWeight:700, letterSpacing:0.5 }}>
+                                    <span style={{ fontSize: 11, color: "#86efac", fontWeight: 700, letterSpacing: 0.5 }}>
                                       #{permit.permit_number}
                                     </span>
                                   )}
                                 </div>
                               ) : (
-                                <span style={{ background:"rgba(248,113,113,0.15)", border:"1px solid rgba(248,113,113,0.4)", color:"#f87171", borderRadius:6, padding:"3px 10px", fontSize:12, fontWeight:700 }}>
+                                <span style={{ background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.4)", color: "#f87171", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
                                   No Permit
                                 </span>
                               )}
@@ -2502,17 +2557,17 @@ function PermitsModule({ token, semesterId, role, username, full_name, subjects,
   const [viewMode, setViewMode] = useState(defaultMode);
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {role !== "teacher" && (
-        <div style={{ display:"flex", gap:8, padding:"6px", background:"rgba(255,255,255,0.03)", border:"1px solid var(--border-color)", borderRadius:12, width:"fit-content", marginBottom:"8px" }}>
+        <div style={{ display: "flex", gap: 8, padding: "6px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-color)", borderRadius: 12, width: "fit-content", marginBottom: "8px" }}>
           <button
             onClick={() => setViewMode("student")}
-            style={{ background: viewMode === "student" ? "var(--accent-gradient)" : "transparent", color: viewMode === "student" ? "white" : "var(--text-dim)", border:"none", padding:"8px 16px", borderRadius:8, cursor:"pointer", fontWeight:700, transition:"all 0.2s" }}>
+            style={{ background: viewMode === "student" ? "var(--accent-gradient)" : "transparent", color: viewMode === "student" ? "white" : "var(--text-dim)", border: "none", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, transition: "all 0.2s" }}>
             {"\u{1F50E}"} By Student
           </button>
           <button
             onClick={() => setViewMode("class")}
-            style={{ background: viewMode === "class" ? "var(--accent-gradient)" : "transparent", color: viewMode === "class" ? "white" : "var(--text-dim)", border:"none", padding:"8px 16px", borderRadius:8, cursor:"pointer", fontWeight:700, transition:"all 0.2s" }}>
+            style={{ background: viewMode === "class" ? "var(--accent-gradient)" : "transparent", color: viewMode === "class" ? "white" : "var(--text-dim)", border: "none", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, transition: "all 0.2s" }}>
             {"\u{1F468}\u200D\u{1F3EB}"} By Class / Teacher
           </button>
         </div>
@@ -2544,8 +2599,8 @@ function PermitsView({ token, semesterId, role, username, canWrite, canDelete })
 
   // Effects - all roles (including teacher) load students, semesters, and permits
   useEffect(() => {
-    api("/students", {}, token).then(setStudents).catch(() => {});
-    api("/semesters", {}, token).then(setSemesters).catch(() => {});
+    api("/students", {}, token).then(setStudents).catch(() => { });
+    api("/semesters", {}, token).then(setSemesters).catch(() => { });
   }, [token, role]);
   useEffect(() => {
     if (selectedStudent) {
@@ -2609,122 +2664,122 @@ function PermitsView({ token, semesterId, role, username, canWrite, canDelete })
     <div>
       <PageHeader title={<span>{"\u{1F3AB}"} Student Permits</span>} sub={role === "teacher" ? "View student permits by semester (read-only)" : "Search, view, and manage permits"} />
       <>
-      {msg && <div style={{ background: "linear-gradient(135deg, #ecfdf5, #d1fae5)", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "#065f46", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 18 }}>
-        <Card title="Select Student">
-          <input placeholder="🔍 Search..." value={searchStu} onChange={e => setSearchStu(e.target.value)}
-            style={{ width: "100%", padding: "8px 11px", border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, outline: "none", marginBottom: 10, background: "#0f172a", color: "white" }} />
-          <div style={{ maxHeight: 420, overflowY: "auto" }}>
-            {filteredStudents.map(s => (
-              <div key={s.id} onClick={() => setSelectedStudent(s.id)} style={{
-                padding: "10px 12px", borderRadius: 8, cursor: "pointer", marginBottom: 4,
-                background: selectedStudent === s.id ? "rgba(68, 215, 255, 0.15)" : "rgba(255,255,255,0.08)",
-                border: `1.5px solid ${selectedStudent === s.id ? "var(--neon-blue)" : "transparent"}`,
-                transition: "all 0.15s",
-              }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: selectedStudent === s.id ? "white" : "var(--text-main)" }}>{s.name}</div>
-                <div style={{ fontSize: 11, color: "#6b7280" }}>{s.id} · {s.course}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <div>
-          {!st ? (
-            <Card><div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>Select a student to view permits.</div></Card>
-          ) : (
-            <>
-              <div style={{ background: "linear-gradient(135deg,#0f2340,#1e3a5f)", color: "white", borderRadius: 11, padding: "16px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 17 }}>{st.name}</div>
-                  <div style={{ fontSize: 12, opacity: 0.7 }}>{st.id} · {st.course}</div>
+        {msg && <div style={{ background: "linear-gradient(135deg, #ecfdf5, #d1fae5)", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "#065f46", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
+        <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 18 }}>
+          <Card title="Select Student">
+            <input placeholder="🔍 Search..." value={searchStu} onChange={e => setSearchStu(e.target.value)}
+              style={{ width: "100%", padding: "8px 11px", border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, outline: "none", marginBottom: 10, background: "#0f172a", color: "white" }} />
+            <div style={{ maxHeight: 420, overflowY: "auto" }}>
+              {filteredStudents.map(s => (
+                <div key={s.id} onClick={() => setSelectedStudent(s.id)} style={{
+                  padding: "10px 12px", borderRadius: 8, cursor: "pointer", marginBottom: 4,
+                  background: selectedStudent === s.id ? "rgba(68, 215, 255, 0.15)" : "rgba(255,255,255,0.08)",
+                  border: `1.5px solid ${selectedStudent === s.id ? "var(--neon-blue)" : "transparent"}`,
+                  transition: "all 0.15s",
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: selectedStudent === s.id ? "white" : "var(--text-main)" }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>{s.id} · {s.course}</div>
                 </div>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <Select label="Semester" value={semesterFilter} onChange={e => setSemesterFilter(e.target.value)}>
-                    <option value="">All Semesters</option>
-                    {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
-                  </Select>
-                  {canWrite && <Btn variant="success" onClick={() => setAssignModal(true)}>+ Add Permit</Btn>}
-                </div>
-              </div>
-              <Card title={`Permits (${studentPermits.length})`}>
-                <Input placeholder="🔍 Search permit #, period, or status..." value={permitQuery} onChange={e => setPermitQuery(e.target.value)} />
-                <div style={{ height: 8 }} />
-                <div className="table-container">
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead><tr><Th>Period</Th><Th>Permit #</Th><Th>Issue</Th><Th>Expiry</Th><Th>Status</Th><Th>Actions</Th></tr></thead>
-                    <tbody>
-                      {permitsFiltered.map(p => (
-                        <tr key={p.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                          <Td>{p.name || p.period_name}</Td>
-                          <Td><code>{p.permit_number || "—"}</code></Td>
-                          <Td>{p.issue_date ? new Date(p.issue_date).toLocaleDateString() : "—"}</Td>
-                          <Td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</Td>
-                          <Td><Badge text={p.status || "active"} type={(p.status || "active") === "active" ? "green" : ((p.status || "") === "expired" ? "red" : "yellow")} /></Td>
-                          <Td>
-                            {(canWrite || canDelete) ? (
-                            <div style={{ display: "flex", gap: 6 }}>
-                              {canWrite && <Btn variant="outline" onClick={() => setEditPermit({ ...p })} style={{ fontSize: 11, padding: "3px 8px" }}>✏️ Edit</Btn>}
-                              {canDelete && <Btn variant="danger" onClick={() => setDeletePermit(p)} style={{ fontSize: 11, padding: "3px 8px" }}>🗑️ Delete</Btn>}
-                            </div>
-                            ) : <span style={{ fontSize: 12, color: "#64748b" }}>View Only</span>}
-                          </Td>
-                        </tr>
-                      ))}
-                      {permitsFiltered.length === 0 && (
-                        <tr><td colSpan={6} style={{ textAlign: "center", padding: 18, color: "#6b7280" }}>No permits found.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Assign permit */}
-      <PermitAssignmentModal
-        show={assignModal && !!selectedStudent}
-        student={students.find(s => s.id === selectedStudent) || { id: selectedStudent, name: selectedStudent }}
-        token={token}
-        onClose={() => setAssignModal(false)}
-        onAssigned={async () => {
-          await reloadPermits();
-          setAssignModal(false);
-          flash("✅ Permit assigned.");
-          try { const fresh = await api("/students", {}, token); setStudents(fresh); } catch {}
-        }}
-      />
-
-      {/* Edit permit */}
-      <Modal show={!!editPermit} title="✏️ Edit Permit" onClose={() => setEditPermit(null)} width={480}>
-        {editPermit && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-            <Input label="Permit Number" value={editPermit.permit_number || ""} onChange={e => setEditPermit({ ...editPermit, permit_number: e.target.value })} />
-            <Select label="Status" value={editPermit.status || "active"} onChange={e => setEditPermit({ ...editPermit, status: e.target.value })}>
-              <option value="active">active</option>
-              <option value="expired">expired</option>
-              <option value="pending">pending</option>
-            </Select>
-            <Input label="Issue Date (YYYY-MM-DD)" value={editPermit.issue_date || ""} onChange={e => setEditPermit({ ...editPermit, issue_date: e.target.value })} />
-            <Input label="Expiry Date (YYYY-MM-DD)" value={editPermit.expiry_date || ""} onChange={e => setEditPermit({ ...editPermit, expiry_date: e.target.value })} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <Btn variant="primary" onClick={doSaveEdit} style={{ flex: 1 }}>💾 Save</Btn>
-              <Btn variant="ghost" onClick={() => setEditPermit(null)} style={{ flex: 1 }}>Cancel</Btn>
+              ))}
             </div>
-          </div>
-        )}
-      </Modal>
+          </Card>
 
-      {/* Delete confirm */}
-      <Modal show={!!deletePermit} title="🗑️ Confirm Delete" onClose={() => setDeletePermit(null)} width={420}>
-        <div style={{ fontSize: 14, marginBottom: 14 }}>Remove permit <code>{deletePermit?.permit_number || deletePermit?.name}</code>?</div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn variant="danger" onClick={() => doDelete(deletePermit)} style={{ flex: 1 }}>Yes, Delete</Btn>
-          <Btn variant="ghost" onClick={() => setDeletePermit(null)} style={{ flex: 1 }}>Cancel</Btn>
+          <div>
+            {!st ? (
+              <Card><div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>Select a student to view permits.</div></Card>
+            ) : (
+              <>
+                <div style={{ background: "linear-gradient(135deg,#0f2340,#1e3a5f)", color: "white", borderRadius: 11, padding: "16px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 17 }}>{st.name}</div>
+                    <div style={{ fontSize: 12, opacity: 0.7 }}>{st.id} · {st.course}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <Select label="Semester" value={semesterFilter} onChange={e => setSemesterFilter(e.target.value)}>
+                      <option value="">All Semesters</option>
+                      {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
+                    </Select>
+                    {canWrite && <Btn variant="success" onClick={() => setAssignModal(true)}>+ Add Permit</Btn>}
+                  </div>
+                </div>
+                <Card title={`Permits (${studentPermits.length})`}>
+                  <Input placeholder="🔍 Search permit #, period, or status..." value={permitQuery} onChange={e => setPermitQuery(e.target.value)} />
+                  <div style={{ height: 8 }} />
+                  <div className="table-container">
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead><tr><Th>Period</Th><Th>Permit #</Th><Th>Issue</Th><Th>Expiry</Th><Th>Status</Th><Th>Actions</Th></tr></thead>
+                      <tbody>
+                        {permitsFiltered.map(p => (
+                          <tr key={p.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                            <Td>{p.name || p.period_name}</Td>
+                            <Td><code>{p.permit_number || "—"}</code></Td>
+                            <Td>{p.issue_date ? new Date(p.issue_date).toLocaleDateString() : "—"}</Td>
+                            <Td>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString() : "—"}</Td>
+                            <Td><Badge text={p.status || "active"} type={(p.status || "active") === "active" ? "green" : ((p.status || "") === "expired" ? "red" : "yellow")} /></Td>
+                            <Td>
+                              {(canWrite || canDelete) ? (
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  {canWrite && <Btn variant="outline" onClick={() => setEditPermit({ ...p })} style={{ fontSize: 11, padding: "3px 8px" }}>✏️ Edit</Btn>}
+                                  {canDelete && <Btn variant="danger" onClick={() => setDeletePermit(p)} style={{ fontSize: 11, padding: "3px 8px" }}>🗑️ Delete</Btn>}
+                                </div>
+                              ) : <span style={{ fontSize: 12, color: "#64748b" }}>View Only</span>}
+                            </Td>
+                          </tr>
+                        ))}
+                        {permitsFiltered.length === 0 && (
+                          <tr><td colSpan={6} style={{ textAlign: "center", padding: 18, color: "#6b7280" }}>No permits found.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </>
+            )}
+          </div>
         </div>
-      </Modal>
+
+        {/* Assign permit */}
+        <PermitAssignmentModal
+          show={assignModal && !!selectedStudent}
+          student={students.find(s => s.id === selectedStudent) || { id: selectedStudent, name: selectedStudent }}
+          token={token}
+          onClose={() => setAssignModal(false)}
+          onAssigned={async () => {
+            await reloadPermits();
+            setAssignModal(false);
+            flash("✅ Permit assigned.");
+            try { const fresh = await api("/students", {}, token); setStudents(fresh); } catch { }
+          }}
+        />
+
+        {/* Edit permit */}
+        <Modal show={!!editPermit} title="✏️ Edit Permit" onClose={() => setEditPermit(null)} width={480}>
+          {editPermit && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+              <Input label="Permit Number" value={editPermit.permit_number || ""} onChange={e => setEditPermit({ ...editPermit, permit_number: e.target.value })} />
+              <Select label="Status" value={editPermit.status || "active"} onChange={e => setEditPermit({ ...editPermit, status: e.target.value })}>
+                <option value="active">active</option>
+                <option value="expired">expired</option>
+                <option value="pending">pending</option>
+              </Select>
+              <Input label="Issue Date (YYYY-MM-DD)" value={editPermit.issue_date || ""} onChange={e => setEditPermit({ ...editPermit, issue_date: e.target.value })} />
+              <Input label="Expiry Date (YYYY-MM-DD)" value={editPermit.expiry_date || ""} onChange={e => setEditPermit({ ...editPermit, expiry_date: e.target.value })} />
+              <div style={{ display: "flex", gap: 10 }}>
+                <Btn variant="primary" onClick={doSaveEdit} style={{ flex: 1 }}>💾 Save</Btn>
+                <Btn variant="ghost" onClick={() => setEditPermit(null)} style={{ flex: 1 }}>Cancel</Btn>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {/* Delete confirm */}
+        <Modal show={!!deletePermit} title="🗑️ Confirm Delete" onClose={() => setDeletePermit(null)} width={420}>
+          <div style={{ fontSize: 14, marginBottom: 14 }}>Remove permit <code>{deletePermit?.permit_number || deletePermit?.name}</code>?</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn variant="danger" onClick={() => doDelete(deletePermit)} style={{ flex: 1 }}>Yes, Delete</Btn>
+            <Btn variant="ghost" onClick={() => setDeletePermit(null)} style={{ flex: 1 }}>Cancel</Btn>
+          </div>
+        </Modal>
       </>
     </div>
   );
@@ -2742,14 +2797,16 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   const [toDate, setToDate] = useState("");
   const [filterMethod, setFilterMethod] = useState("");
   const [semesters, setSemesters] = useState([]);
-  const [selectedSemId, setSelectedSemId] = useState("");
+  const [recordSemId, setRecordSemId] = useState("");
+  const [filterSemId, setFilterSemId] = useState("");
 
   useEffect(() => {
     api("/semesters", {}, token).then(r => {
       const list = Array.isArray(r) ? r : [];
       setSemesters(list);
-      if (list.length > 0) setSelectedSemId(String(list[0].id));
-    }).catch(() => {});
+      // Only pre-select semester for the RECORD form, not the filter
+      if (list.length > 0) setRecordSemId(String(list[0].id));
+    }).catch(() => { });
   }, [token]);
 
   useEffect(() => {
@@ -2766,20 +2823,20 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
       if (fromDate) qs.push(`from=${encodeURIComponent(fromDate)}`);
       if (toDate) qs.push(`to=${encodeURIComponent(toDate)}`);
       if (filterMethod) qs.push(`method=${encodeURIComponent(filterMethod)}`);
-      if (selectedSemId) qs.push(`semester_id=${encodeURIComponent(selectedSemId)}`);
+      if (filterSemId) qs.push(`semester_id=${encodeURIComponent(filterSemId)}`);
       const p = await api(`/payments/${encodeURIComponent(studentId)}${qs.length ? "?" + qs.join("&") : ""}`, {}, token);
       setPayments(p);
     } catch (e) {
       setMsg(e.message);
     }
-  }, [studentId, token, fromDate, toDate, filterMethod, selectedSemId]);
+  }, [studentId, token, fromDate, toDate, filterMethod, filterSemId]);
 
   useEffect(() => {
     if (studentId) loadBalance();
   }, [studentId, loadBalance]);
   const submitPayment = async () => {
     try {
-      const data = { student_id: studentId.trim(), amount: parseFloat(amount), method: method.trim(), reference: reference.trim(), payment_type: paymentType, semester_id: selectedSemId ? Number(selectedSemId) : undefined };
+      const data = { student_id: studentId.trim(), amount: parseFloat(amount), method: method.trim(), reference: reference.trim(), payment_type: paymentType, semester_id: recordSemId ? Number(recordSemId) : undefined };
       await api("/payments", { method: "POST", body: data }, token);
       setMsg("Payment recorded.");
       setAmount(""); setMethod(""); setReference(""); setPaymentType("Tuition");
@@ -2792,14 +2849,14 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
     <div>
       <PageHeader title={<span>{"\u{1F4B3}"} Payments</span>} sub={role === "student" ? "View your tuition balance and history" : "Record tuition payments"} />
       {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", color: "var(--neon-blue)", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
-      
+
       {canWrite && (
         <Card title="Record Payment">
           <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 700 }}>Semester:</span>
             <select
-              value={selectedSemId}
-              onChange={e => setSelectedSemId(e.target.value)}
+              value={recordSemId}
+              onChange={e => setRecordSemId(e.target.value)}
               style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border-color)', background: '#0f172a', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
             >
               <option value="">-- No Semester --</option>
@@ -2836,8 +2893,8 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 700 }}>School Year:</span>
           <select
-            value={selectedSemId}
-            onChange={e => setSelectedSemId(e.target.value)}
+            value={filterSemId}
+            onChange={e => setFilterSemId(e.target.value)}
             style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid var(--border-color)', background: '#0f172a', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
           >
             <option value="">All Semesters</option>
@@ -2856,7 +2913,7 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
           <Btn variant="outline" onClick={() => { if (studentId) loadBalance(); }} disabled={role === "student" && !studentId}>Apply Filters</Btn>
-          <Btn variant="ghost" onClick={() => { setFromDate(""); setToDate(""); setFilterMethod(""); setSelectedSemId(""); if (studentId) loadBalance(); }}>Clear</Btn>
+          <Btn variant="ghost" onClick={() => { setFromDate(""); setToDate(""); setFilterMethod(""); setFilterSemId(""); if (studentId) loadBalance(); }}>Clear</Btn>
         </div>
       </Card>
 
@@ -2925,8 +2982,10 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
         <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
           <input placeholder="Enter Student ID (e.g. 2024-0001) or Name..."
             value={searchId} onChange={e => { setSearchId(e.target.value); setSearchResult(null); }}
-            style={{ flex: 1, padding: "11px 15px", border: "2px solid #d1d5db",
-              borderRadius: 9, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            style={{
+              flex: 1, padding: "11px 15px", border: "2px solid #d1d5db",
+              borderRadius: 9, fontSize: 14, outline: "none", fontFamily: "inherit"
+            }} />
           <Btn variant="primary" style={{ padding: "11px 22px", fontSize: 14, pointerEvents: 'none' }}>
             {"\u{1F50D}"} Search
           </Btn>
@@ -2981,9 +3040,11 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
         <>
           <Card>
             <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-              <div style={{ width: 70, height: 70, background: "linear-gradient(135deg,#1e3a5f,#2563eb)",
+              <div style={{
+                width: 70, height: 70, background: "linear-gradient(135deg,#1e3a5f,#2563eb)",
                 borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 26, color: "white", fontWeight: 800, flexShrink: 0 }}>
+                fontSize: 26, color: "white", fontWeight: 800, flexShrink: 0
+              }}>
                 {searchResult.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
               <div style={{ flex: 1 }}>
@@ -2994,26 +3055,36 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
                 <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
                   {[
                     { label: "Student ID", val: searchResult.id },
-                    { label: "Course",     val: searchResult.course },
+                    { label: "Course", val: searchResult.course },
                     { label: "Year Level", val: searchResult.year },
-                    { label: "Email",      val: searchResult.email },
+                    { label: "Email", val: searchResult.email },
                   ].map(r => (
                     <div key={r.label}>
-                      <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600,
-                        textTransform: "uppercase" }}>{r.label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)",
-                        marginTop: 2 }}>{r.val}</div>
+                      <div style={{
+                        fontSize: 11, color: "#6b7280", fontWeight: 600,
+                        textTransform: "uppercase"
+                      }}>{r.label}</div>
+                      <div style={{
+                        fontSize: 13, fontWeight: 700, color: "var(--text-main)",
+                        marginTop: 2
+                      }}>{r.val}</div>
                     </div>
                   ))}
                 </div>
               </div>
               {gpa && (
-                <div style={{ textAlign: "center", background: "#0f172a", border: "1px solid var(--border-color)", borderRadius: 12,
-                  padding: "14px 22px", flexShrink: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--neon-blue)",
-                    textTransform: "uppercase", letterSpacing: 1 }}>GWA</div>
-                  <div style={{ fontSize: 32, fontWeight: 900,
-                    color: gradeColor(parseFloat(gpa)) }}>{toGPA(parseFloat(gpa))}</div>
+                <div style={{
+                  textAlign: "center", background: "#0f172a", border: "1px solid var(--border-color)", borderRadius: 12,
+                  padding: "14px 22px", flexShrink: 0
+                }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 700, color: "var(--neon-blue)",
+                    textTransform: "uppercase", letterSpacing: 1
+                  }}>GWA</div>
+                  <div style={{
+                    fontSize: 32, fontWeight: 900,
+                    color: gradeColor(parseFloat(gpa))
+                  }}>{toGPA(parseFloat(gpa))}</div>
                   <div style={{ fontSize: 11, color: "#6b7280" }}>{gpa}% avg</div>
                 </div>
               )}
@@ -3023,13 +3094,13 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
           <Card title={`📝 Grades (${enrolledSubjects.length} subjects)`}>
             {enrolledSubjects.length === 0
               ? <div style={{ textAlign: "center", padding: "20px 0", color: "#6b7280" }}>
-                  No grade records for this student.
-                </div>
+                No grade records for this student.
+              </div>
               : (
                 <div className="table-container">
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
-                      <tr>{["Code","Subject","1st Prelim","2nd Prelim","Midterm","Semi-Final","Final","Average","GPA","Remarks"]
+                      <tr>{["Code", "Subject", "1st Prelim", "2nd Prelim", "Midterm", "Semi-Final", "Final", "Average", "GPA", "Remarks"]
                         .map(h => <Th key={h}>{h}</Th>)}</tr>
                     </thead>
                     <tbody>
@@ -3038,8 +3109,10 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
                         const avg = computeGrade(g);
                         return (
                           <tr key={subj.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                            <Td><code style={{ background: "#f1f5f9", color: "#111827", padding: "2px 7px",
-                              borderRadius: 5, fontSize: 12, fontWeight: 800 }}>{subj.id}</code></Td>
+                            <Td><code style={{
+                              background: "#f1f5f9", color: "#111827", padding: "2px 7px",
+                              borderRadius: 5, fontSize: 12, fontWeight: 800
+                            }}>{subj.id}</code></Td>
                             <Td><div style={{ fontWeight: 600 }}>{subj.name}</div>
                               <div style={{ fontSize: 11, color: "#6b7280" }}>{subj.professor}</div>
                               <div style={{ fontSize: 10, color: "#94a3b8" }}>{subj.campus || "-"} · {subj.room || "-"}</div></Td>
@@ -3051,8 +3124,8 @@ function StudentSearch({ students, subjects, grades, searchId, setSearchId,
                             <Td><strong style={{ color: avg !== null ? gradeColor(avg) : "var(--text-dim)" }}>{avg !== null ? `${avg}%` : "—"}</strong></Td>
                             <Td><strong style={{ color: avg !== null ? gradeColor(avg) : "var(--text-dim)" }}>{avg !== null ? toGPA(avg) : "—"}</strong></Td>
                             <Td>{avg !== null ? (
-                               <Badge text={avg >= 75 ? "PASSED" : "FAILED"}
-                                 type={avg >= 75 ? "green" : "red"} />
+                              <Badge text={avg >= 75 ? "PASSED" : "FAILED"}
+                                type={avg >= 75 ? "green" : "red"} />
                             ) : "—"}</Td>
                           </tr>
                         );
@@ -3090,7 +3163,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
     computer_lab_fee: "", chem_lab_fee: "", aircon_fee: "", shop_fee: "", other_fees: "",
     id_fee: "", subscription_fee: "", discount: "", bank_account: "", bill_of_payment: "", notes: ""
   });
-  
+
   const student = students?.find(s => s.id === studentId);
   const regularUnits = assignedSubjects?.reduce((acc, s) => acc + (s.units || 0), 0) || 0;
   const parsedYear = parseInt(student?.year) || "";
@@ -3101,8 +3174,8 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
       const list = Array.isArray(r) ? r : [];
       setSemesters(list);
       if (list.length > 0 && !selectedSemId) setSelectedSemId(String(list[0].id));
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    }).catch(() => { });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   // Re-fetch ledger whenever semester changes
@@ -3140,7 +3213,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
     if (calculated > 0) {
       setLedger(prev => ({ ...prev, tuition_fee: calculated }));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledger.regular_units, ledger.petition_class, ledger.regular_unit_price, ledger.petition_unit_price, regularUnits]);
 
   const handleSave = async () => {
@@ -3148,10 +3221,10 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
     try {
       const payload = { ...ledger, semester_id: Number(selectedSemId) };
       [
-        "tuition_fee", "misc_fee", "internship_fee", "computer_lab_fee", "chem_lab_fee", 
+        "tuition_fee", "misc_fee", "internship_fee", "computer_lab_fee", "chem_lab_fee",
         "aircon_fee", "shop_fee", "other_fees", "id_fee", "subscription_fee", "discount", "bank_account"
       ].forEach(k => payload[k] = payload[k] === "" || isNaN(payload[k]) ? 0 : Number(payload[k]));
-      
+
       await api(`/ledgers/${encodeURIComponent(studentId)}`, { method: 'PUT', body: payload }, token);
       alert("Ledger saved!");
       if (onSave) onSave();
@@ -3165,7 +3238,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
     const studentCourse = (student?.course || "").toUpperCase();
     const studentYear = parsedYear || "";
     const datePrinted = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-    const billOfPayment = totalCharges > 0 ? (totalCharges / 5).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "0.00";
+    const billOfPayment = totalCharges > 0 ? (totalCharges / 5).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
     const totalUnits = (parseInt(ledger.regular_units || regularUnits) || 0) + parseInt(ledger.petition_class || 0);
     const fees = [
       { label: "Tuition Fee:", val: ledger.tuition_fee },
@@ -3179,10 +3252,26 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
       { label: "I.D. Fee:", val: ledger.id_fee },
       { label: "Subscription fee:", val: ledger.subscription_fee },
     ];
-    const feeRows = fees.map(f => `<tr><td>${f.label}</td><td></td><td style="text-align:right">${f.val ? Number(f.val).toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td></tr>`).join('');
-    const blankRows = Array.from({length: 12}).map(() => `<tr style="height:25px"><td></td><td></td><td></td><td></td><td></td></tr>`).join('');
-    const totalChargesStr = totalCharges > 0 ? totalCharges.toLocaleString('en-US', {minimumFractionDigits:2}) : '-';
-    const totalFeesStr = totalFees > 0 ? totalFees.toLocaleString('en-US', {minimumFractionDigits:2}) : '-';
+    const feeRows = fees.map(f => `<tr><td>${f.label}</td><td></td><td style="text-align:right">${f.val ? Number(f.val).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td></tr>`).join('');
+    // Build real payment rows with running balance
+    const tuitionPayments = payments.filter(p => !p.payment_type || p.payment_type === 'Tuition');
+    let runningBalance = totalCharges;
+    const paymentRows = tuitionPayments.map(p => {
+      const amt = Number(p.amount);
+      runningBalance -= amt;
+      const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString('en-PH') : '';
+      const amtStr = amt.toLocaleString('en-US', { minimumFractionDigits: 2 });
+      const balStr = runningBalance.toLocaleString('en-US', { minimumFractionDigits: 2 });
+      return `<tr style="height:25px"><td style="text-align:center;font-size:11px">${dateStr}</td><td style="text-align:center;font-size:11px">${p.reference || ''}</td><td style="text-align:right;font-size:11px">${amtStr}</td><td style="text-align:right;font-size:11px">${balStr}</td><td></td></tr>`;
+    });
+    const TOTAL_ROWS = 12;
+    const blankCount = Math.max(0, TOTAL_ROWS - paymentRows.length);
+    const blankRows = [
+      ...paymentRows,
+      ...Array.from({ length: blankCount }).map(() => `<tr style="height:25px"><td></td><td></td><td></td><td></td><td></td></tr>`)
+    ].join('');
+    const totalChargesStr = totalCharges > 0 ? totalCharges.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-';
+    const totalFeesStr = totalFees > 0 ? totalFees.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-';
 
     const html = `<!DOCTYPE html>
 <html>
@@ -3289,8 +3378,8 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
         <tr><td>&nbsp;</td><td></td><td></td></tr>
         ${feeRows}
         <tr><td class="bold" style="color:darkred">Current Account:</td><td></td><td style="text-align:right;color:darkred;font-weight:bold">${totalFeesStr}</td></tr>
-        <tr><td class="bold">Discount:</td><td></td><td style="text-align:right">${ledger.discount ? Number(ledger.discount).toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td></tr>
-        <tr><td class="bold">Back Account:</td><td></td><td style="text-align:right">${ledger.bank_account ? Number(ledger.bank_account).toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td></tr>
+        <tr><td class="bold">Discount:</td><td></td><td style="text-align:right">${ledger.discount ? Number(ledger.discount).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td></tr>
+        <tr><td class="bold">Back Account:</td><td></td><td style="text-align:right">${ledger.bank_account ? Number(ledger.bank_account).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</td></tr>
         <tr><td class="bold" style="color:darkred">Total Charges:</td><td></td><td style="text-align:right;color:darkred;font-weight:bold">${totalChargesStr}</td></tr>
       </tbody>
     </table>
@@ -3331,8 +3420,7 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
   </div>
 </div>
 
-// eslint-disable-next-line no-useless-escape
-<script>window.onload = function(){ window.print(); };<\/script>
+<script>window.onload = function(){ window.print(); };</script>
 </body>
 </html>`;
 
@@ -3348,15 +3436,15 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
   const regUnits = parseInt(ledger.regular_units || regularUnits) || 0;
   const petUnits = parseInt(ledger.petition_class) || 0;
 
-  const totalFees = 
-    Number(ledger.tuition_fee||0) + Number(ledger.misc_fee||0) + 
-    Number(ledger.internship_fee||0) + Number(ledger.computer_lab_fee||0) + 
-    Number(ledger.chem_lab_fee||0) + Number(ledger.aircon_fee||0) + 
-    Number(ledger.shop_fee||0) + Number(ledger.other_fees||0) + 
-    Number(ledger.id_fee||0) + Number(ledger.subscription_fee||0);
-  const totalCharges = totalFees - Number(ledger.discount||0) + Number(ledger.bank_account||0);
+  const totalFees =
+    Number(ledger.tuition_fee || 0) + Number(ledger.misc_fee || 0) +
+    Number(ledger.internship_fee || 0) + Number(ledger.computer_lab_fee || 0) +
+    Number(ledger.chem_lab_fee || 0) + Number(ledger.aircon_fee || 0) +
+    Number(ledger.shop_fee || 0) + Number(ledger.other_fees || 0) +
+    Number(ledger.id_fee || 0) + Number(ledger.subscription_fee || 0);
+  const totalCharges = totalFees - Number(ledger.discount || 0) + Number(ledger.bank_account || 0);
 
-  if (loading) return <Modal show title="Student Ledger" width={800} onClose={onClose}><div style={{padding:40, textAlign:"center"}}>Loading ledger...</div></Modal>;
+  if (loading) return <Modal show title="Student Ledger" width={800} onClose={onClose}><div style={{ padding: 40, textAlign: "center" }}>Loading ledger...</div></Modal>;
 
   return (
     <Modal show title="📓 Student Ledger Booklet" width={1000} onClose={onClose}>
@@ -3479,241 +3567,257 @@ function LedgerModal({ studentId, students, assignedSubjects, token, onClose, on
           <div style={{ display: 'flex', gap: 10 }}>
             <button style={{ background: page === 1 ? '#3b82f6' : '#374151', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setPage(1)}>📖 PAGE 1 (Cover / Permit)</button>
             <button style={{ background: page === 2 ? '#3b82f6' : '#374151', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setPage(2)}>📖 PAGE 2 (Ledger / Payments)</button>
-            
+
             <button style={{ background: '#10b981', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold', marginLeft: 20 }} onClick={handleSave}>💾 Save Booklet</button>
             <button style={{ background: '#8b5cf6', color: 'white', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 'bold' }} onClick={handlePrint}>🖨️ Print Page</button>
           </div>
         </div>
 
         <div className="ledger-printable" style={{ position: "relative" }}>
-          
+
           <div className={`booklet-spread print-page ${page !== 1 ? 'screen-only-hide' : ''}`}>
-              <div className="booklet-page left-page">
-                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14 }}>
-                    {(student?.name||"").toUpperCase()} {(student?.course||"").toUpperCase()} {parsedYear}
-                 </div>
-                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 16, margin: '10px 0' }}>PERMIT</div>
-                 <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>{printTerm}; SY: {printSy}</div>
-                 
-                 <div className="exam-boxes">
-                   <div className="exam-box">1st Prelim</div>
-                   <div className="exam-box">2nd Prelim</div>
-                   <div className="exam-box">Midterm</div>
-                   <div className="exam-box">Semi-Final</div>
-                   <div className="exam-box centered">Final</div>
-                 </div>
-
-                 <div style={{ marginTop: 30 }}>
-                   <div style={{ textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid #000', display: 'inline-block', width: '100%', paddingBottom: 2 }}>IMPORTANT</div>
-                   <ol style={{ fontSize: 11, paddingLeft: 20, marginTop: 10, lineHeight: 1.4 }}>
-                     <li>This card is non-transferable and forfeited if alterations are made.</li>
-                     <li>Attached your 1x1 picture in the box provided and affix your signature on the space provided.</li>
-                     <li>This card is valid for one (1) semester only.</li>
-                     <li>Please keep this card away from deteriorated.</li>
-                     <li>duplicate card will be issued only upon due payment of one hundred pesos (Php 100.00).</li>
-                   </ol>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 20 }}>
-                     <i>Printed in YBVC, Pagadian City</i>
-                     <i>Date Printed: {new Date().toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'numeric'})}</i>
-                   </div>
-                 </div>
+            <div className="booklet-page left-page">
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14 }}>
+                {(student?.name || "").toUpperCase()} {(student?.course || "").toUpperCase()} {parsedYear}
               </div>
-              
-              <div className="booklet-page right-page">
-                 <div style={{ textAlign: 'center', fontSize: 18, fontFamily: 'serif', fontWeight: 'bold' }}>YLLANBAY VIEW COLLEGE, INC.</div>
-                 <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'darkgreen', fontSize: 14, marginTop: 5 }}>COLLEGE DEPARTMENT</div>
-                 <div style={{ textAlign: 'center', fontSize: 12 }}>Enerio St., Balangasan Dist., Pagadian City</div>
-                 <div style={{ textAlign: 'center', fontSize: 12 }}>Tel. N✅ (062) 2154-176</div>
-                 <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>"The Builder of Future Leaders"</div>
-                 
-                 <img className="cover-logo" src="/123.png" alt="College Logo" style={{ objectFit: 'contain', background: 'transparent', border: 'none' }} />
-                 
-                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 13, marginTop: 10 }}>STUDENT ACCOUNT AND PERMIT SECTION</div>
-                 <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'darkgreen', fontSize: 16 }}>STUDENT'S ACCOUNT CARD</div>
-                 <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>{printTerm}; SY: {printSy}</div>
-                 
-                 <div style={{ width: 100, height: 100, border: '1px solid #000', margin: '20px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 10, padding: 5 }}>
-                   Not Valid Without<br/>RECENT 1x1 ID<br/>Picture.<br/>Do Not staple,<br/>Paste it!
-                 </div>
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 16, margin: '10px 0' }}>PERMIT</div>
+              <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>{printTerm}; SY: {printSy}</div>
 
-                 <div style={{ marginTop: 20, fontSize: 13, fontWeight: 'bold' }}>I'm, <span style={{ textDecoration: 'underline' }}>{(student?.name||"").toUpperCase()} {(student?.course||"").toUpperCase()} {parsedYear}</span></div>
-                 <div style={{ fontSize: 12, marginTop: 5, textAlign: 'justify', textIndent: 20 }}>
-                   I hereby promise and pledge to abide by and comply with all the rules and regulations of Yllana Bay View College.
-                 </div>
-                 
-                 <div style={{ marginTop: 40, borderTop: '1px solid #000', width: '80%', marginLeft: 'auto', textAlign: 'center', fontSize: 12, paddingTop: 5, fontWeight: 'bold' }}>
-                   {(student?.name||"").toUpperCase()} {(student?.course||"").toUpperCase()} {parsedYear}<br/>
-                   <span style={{ fontWeight: 'normal', fontSize: 11 }}>Signature Over Printed Name</span>
-                 </div>
-                 <div style={{ fontSize: 9, marginTop: 20 }}>REV. FORM: SAS 070-2017</div>
+              <div className="exam-boxes">
+                <div className="exam-box">1st Prelim</div>
+                <div className="exam-box">2nd Prelim</div>
+                <div className="exam-box">Midterm</div>
+                <div className="exam-box">Semi-Final</div>
+                <div className="exam-box centered">Final</div>
               </div>
+
+              <div style={{ marginTop: 30 }}>
+                <div style={{ textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid #000', display: 'inline-block', width: '100%', paddingBottom: 2 }}>IMPORTANT</div>
+                <ol style={{ fontSize: 11, paddingLeft: 20, marginTop: 10, lineHeight: 1.4 }}>
+                  <li>This card is non-transferable and forfeited if alterations are made.</li>
+                  <li>Attached your 1x1 picture in the box provided and affix your signature on the space provided.</li>
+                  <li>This card is valid for one (1) semester only.</li>
+                  <li>Please keep this card away from deteriorated.</li>
+                  <li>duplicate card will be issued only upon due payment of one hundred pesos (Php 100.00).</li>
+                </ol>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 20 }}>
+                  <i>Printed in YBVC, Pagadian City</i>
+                  <i>Date Printed: {new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })}</i>
+                </div>
+              </div>
+            </div>
+
+            <div className="booklet-page right-page">
+              <div style={{ textAlign: 'center', fontSize: 18, fontFamily: 'serif', fontWeight: 'bold' }}>YLLANBAY VIEW COLLEGE, INC.</div>
+              <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'darkgreen', fontSize: 14, marginTop: 5 }}>COLLEGE DEPARTMENT</div>
+              <div style={{ textAlign: 'center', fontSize: 12 }}>Enerio St., Balangasan Dist., Pagadian City</div>
+              <div style={{ textAlign: 'center', fontSize: 12 }}>Tel. N✅ (062) 2154-176</div>
+              <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>"The Builder of Future Leaders"</div>
+
+              <img className="cover-logo" src="/123.png" alt="College Logo" style={{ objectFit: 'contain', background: 'transparent', border: 'none' }} />
+
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 13, marginTop: 10 }}>STUDENT ACCOUNT AND PERMIT SECTION</div>
+              <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'darkgreen', fontSize: 16 }}>STUDENT'S ACCOUNT CARD</div>
+              <div style={{ textAlign: 'center', fontStyle: 'italic', fontSize: 12 }}>{printTerm}; SY: {printSy}</div>
+
+              <div style={{ width: 100, height: 100, border: '1px solid #000', margin: '20px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 10, padding: 5 }}>
+                Not Valid Without<br />RECENT 1x1 ID<br />Picture.<br />Do Not staple,<br />Paste it!
+              </div>
+
+              <div style={{ marginTop: 20, fontSize: 13, fontWeight: 'bold' }}>I'm, <span style={{ textDecoration: 'underline' }}>{(student?.name || "").toUpperCase()} {(student?.course || "").toUpperCase()} {parsedYear}</span></div>
+              <div style={{ fontSize: 12, marginTop: 5, textAlign: 'justify', textIndent: 20 }}>
+                I hereby promise and pledge to abide by and comply with all the rules and regulations of Yllana Bay View College.
+              </div>
+
+              <div style={{ marginTop: 40, borderTop: '1px solid #000', width: '80%', marginLeft: 'auto', textAlign: 'center', fontSize: 12, paddingTop: 5, fontWeight: 'bold' }}>
+                {(student?.name || "").toUpperCase()} {(student?.course || "").toUpperCase()} {parsedYear}<br />
+                <span style={{ fontWeight: 'normal', fontSize: 11 }}>Signature Over Printed Name</span>
+              </div>
+              <div style={{ fontSize: 9, marginTop: 20 }}>REV. FORM: SAS 070-2017</div>
+            </div>
           </div>
 
           <div className={`booklet-spread print-page ${page !== 2 ? 'screen-only-hide' : ''}`}>
             <div className="booklet-page left-page">
-                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14, letterSpacing: 1, borderBottom: '2px solid #000', paddingBottom: 4, marginBottom: 10 }}>
-                   ASSESSMENT INFORMATION
-                 </div>
-                 
-                 <table style={{ width: '100%', fontSize: 13, marginBottom: 10 }}>
-                   <thead>
-                     <tr style={{ textDecoration: 'underline' }}>
-                       <th style={{ textAlign: 'left', width: '55%' }}>DESCRIPTION</th>
-                       <th style={{ textAlign: 'center', width: '20%' }}>UNITS</th>
-                       <th style={{ textAlign: 'right', width: '25%' }}>AMOUNT</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     <tr>
-                       <td>Regular Units Enrolled:</td>
-                       <td style={{ padding: 2 }}><input className="paper-input paper-input-center bold-val" value={ledger.regular_units ?? regularUnits} onChange={e => setLedger({...ledger, regular_units: e.target.value})} placeholder={String(regularUnits)} /></td>
-                       <td style={{ textAlign: 'right' }}>-</td>
-                     </tr>
-                     <tr>
-                       <td>Petition Class :</td>
-                       <td style={{ padding: 2 }}><input className="paper-input paper-input-center bold-val" value={ledger.petition_class||""} onChange={e => setLedger({...ledger, petition_class: e.target.value})} placeholder="0" /></td>
-                       <td style={{ textAlign: 'right' }}>-</td>
-                     </tr>
-                     <tr><td colSpan="3">&nbsp;</td></tr>
-                     <tr>
-                       <td style={{ fontWeight: 'bold' }}>Total Units Enrolled:</td>
-                       <td style={{ textAlign: 'center' }} className="bold-val">{regUnits + petUnits}</td>
-                       <td></td>
-                     </tr>
-                     <tr><td colSpan="3">&nbsp;</td></tr>
-                     <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
-                       <td style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>Price per Regular Unit (₱):</td>
-                       <td></td>
-                       <td style={{ padding: 2 }}><input className="paper-input bold-val" type="number" value={ledger.regular_unit_price ?? 204} onChange={e => setLedger({...ledger, regular_unit_price: e.target.value})} placeholder="204" style={{ textAlign: 'right' }} /></td>
-                     </tr>
-                     <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
-                       <td style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>Price per Petition Unit (₱):</td>
-                       <td></td>
-                       <td style={{ padding: 2 }}><input className="paper-input bold-val" type="number" value={ledger.petition_unit_price ?? 0} onChange={e => setLedger({...ledger, petition_unit_price: e.target.value})} placeholder="0" style={{ textAlign: 'right' }} /></td>
-                     </tr>
-                     <tr><td colSpan="3">&nbsp;</td></tr>
-                     {[
-                       { label: "Tuition Fee:", key: "tuition_fee", readOnly: true },
-                       { label: "Miscellaneous Fee:", key: "misc_fee" },
-                       { label: "Internship Fee:", key: "internship_fee" },
-                       { label: "Computer Lab. Fee:", key: "computer_lab_fee" },
-                       { label: "Chem. Lab. Fee:", key: "chem_lab_fee" },
-                       { label: "Aircon Fee:", key: "aircon_fee" },
-                       { label: "Shop Fee:", key: "shop_fee" },
-                       { label: "Other & New Fees:", key: "other_fees" },
-                       { label: "I.D. Fee:", key: "id_fee" },
-                       { label: "Subscription fee:", key: "subscription_fee" }
-                     ].map((r, i) => (
-                       <tr key={i}>
-                         <td>{r.label}</td>
-                         <td></td>
-                         <td style={{ padding: 2 }} className={ledger[r.key] ? "bold-val" : ""}>
-                            <input className="paper-input bold-val" value={ledger[r.key]||""} onChange={e => setLedger({...ledger, [r.key]: e.target.value})} placeholder="-" />
-                         </td>
-                       </tr>
-                     ))}
-                     <tr>
-                       <td style={{ fontWeight: 'bold', color: 'darkred' }}>Current Account:</td>
-                       <td></td>
-                       <td style={{ textAlign: 'right', color: 'darkred', fontWeight: 'bold' }}>{totalFees > 0 ? totalFees.toLocaleString('en-US', {minimumFractionDigits:2}) : "-"}</td>
-                     </tr>
-                     <tr>
-                       <td style={{ fontWeight: 'bold' }}>Discount:</td>
-                       <td></td>
-                       <td style={{ padding: 2 }}>
-                         <input className="paper-input" value={ledger.discount||""} onChange={e => setLedger({...ledger, discount: e.target.value})} placeholder="-" />
-                       </td>
-                     </tr>
-                     <tr>
-                       <td style={{ fontWeight: 'bold' }}>Back Account:</td>
-                       <td></td>
-                       <td style={{ padding: 2 }}>
-                         <input className="paper-input" value={ledger.bank_account||""} onChange={e => setLedger({...ledger, bank_account: e.target.value})} placeholder="-" />
-                       </td>
-                     </tr>
-                     <tr>
-                       <td style={{ fontWeight: 'bold', color: 'darkred' }}>Total Charges:</td>
-                       <td></td>
-                       <td style={{ textAlign: 'right', color: 'darkred', fontWeight: 'bold' }}>{totalCharges > 0 ? totalCharges.toLocaleString('en-US', {minimumFractionDigits:2}) : "-"}</td>
-                     </tr>
-                   </tbody>
-                 </table>
-                 
-                 <div style={{ marginTop: 20, fontSize: 13 }}>
-                   <div style={{ fontWeight: 'bold' }}>Assessed by:</div>
-                   <div style={{ textAlign: 'center', width: '80%', margin: '15px 0 0 20px', borderBottom: '1px solid #000', fontWeight: 'bold', paddingBottom: 2 }}>
-                     {printAssessor}
-                   </div>
-                   <div style={{ textAlign: 'center', width: '80%', marginLeft: '20px', fontSize: 11 }}>Student Account Officer III</div>
-                 </div>
-                 
-                 <div style={{ marginTop: 20, fontSize: 13 }}>
-                   <div style={{ textAlign: 'center', width: '80%', margin: '15px 0 0 auto', borderBottom: '1px solid #000', fontWeight: 'bold', paddingBottom: 2 }}>
-                     {printChecker}
-                   </div>
-                   <div style={{ textAlign: 'center', width: '80%', marginLeft: 'auto', fontSize: 11 }}>Student Account Chief</div>
-                   <div style={{ display: 'inline-block' }}><strong>Checked by:</strong></div>
-                 </div>
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14, letterSpacing: 1, borderBottom: '2px solid #000', paddingBottom: 4, marginBottom: 10 }}>
+                ASSESSMENT INFORMATION
               </div>
-              
-              <div className="booklet-page right-page">
-                 <div className="proverb-text">
-                   <div>Commit to the LORD whatever you do,</div>
-                   <div>and he will establish your plans.</div>
-                   <div style={{ marginTop: 2, fontWeight: 'bold' }}>Proverbs 16:3</div>
-                 </div>
-                 
-                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14, letterSpacing: 1, marginBottom: 10 }}>
-                   {(student?.name||"").toUpperCase()} {(student?.course||"").toUpperCase()} {parsedYear || ""}
-                 </div>
-                 
-                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, fontSize: 13, marginBottom: 15 }}>
-                   <span style={{ color: 'darkred', fontWeight: 'bold' }}>BILL OF PAYMENT PER EXAM:</span>
-                   <span style={{ border: '1px solid darkred', borderRadius: '20px', padding: '2px 15px', color: 'darkred', fontWeight: 'bold', display: 'inline-block', minWidth: 60, textAlign: 'center' }}>
-                     {totalCharges > 0 ? (totalCharges / 5).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "0.00"}
-                   </span>
-                 </div>
-                 
-                 <table className="booklet-table">
-                   <thead>
-                     <tr>
-                       <th colSpan="5" style={{ background: '#eee', letterSpacing: 1 }}>PAYMENTS</th>
-                     </tr>
-                     <tr>
-                       <th style={{ width: '15%' }}>Dates</th>
-                       <th style={{ width: '25%' }}>Receipts No.</th>
-                       <th style={{ width: '20%' }}>Amount Paid</th>
-                       <th style={{ width: '25%' }}>Balance</th>
-                       <th style={{ width: '15%' }}>Cashier's Initial</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     <tr>
-                       <td colSpan="3"></td>
-                       <td style={{ fontWeight: 'bold', fontSize: 14 }}>{totalCharges.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-                       <td></td>
-                     </tr>
-                     {Array.from({ length: 12 }).map((_, i) => (
-                       <tr key={`e-${i}`} style={{height: 25}}>
-                         <td></td><td></td><td></td><td></td><td></td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-                 
-                 <div style={{ marginTop: 20, fontSize: 13, border: '1px solid #ccc', minHeight: 80, padding: 5, position: 'relative' }}>
-                   <strong>Notes:</strong><br/>
-                   <textarea className="paper-input paper-input-left no-print" value={ledger.notes||""} onChange={e => setLedger({...ledger, notes: e.target.value})} placeholder="Enter any notes here..." style={{ height: 60, resize: 'none' }}></textarea>
-                   <div style={{ display: 'none', whiteSpace: 'pre-wrap', marginTop: 5 }} className="print-only">{ledger.notes}</div>
-                 </div>
-                 
-                 <div style={{ position: 'absolute', bottom: 30, right: 30, fontSize: 9, color: '#aaa' }}>
-                   Powered by sdmags
-                 </div>
+
+              <table style={{ width: '100%', fontSize: 13, marginBottom: 10 }}>
+                <thead>
+                  <tr style={{ textDecoration: 'underline' }}>
+                    <th style={{ textAlign: 'left', width: '55%' }}>DESCRIPTION</th>
+                    <th style={{ textAlign: 'center', width: '20%' }}>UNITS</th>
+                    <th style={{ textAlign: 'right', width: '25%' }}>AMOUNT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Regular Units Enrolled:</td>
+                    <td style={{ padding: 2 }}><input className="paper-input paper-input-center bold-val" value={ledger.regular_units ?? regularUnits} onChange={e => setLedger({ ...ledger, regular_units: e.target.value })} placeholder={String(regularUnits)} /></td>
+                    <td style={{ textAlign: 'right' }}>-</td>
+                  </tr>
+                  <tr>
+                    <td>Petition Class :</td>
+                    <td style={{ padding: 2 }}><input className="paper-input paper-input-center bold-val" value={ledger.petition_class || ""} onChange={e => setLedger({ ...ledger, petition_class: e.target.value })} placeholder="0" /></td>
+                    <td style={{ textAlign: 'right' }}>-</td>
+                  </tr>
+                  <tr><td colSpan="3">&nbsp;</td></tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold' }}>Total Units Enrolled:</td>
+                    <td style={{ textAlign: 'center' }} className="bold-val">{regUnits + petUnits}</td>
+                    <td></td>
+                  </tr>
+                  <tr><td colSpan="3">&nbsp;</td></tr>
+                  <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
+                    <td style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>Price per Regular Unit (₱):</td>
+                    <td></td>
+                    <td style={{ padding: 2 }}><input className="paper-input bold-val" type="number" value={ledger.regular_unit_price ?? 204} onChange={e => setLedger({ ...ledger, regular_unit_price: e.target.value })} placeholder="204" style={{ textAlign: 'right' }} /></td>
+                  </tr>
+                  <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
+                    <td style={{ fontSize: 11, color: '#0369a1', fontWeight: 700 }}>Price per Petition Unit (₱):</td>
+                    <td></td>
+                    <td style={{ padding: 2 }}><input className="paper-input bold-val" type="number" value={ledger.petition_unit_price ?? 0} onChange={e => setLedger({ ...ledger, petition_unit_price: e.target.value })} placeholder="0" style={{ textAlign: 'right' }} /></td>
+                  </tr>
+                  <tr><td colSpan="3">&nbsp;</td></tr>
+                  {[
+                    { label: "Tuition Fee:", key: "tuition_fee", readOnly: true },
+                    { label: "Miscellaneous Fee:", key: "misc_fee" },
+                    { label: "Internship Fee:", key: "internship_fee" },
+                    { label: "Computer Lab. Fee:", key: "computer_lab_fee" },
+                    { label: "Chem. Lab. Fee:", key: "chem_lab_fee" },
+                    { label: "Aircon Fee:", key: "aircon_fee" },
+                    { label: "Shop Fee:", key: "shop_fee" },
+                    { label: "Other & New Fees:", key: "other_fees" },
+                    { label: "I.D. Fee:", key: "id_fee" },
+                    { label: "Subscription fee:", key: "subscription_fee" }
+                  ].map((r, i) => (
+                    <tr key={i}>
+                      <td>{r.label}</td>
+                      <td></td>
+                      <td style={{ padding: 2 }} className={ledger[r.key] ? "bold-val" : ""}>
+                        <input className="paper-input bold-val" value={ledger[r.key] || ""} onChange={e => setLedger({ ...ledger, [r.key]: e.target.value })} placeholder="-" />
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: 'darkred' }}>Current Account:</td>
+                    <td></td>
+                    <td style={{ textAlign: 'right', color: 'darkred', fontWeight: 'bold' }}>{totalFees > 0 ? totalFees.toLocaleString('en-US', { minimumFractionDigits: 2 }) : "-"}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold' }}>Discount:</td>
+                    <td></td>
+                    <td style={{ padding: 2 }}>
+                      <input className="paper-input" value={ledger.discount || ""} onChange={e => setLedger({ ...ledger, discount: e.target.value })} placeholder="-" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold' }}>Back Account:</td>
+                    <td></td>
+                    <td style={{ padding: 2 }}>
+                      <input className="paper-input" value={ledger.bank_account || ""} onChange={e => setLedger({ ...ledger, bank_account: e.target.value })} placeholder="-" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: 'darkred' }}>Total Charges:</td>
+                    <td></td>
+                    <td style={{ textAlign: 'right', color: 'darkred', fontWeight: 'bold' }}>{totalCharges > 0 ? totalCharges.toLocaleString('en-US', { minimumFractionDigits: 2 }) : "-"}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div style={{ marginTop: 20, fontSize: 13 }}>
+                <div style={{ fontWeight: 'bold' }}>Assessed by:</div>
+                <div style={{ textAlign: 'center', width: '80%', margin: '15px 0 0 20px', borderBottom: '1px solid #000', fontWeight: 'bold', paddingBottom: 2 }}>
+                  {printAssessor}
+                </div>
+                <div style={{ textAlign: 'center', width: '80%', marginLeft: '20px', fontSize: 11 }}>Student Account Officer III</div>
+              </div>
+
+              <div style={{ marginTop: 20, fontSize: 13 }}>
+                <div style={{ textAlign: 'center', width: '80%', margin: '15px 0 0 auto', borderBottom: '1px solid #000', fontWeight: 'bold', paddingBottom: 2 }}>
+                  {printChecker}
+                </div>
+                <div style={{ textAlign: 'center', width: '80%', marginLeft: 'auto', fontSize: 11 }}>Student Account Chief</div>
+                <div style={{ display: 'inline-block' }}><strong>Checked by:</strong></div>
+              </div>
+            </div>
+
+            <div className="booklet-page right-page">
+              <div className="proverb-text">
+                <div>Commit to the LORD whatever you do,</div>
+                <div>and he will establish your plans.</div>
+                <div style={{ marginTop: 2, fontWeight: 'bold' }}>Proverbs 16:3</div>
+              </div>
+
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 14, letterSpacing: 1, marginBottom: 10 }}>
+                {(student?.name || "").toUpperCase()} {(student?.course || "").toUpperCase()} {parsedYear || ""}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, fontSize: 13, marginBottom: 15 }}>
+                <span style={{ color: 'darkred', fontWeight: 'bold' }}>BILL OF PAYMENT PER EXAM:</span>
+                <span style={{ border: '1px solid darkred', borderRadius: '20px', padding: '2px 15px', color: 'darkred', fontWeight: 'bold', display: 'inline-block', minWidth: 60, textAlign: 'center' }}>
+                  {totalCharges > 0 ? (totalCharges / 5).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
+                </span>
+              </div>
+
+              <table className="booklet-table">
+                <thead>
+                  <tr>
+                    <th colSpan="5" style={{ background: '#eee', letterSpacing: 1 }}>PAYMENTS</th>
+                  </tr>
+                  <tr>
+                    <th style={{ width: '15%' }}>Dates</th>
+                    <th style={{ width: '25%' }}>Receipts No.</th>
+                    <th style={{ width: '20%' }}>Amount Paid</th>
+                    <th style={{ width: '25%' }}>Balance</th>
+                    <th style={{ width: '15%' }}>Cashier's Initial</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colSpan="3"></td>
+                    <td style={{ fontWeight: 'bold', fontSize: 14 }}>{totalCharges.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td></td>
+                  </tr>
+                  {(() => {
+                    const tuitionPmts = payments.filter(p => !p.payment_type || p.payment_type === 'Tuition');
+                    let bal = totalCharges;
+                    const pRows = tuitionPmts.map((p, i) => {
+                      const amt = Number(p.amount);
+                      bal -= amt;
+                      return (
+                        <tr key={i} style={{ height: 25 }}>
+                          <td style={{ textAlign: 'center', fontSize: 11 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString('en-PH') : ''}</td>
+                          <td style={{ textAlign: 'center', fontSize: 11 }}>{p.reference || ''}</td>
+                          <td style={{ textAlign: 'right', fontSize: 11 }}>{amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                          <td style={{ textAlign: 'right', fontSize: 11 }}>{bal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                          <td></td>
+                        </tr>
+                      );
+                    });
+                    const blanks = Array.from({ length: Math.max(0, 12 - pRows.length) }).map((_, i) => (
+                      <tr key={`b-${i}`} style={{ height: 25 }}><td></td><td></td><td></td><td></td><td></td></tr>
+                    ));
+                    return [...pRows, ...blanks];
+                  })()}
+                </tbody>
+              </table>
+
+              <div style={{ marginTop: 20, fontSize: 13, border: '1px solid #ccc', minHeight: 80, padding: 5, position: 'relative' }}>
+                <strong>Notes:</strong><br />
+                <textarea className="paper-input paper-input-left no-print" value={ledger.notes || ""} onChange={e => setLedger({ ...ledger, notes: e.target.value })} placeholder="Enter any notes here..." style={{ height: 60, resize: 'none' }}></textarea>
+                <div style={{ display: 'none', whiteSpace: 'pre-wrap', marginTop: 5 }} className="print-only">{ledger.notes}</div>
+              </div>
+
+              <div style={{ position: 'absolute', bottom: 30, right: 30, fontSize: 9, color: '#aaa' }}>
+                Powered by sdmags
               </div>
             </div>
           </div>
         </div>
+      </div>
     </Modal>
   );
 }
@@ -3739,7 +3843,7 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
       try {
         const rows = await api("/semesters", {}, token);
         if (mounted) setSemesters(rows);
-      } catch {}
+      } catch { }
     };
     load();
     return () => { mounted = false; };
@@ -3829,24 +3933,32 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
   return (
     <div>
       <PageHeader title={<span>{"\u{1F464}"} Student Management</span>} sub="Add, edit, search, and remove student records" />
-      {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8,
-        padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
+      {msg && <div style={{
+        background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8,
+        padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13
+      }}>{msg}</div>}
       <Card>
         <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
           <input placeholder="🔍  Search by name, ID, or email..."
             value={search} onChange={e => setSearch(e.target.value)}
-            style={{ flex: 1, minWidth: 200, padding: "10px 14px", border: "1px solid var(--border-color)",
-              borderRadius: 10, fontSize: 13, outline: "none", background: "#0f172a", color: "#ffffff" }} />
+            style={{
+              flex: 1, minWidth: 200, padding: "10px 14px", border: "1px solid var(--border-color)",
+              borderRadius: 10, fontSize: 13, outline: "none", background: "#0f172a", color: "#ffffff"
+            }} />
           <select value={filter} onChange={e => setFilter(e.target.value)}
-            style={{ padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10,
-              fontSize: 13, cursor: "pointer", background: "#0f172a", color: "#ffffff" }}>
+            style={{
+              padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10,
+              fontSize: 13, cursor: "pointer", background: "#0f172a", color: "#ffffff"
+            }}>
             <option style={{ background: "#0f172a" }}>All Status</option>
             <option style={{ background: "#0f172a" }}>Active</option>
             <option style={{ background: "#0f172a" }}>At Risk</option>
           </select>
           <select value={termFilter} onChange={e => setTermFilter(e.target.value)}
-            style={{ padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10,
-              fontSize: 13, cursor: "pointer", background: "#0f172a", color: "#ffffff" }}>
+            style={{
+              padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10,
+              fontSize: 13, cursor: "pointer", background: "#0f172a", color: "#ffffff"
+            }}>
             <option style={{ background: "#0f172a" }} value="All">All Terms</option>
             <option style={{ background: "#0f172a" }} value="1st Semester">1st Semester</option>
             <option style={{ background: "#0f172a" }} value="2nd Semester">2nd Semester</option>
@@ -3861,7 +3973,7 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
         <div className="table-container">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr>{["Student ID","Full Name","Course","Year","Email","Status", ...(role !== "student" ? ["Permit","Balance"] : []), "Actions"]
+              <tr>{["Student ID", "Full Name", "Course", "Year", "Email", "Status", ...(role !== "student" ? ["Permit", "Balance"] : []), "Actions"]
                 .map(h => <Th key={h}>{h}</Th>)}</tr>
             </thead>
             <tbody>
@@ -3869,11 +3981,13 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
                 <tr><td colSpan={role !== "student" ? 9 : 7} style={{ textAlign: "center", padding: 24, color: "#6b7280" }}>Loading…</td></tr>
               ) : filtered.length === 0
                 ? <tr><td colSpan={role !== "student" ? 9 : 7} style={{ textAlign: "center", padding: 24, color: "#6b7280" }}>
-                    No students found.</td></tr>
+                  No students found.</td></tr>
                 : filtered.map(s => (
                   <tr key={s.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    <Td><code style={{ background: "#f1f5f9", color: "#111827", padding: "2px 7px",
-                      borderRadius: 5, fontSize: 12, fontWeight: 800 }}>{s.id}</code></Td>
+                    <Td><code style={{
+                      background: "#f1f5f9", color: "#111827", padding: "2px 7px",
+                      borderRadius: 5, fontSize: 12, fontWeight: 800
+                    }}>{s.id}</code></Td>
                     <Td><div style={{ fontWeight: 700 }}>{s.name}</div></Td>
                     <Td>{s.course}</Td>
                     <Td>{s.year}</Td>
@@ -3939,11 +4053,11 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
             onChange={e => setForm(f => ({ ...f, course: e.target.value }))} />
           <Select label="Year Level" value={form.year}
             onChange={e => setForm(f => ({ ...f, year: e.target.value }))}>
-            {["1st Year","2nd Year","3rd Year","4th Year"].map(y => <option key={y}>{y}</option>)}
+            {["1st Year", "2nd Year", "3rd Year", "4th Year"].map(y => <option key={y}>{y}</option>)}
           </Select>
           <Select label="Status" value={form.status}
             onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-            {["Active","At Risk","Inactive","Graduated"].map(s => <option key={s}>{s}</option>)}
+            {["Active", "At Risk", "Inactive", "Graduated"].map(s => <option key={s}>{s}</option>)}
           </Select>
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
@@ -3954,11 +4068,11 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
         </div>
       </Modal>
 
-      <PermitAssignmentModal 
-        show={modal?.type === "permit"} 
-        student={modal?.student} 
-        onClose={() => setModal(null)} 
-        token={token} 
+      <PermitAssignmentModal
+        show={modal?.type === "permit"}
+        student={modal?.student}
+        onClose={() => setModal(null)}
+        token={token}
         onAssigned={async () => {
           const data = await api("/students", {}, token);
           setStudents(data);
@@ -4007,23 +4121,29 @@ function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAut
       api("/semesters", {}, token).then(r => {
         const list = Array.isArray(r) ? r : [];
         setSubjectSemesters(list);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [role, token]);
 
   const displaySubjects = useMemo(() => {
     if (role === "student" && studentIdFromAuth && grades) {
       const myGrades = grades[studentIdFromAuth] || {};
-      return subjects.filter(s => myGrades[s.id] !== undefined);
+      // Filter subjects by whether the student has a grade record,
+      // and if a semester is selected, also filter by the grade's semester_id
+      return subjects.filter(s => {
+        const gradeRecord = myGrades[s.id];
+        if (!gradeRecord) return false;
+        if (subjectSemId && String(gradeRecord.semester_id || "") !== String(subjectSemId)) return false;
+        return true;
+      });
     }
     return subjects;
-  }, [subjects, role, studentIdFromAuth, grades]);
+  }, [subjects, role, studentIdFromAuth, grades, subjectSemId]);
 
   const filtered = displaySubjects.filter(s =>
-    (s.id.toLowerCase().includes(search.toLowerCase()) ||
+  (s.id.toLowerCase().includes(search.toLowerCase()) ||
     s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.professor.toLowerCase().includes(search.toLowerCase())) &&
-    (role !== "student" || !subjectSemId || String(s.semester_id || "") === String(subjectSemId))
+    s.professor.toLowerCase().includes(search.toLowerCase()))
   );
   const flash = m => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
   const openAdd = () => {
@@ -4067,19 +4187,23 @@ function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAut
     }
   };
 
-  const COLORS = ["#2563eb","#16a34a","#d97706","#7c3aed","#dc2626","#ea580c","#0891b2","#be185d"];
+  const COLORS = ["#2563eb", "#16a34a", "#d97706", "#7c3aed", "#dc2626", "#ea580c", "#0891b2", "#be185d"];
 
   return (
     <div>
       <PageHeader title={role === "student" ? <span>{"\u{1F4C5}"} My Class Schedule</span> : <span>{"\u{1F4DA}"} Subject Management</span>} sub={role === "student" ? "View your enrolled subjects and their locations" : "Add, edit, and remove subjects from the course offerings"} />
-      {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8,
-        padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
+      {msg && <div style={{
+        background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8,
+        padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13
+      }}>{msg}</div>}
       <Card>
         <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
           <input placeholder="🔍  Search by code, name, or professor..."
             value={search} onChange={e => setSearch(e.target.value)}
-            style={{ flex: 1, minWidth: 180, padding: "9px 13px", border: "1px solid #d1d5db",
-              borderRadius: 8, fontSize: 13, outline: "none" }} />
+            style={{
+              flex: 1, minWidth: 180, padding: "9px 13px", border: "1px solid #d1d5db",
+              borderRadius: 8, fontSize: 13, outline: "none"
+            }} />
           {role === "student" && subjectSemesters.length > 0 && (
             <select
               value={subjectSemId}
@@ -4100,15 +4224,21 @@ function Subjects({ subjects, setSubjects, token, role, grades, studentIdFromAut
         </div>
         <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {filtered.map((s, i) => (
-            <div key={s.id} className="glass-card" style={{ padding: 16,
-              borderTop: `4px solid ${COLORS[i % COLORS.length]}`, transition: "all 0.3s ease" }}
+            <div key={s.id} className="glass-card" style={{
+              padding: 16,
+              borderTop: `4px solid ${COLORS[i % COLORS.length]}`, transition: "all 0.3s ease"
+            }}
               onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-5px)"; e.currentTarget.style.boxShadow = "var(--neon-glow)"; }}
               onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 32px 0 rgba(0, 0, 0, 0.3)"; }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <code style={{ fontSize: 11, fontWeight: 800, color: "var(--neon-blue)",
-                  background: "rgba(68, 215, 255, 0.1)", padding: "2px 8px", borderRadius: 5, border: "1px solid var(--border-color)" }}>{s.id}</code>
-                <span style={{ fontSize: 11, background: "rgba(68, 215, 255, 0.15)", color: "var(--neon-blue)",
-                  padding: "2px 8px", borderRadius: 10, fontWeight: 700, border: "1px solid var(--border-color)" }}>{s.units} Units</span>
+                <code style={{
+                  fontSize: 11, fontWeight: 800, color: "var(--neon-blue)",
+                  background: "rgba(68, 215, 255, 0.1)", padding: "2px 8px", borderRadius: 5, border: "1px solid var(--border-color)"
+                }}>{s.id}</code>
+                <span style={{
+                  fontSize: 11, background: "rgba(68, 215, 255, 0.15)", color: "var(--neon-blue)",
+                  padding: "2px 8px", borderRadius: 10, fontWeight: 700, border: "1px solid var(--border-color)"
+                }}>{s.units} Units</span>
               </div>
               <div style={{ fontWeight: 800, fontSize: 15, color: "white", margin: "6px 0 4px" }}>{s.name}</div>
               <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 4 }}>👨‍🏫 <span style={{ color: "white" }}>{s.professor || "No professor info available"}</span></div>
@@ -4218,9 +4348,19 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
   const [msg, setMsg] = useState("");
   const [editSubject, setEditSubject] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", units: 3, professor: "", schedule: "MWF", room: "Room 101", campus: "main campus", time: "" });
-  const [assignId, setAssignId] = useState("");
+  const [assignIds, setAssignIds] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [assignSemId, setAssignSemId] = useState("");
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+
+  useEffect(() => {
+    api("/semesters", {}, token).then(r => {
+      const list = Array.isArray(r) ? r : [];
+      setSemesters(list);
+      if (list.length > 0) setAssignSemId(String(list[0].id));
+    }).catch(() => { });
+  }, [token]);
 
   useEffect(() => {
     if (!selectedStudent) return;
@@ -4241,24 +4381,27 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
   const available = allSubjects.filter(s => !assignedIds.has(s.id));
 
   const assignSubject = async () => {
-    if (!selectedStudent || !assignId) return;
+    if (!selectedStudent || assignIds.length === 0) return;
+    if (!assignSemId) return alert("Please select a semester.");
     try {
-      await api("/grades", { method: "POST", body: {
-        student_id: selectedStudent, subject_id: assignId
-      } }, token);
+      await Promise.all(assignIds.map(id => 
+        api("/grades", {
+          method: "POST", body: {
+            student_id: selectedStudent, subject_id: id, semester_id: Number(assignSemId)
+          }
+        }, token)
+      ));
       const rows = await api(`/students/${encodeURIComponent(selectedStudent)}/subjects`, {}, token);
       setAssigned(rows);
       const allRows = await api("/grades", {}, token);
       const map = allRows.reduce((acc, r) => {
         if (!acc[r.student_id]) acc[r.student_id] = {};
-        acc[r.student_id][r.subject_id] = {
-          prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final
-        };
+        acc[r.student_id][r.subject_id] = { prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final, semester_id: r.semester_id };
         return acc;
       }, {});
       setGrades(map);
-      setAssignId("");
-      flash("✅ Subject assigned to student.");
+      setAssignIds([]);
+      flash(`✅ ${assignIds.length} subject(s) assigned to student.`);
     } catch (e) { alert(e.message); }
   };
 
@@ -4332,12 +4475,30 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
             <>
               <Card title="Assign Subjects">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-                  <Select label="Assign Subject" value={assignId} onChange={e => setAssignId(e.target.value)}>
-                    <option value="">— Select —</option>
-                    {available.map(s => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>)}
+                  <Select label="Semester" value={assignSemId} onChange={e => setAssignSemId(e.target.value)}>
+                    <option value="">— Select Semester —</option>
+                    {semesters.map(s => <option key={s.id} value={s.id}>{s.school_year} · {s.term}</option>)}
                   </Select>
                   <div>
-                    <Btn variant="primary" onClick={assignSubject} disabled={!assignId || !canWrite}>+ Assign</Btn>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>Assign Subjects</label>
+                    <div style={{ background: "#0f172a", border: "1.5px solid var(--border-color)", borderRadius: 10, padding: 8, maxHeight: 200, overflowY: "auto" }}>
+                      {available.length === 0 ? (
+                        <div style={{ padding: "8px", fontSize: 13, color: "#6b7280", textAlign: "center" }}>No available subjects</div>
+                      ) : (
+                        available.map(s => (
+                          <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", cursor: "pointer", borderRadius: 6, transition: "background 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            <input type="checkbox" checked={assignIds.includes(s.id)} onChange={e => {
+                              if (e.target.checked) setAssignIds([...assignIds, s.id]);
+                              else setAssignIds(assignIds.filter(id => id !== s.id));
+                            }} style={{ accentColor: "var(--neon-blue)" }} />
+                            <span style={{ fontSize: 13, color: "white" }}>{s.id} · {s.name}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Btn variant="primary" onClick={assignSubject} disabled={assignIds.length === 0 || !assignSemId || !canWrite}>+ Assign Selected</Btn>
                   </div>
                 </div>
               </Card>
@@ -4419,17 +4580,29 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
   const [selectedStudent, setSelectedStudent] = useState("");
   const [modal, setModal] = useState(null);
   const [editingSubj, setEditingSubj] = useState(null);
-  const [form, setForm] = useState({ subjectId: "", prelim1: "", prelim2: "", midterm: "", semi_final: "", final: "" });
+  const [form, setForm] = useState({ subjectId: "", semesterId: "", prelim1: "", prelim2: "", midterm: "", semi_final: "", final: "" });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [msg, setMsg] = useState("");
   const [searchStu, setSearchStu] = useState("");
   const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState("");
+  const [requests, setRequests] = useState([]);
+  const [requestModal, setRequestModal] = useState(null);
+  const [reqForm, setReqForm] = useState({ subjectId: "", term: "1st Prelim", reason: "" });
+
+  const fetchRequests = useCallback(async () => {
+    try {
+      if (role !== "student") {
+        const data = await api("/grade-change-requests", {}, token);
+        if (Array.isArray(data)) setRequests(data);
+      }
+    } catch { }
+  }, [role, token]);
+
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
   useEffect(() => {
-    if (role === "student") {
-      api("/semesters", {}, token).then(setSemesters).catch(() => {});
-    }
+    api("/semesters", {}, token).then(setSemesters).catch(() => { });
   }, [role, token]);
 
   const flash = m => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
@@ -4442,9 +4615,13 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
 
   const student = useMemo(() => students.find(s => s.id === selectedStudent) || (role === "student" && selectedStudent ? { id: selectedStudent, name: selectedStudent, course: "" } : null), [students, selectedStudent, role]);
   const studentGrades = useMemo(() => selectedStudent ? (grades[selectedStudent] || {}) : {}, [selectedStudent, grades]);
-  const enrolledSubjects = useMemo(() => role === "student"
-    ? Object.keys(studentGrades).map(id => subjects.find(s => s.id === id) || ({ id, name: id }))
-    : subjects.filter(s => studentGrades[s.id]).filter(s => (semesterId ? String(s.semester_id || "") === String(semesterId) : true)), [role, studentGrades, subjects, semesterId]);
+  const enrolledSubjects = useMemo(() => {
+    let ids = Object.keys(studentGrades);
+    if (semesterId) {
+      ids = ids.filter(id => String(studentGrades[id].semester_id || "") === String(semesterId));
+    }
+    return ids.map(id => subjects.find(s => s.id === id) || ({ id, name: id }));
+  }, [studentGrades, subjects, semesterId]);
   const availableSubjects = useMemo(() => subjects.filter(s => !studentGrades[s.id]), [subjects, studentGrades]);
 
   const filteredStudents = students.filter(s =>
@@ -4453,26 +4630,29 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
   );
 
   const handleSave = async () => {
-    const { subjectId, prelim1, prelim2, midterm, semi_final, final: fin } = form;
+    const { subjectId, semesterId: formSemId, prelim1, prelim2, midterm, semi_final, final: fin } = form;
     if (!subjectId) return alert("Select a subject.");
+    if (!editingSubj && !formSemId) return alert("Select a semester.");
     const nums = [prelim1, prelim2, midterm, semi_final, fin].map(v => (v === "" || v === null) ? null : Number(v));
     try {
       if (!editingSubj) {
-        await api("/grades", { method: "POST", body: {
-          student_id: selectedStudent, subject_id: subjectId,
-          prelim1: nums[0], prelim2: nums[1], midterm: nums[2], semi_final: nums[3], final: nums[4]
-        } }, token);
+        await api("/grades", {
+          method: "POST", body: {
+            student_id: selectedStudent, subject_id: subjectId, semester_id: Number(formSemId),
+            prelim1: nums[0], prelim2: nums[1], midterm: nums[2], semi_final: nums[3], final: nums[4]
+          }
+        }, token);
       } else {
-        await api(`/grades/${selectedStudent}/${subjectId}`, { method: "PUT", body: {
-          prelim1: nums[0], prelim2: nums[1], midterm: nums[2], semi_final: nums[3], final: nums[4]
-        } }, token);
+        await api(`/grades/${selectedStudent}/${subjectId}?semester_id=${formSemId}`, {
+          method: "PUT", body: {
+            prelim1: nums[0], prelim2: nums[1], midterm: nums[2], semi_final: nums[3], final: nums[4]
+          }
+        }, token);
       }
       const allRows = await api("/grades", {}, token);
       const map = allRows.reduce((acc, r) => {
         if (!acc[r.student_id]) acc[r.student_id] = {};
-        acc[r.student_id][r.subject_id] = {
-          prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final
-        };
+        acc[r.student_id][r.subject_id] = { prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final, semester_id: r.semester_id };
         return acc;
       }, {});
       setGrades(map);
@@ -4551,10 +4731,10 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
                     </div>
                   )}
                   {canWrite && (
-                      <Btn variant="success" onClick={() => {
-                        if (availableSubjects.length === 0) return;
-                        setForm({ subjectId: availableSubjects[0].id, prelim1: "", prelim2: "", midterm: "", semi_final: "", final: "" });
-                        setEditingSubj(null); setModal("form");
+                    <Btn variant="success" onClick={() => {
+                      if (availableSubjects.length === 0) return;
+                      setForm({ subjectId: availableSubjects[0].id, prelim1: "", prelim2: "", midterm: "", semi_final: "", final: "" });
+                      setEditingSubj(null); setModal("form");
                     }} disabled={availableSubjects.length === 0}>+ Add Grade</Btn>
                   )}
                 </div>
@@ -4563,70 +4743,118 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
               <Card title={`Grade Records (${enrolledSubjects.length})`}>
                 <div className="table-container">
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr>{["Code","Subject","1st Prelim","2nd Prelim","Midterm","Semi-Final","Final","Average","GPA","Remarks", ...(role !== "student" ? ["Actions"] : [])].map(h => <Th key={h}>{h}</Th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {enrolledSubjects.map(subj => {
-                      const g = studentGrades[subj.id];
-                      const avg = computeGrade(g);
-                      return (
-                        <tr key={subj.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                          <Td>{subj.id}</Td>
-                          <Td>
-                            <strong>{subj.name}</strong>
-                            <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
-                              📍 {subj.room || "-"} | 🏢 {subj.campus || "-"}
-                            </div>
-                          </Td>
-                          <Td><GradeCell val={g.prelim1} /></Td>
-                          <Td><GradeCell val={g.prelim2} /></Td>
-                          <Td><GradeCell val={g.midterm} /></Td>
-                          <Td><GradeCell val={g.semi_final} /></Td>
-                          <Td><GradeCell val={g.final} /></Td>
-                          <Td><strong>{avg !== null ? `${avg}%` : "—"}</strong></Td>
-                          <Td><strong>{avg !== null ? toGPA(avg) : "—"}</strong></Td>
-                          <Td>{avg !== null ? (
-                            <Badge text={avg >= 75 ? "PASSED" : "FAILED"} type={avg >= 75 ? "green" : "red"} />
-                          ) : "—"}</Td>
-                          {(canWrite || canDelete) ? (
+                    <thead>
+                      <tr>{["Code", "Subject", "1st Prelim", "2nd Prelim", "Midterm", "Semi-Final", "Final", "Average", "GPA", "Remarks", ...(role !== "student" ? ["Actions"] : [])].map(h => <Th key={h}>{h}</Th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {enrolledSubjects.map(subj => {
+                        const g = studentGrades[subj.id];
+                        const avg = computeGrade(g);
+                        return (
+                          <tr key={subj.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                            <Td>{subj.id}</Td>
                             <Td>
-                              <div style={{ display: "flex", gap: 5 }}>
-                                {canWrite && <Btn variant="outline" onClick={() => {
-                                    setForm({ subjectId: subj.id, prelim1: g.prelim1, prelim2: g.prelim2, midterm: g.midterm, semi_final: g.semi_final, final: g.final });
-                                    setEditingSubj(subj.id); setModal("form");
-                                }} style={{ fontSize: 10, padding: "3px 8px" }}>✏️</Btn>}
-                                {canDelete && <Btn variant="danger" onClick={() => setDeleteConfirm(subj.id)} style={{ fontSize: 10, padding: "3px 8px" }}>🗑️</Btn>}
+                              <strong>{subj.name}</strong>
+                              <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
+                                📍 {subj.room || "-"} | 🏢 {subj.campus || "-"}
                               </div>
                             </Td>
-                          ) : role !== "student" ? (
-                            <Td><span style={{ fontSize: 11, color: "#94a3b8" }}>Read-only</span></Td>
-                          ) : null}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            <Td><GradeCell val={g.prelim1} /></Td>
+                            <Td><GradeCell val={g.prelim2} /></Td>
+                            <Td><GradeCell val={g.midterm} /></Td>
+                            <Td><GradeCell val={g.semi_final} /></Td>
+                            <Td><GradeCell val={g.final} /></Td>
+                            <Td><strong>{avg !== null ? `${avg}%` : "—"}</strong></Td>
+                            <Td><strong>{avg !== null ? toGPA(avg) : "—"}</strong></Td>
+                            <Td>{avg !== null ? (
+                              <Badge text={avg >= 75 ? "PASSED" : "FAILED"} type={avg >= 75 ? "green" : "red"} />
+                            ) : "—"}</Td>
+                            {(canWrite || canDelete) ? (
+                              <Td>
+                                <div style={{ display: "flex", gap: 5 }}>
+                                  {canWrite && <Btn variant="outline" onClick={() => {
+                                    setForm({ subjectId: subj.id, prelim1: g.prelim1, prelim2: g.prelim2, midterm: g.midterm, semi_final: g.semi_final, final: g.final });
+                                    setEditingSubj(subj.id); setModal("form");
+                                  }} style={{ fontSize: 10, padding: "3px 8px" }}>✏️</Btn>}
+                                  {canDelete && <Btn variant="danger" onClick={() => setDeleteConfirm(subj.id)} style={{ fontSize: 10, padding: "3px 8px" }}>🗑️</Btn>}
+                                </div>
+                              </Td>
+                            ) : role !== "student" ? (
+                              <Td>
+                                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                                  <span style={{ fontSize: 11, color: "#94a3b8" }}>Read-only</span>
+                                  {role === "teacher" && (
+                                    <Btn variant="outline" onClick={() => {
+                                      setReqForm({ subjectId: subj.id, term: "1st Prelim", reason: "" });
+                                      setRequestModal("form");
+                                    }} style={{ fontSize: 10, padding: "3px 8px", borderColor: "var(--neon-blue)", color: "var(--neon-blue)" }}>📣 Request Change</Btn>
+                                  )}
+                                </div>
+                              </Td>
+                            ) : null}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </Card>
             </>
           )}
+
         </div>
       </div>
 
+      <Modal show={requestModal === "form"} title="Request Grade Change" onClose={() => setRequestModal(null)} width={450}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
+          <Select label="Subject" value={reqForm.subjectId} onChange={() => { }} disabled>
+            <option value={reqForm.subjectId}>{subjects.find(s => s.id === reqForm.subjectId)?.name || reqForm.subjectId}</option>
+          </Select>
+          <Select label="Select Term" value={reqForm.term} onChange={e => setReqForm({ ...reqForm, term: e.target.value })}>
+            {["1st Prelim", "2nd Prelim", "Midterm", "Semi-Final", "Final"].map(t => <option key={t} value={t}>{t}</option>)}
+          </Select>
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dim)", marginBottom: 6 }}>Reason / Details</label>
+            <textarea
+              placeholder="e.g. Please change Midterm from 70 to 80, miscalculated..."
+              value={reqForm.reason} onChange={e => setReqForm({ ...reqForm, reason: e.target.value })}
+              style={{ width: "100%", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 14, outline: "none", background: "#0f172a", color: "#ffffff", minHeight: 100, boxSizing: "border-box" }}
+            />
+          </div>
+          <Btn variant="primary" onClick={async () => {
+            if (!reqForm.reason.trim()) return alert("Please provide a reason.");
+            try {
+              const fullChange = `Term: ${reqForm.term} | Reason: ${reqForm.reason}`;
+              await api("/grade-change-requests", {
+                method: "POST", body: {
+                  student_id: selectedStudent,
+                  subject_id: reqForm.subjectId,
+                  semester_id: semesterId ? Number(semesterId) : null,
+                  requested_changes: fullChange
+                }
+              }, token);
+              setRequestModal(null);
+              setReqForm(f => ({ ...f, reason: "" }));
+              fetchRequests();
+              flash("✅ Grade change request submitted.");
+            } catch (e) { alert(e.message); }
+          }} style={{ width: "100%" }}>Submit Request</Btn>
+        </div>
+      </Modal>
+
       <Modal show={modal === "form"} title={editingSubj ? "Update Grade" : "Add Subject Grade"} onClose={() => setModal(null)}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-          <Select label="Subject" value={form.subjectId} onChange={e => setForm({...form, subjectId: e.target.value})} disabled={!!editingSubj}>
+          <Select label="Subject" value={form.subjectId} onChange={e => setForm({ ...form, subjectId: e.target.value })} disabled={!!editingSubj}>
             {editingSubj ? (
               <option value={editingSubj}>{subjects.find(s => s.id === editingSubj)?.name}</option>
             ) : availableSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Input label="1st Prelim" type="number" value={form.prelim1} onChange={e => setForm({...form, prelim1: e.target.value})} />
-            <Input label="2nd Prelim" type="number" value={form.prelim2} onChange={e => setForm({...form, prelim2: e.target.value})} />
-            <Input label="Midterm" type="number" value={form.midterm} onChange={e => setForm({...form, midterm: e.target.value})} />
-            <Input label="Semi-Final" type="number" value={form.semi_final} onChange={e => setForm({...form, semi_final: e.target.value})} />
-            <Input label="Final" type="number" value={form.final} onChange={e => setForm({...form, final: e.target.value})} />
+            <Input label="1st Prelim" type="number" value={form.prelim1} onChange={e => setForm({ ...form, prelim1: e.target.value })} />
+            <Input label="2nd Prelim" type="number" value={form.prelim2} onChange={e => setForm({ ...form, prelim2: e.target.value })} />
+            <Input label="Midterm" type="number" value={form.midterm} onChange={e => setForm({ ...form, midterm: e.target.value })} />
+            <Input label="Semi-Final" type="number" value={form.semi_final} onChange={e => setForm({ ...form, semi_final: e.target.value })} />
+            <Input label="Final" type="number" value={form.final} onChange={e => setForm({ ...form, final: e.target.value })} />
           </div>
           <Btn variant="primary" onClick={handleSave} style={{ width: "100%", marginTop: 10 }}>Save Grade</Btn>
         </div>
@@ -4636,22 +4864,20 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
         <div style={{ fontSize: 14, marginBottom: 14 }}>Are you sure you want to remove this grade record?</div>
         <div style={{ display: "flex", gap: 10 }}>
           <Btn variant="danger" onClick={async () => {
-              try {
-                await api(`/grades/${selectedStudent}/${deleteConfirm}`, { method: "DELETE" }, token);
-                const allRows = await api("/grades", {}, token);
-                const map = allRows.reduce((acc, r) => {
-                  if (!acc[r.student_id]) acc[r.student_id] = {};
-                  acc[r.student_id][r.subject_id] = {
-                    prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final
-                  };
-                  return acc;
-                }, {});
-                setGrades(map);
-                setDeleteConfirm(null);
-                flash("🗑️ Grade record removed.");
-              } catch (e) {
-                alert(e.message);
-              }
+            try {
+              await api(`/grades/${selectedStudent}/${deleteConfirm}`, { method: "DELETE" }, token);
+              const allRows = await api("/grades", {}, token);
+              const map = allRows.reduce((acc, r) => {
+                if (!acc[r.student_id]) acc[r.student_id] = {};
+                acc[r.student_id][r.subject_id] = { prelim1: r.prelim1, prelim2: r.prelim2, midterm: r.midterm, semi_final: r.semi_final, final: r.final, semester_id: r.semester_id };
+                return acc;
+              }, {});
+              setGrades(map);
+              setDeleteConfirm(null);
+              flash("🗑️ Grade record removed.");
+            } catch (e) {
+              alert(e.message);
+            }
           }} style={{ flex: 1 }}>Yes, Delete</Btn>
           <Btn variant="ghost" onClick={() => setDeleteConfirm(null)} style={{ flex: 1 }}>Cancel</Btn>
         </div>
@@ -4682,30 +4908,30 @@ function AuthScreen({ onAuthed, logo }) {
     <div style={{ display: "grid", placeItems: "center", minHeight: "100vh", background: "var(--bg-dark)", position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", width: "600px", height: "600px", background: "radial-gradient(circle, rgba(68,215,255,0.1) 0%, transparent 70%)", top: "-10%", left: "-10%" }} />
       <div style={{ position: "absolute", width: "800px", height: "800px", background: "radial-gradient(circle, rgba(37,99,235,0.05) 0%, transparent 70%)", bottom: "-20%", right: "-10%" }} />
-      
+
       <div className="glass-card" style={{ width: 420, padding: 48, boxShadow: "0 25px 80px rgba(0,0,0,0.6)", zIndex: 1, textAlign: "center" }}>
         <div className="neon-border" style={{ width: 88, height: 88, background: "rgba(68, 215, 255, 0.1)", borderRadius: "50%", margin: "0 auto 32px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-           <img src={logo || "/yllanalogo.png"} alt="Logo" style={{ width: "95%", height: "95%", objectFit: "contain" }}
-             onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "🎓"; }} />
+          <img src={logo || "/yllanalogo.png"} alt="Logo" style={{ width: "95%", height: "95%", objectFit: "contain" }}
+            onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "🎓"; }} />
         </div>
         <div className="glow-text" style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, color: "white", letterSpacing: "-0.5px" }}>STUDENT<span style={{ color: "var(--neon-blue)" }}>DASHBOARD</span></div>
         <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 40, fontWeight: 500 }}>
           STUDENT SUBJECT TRACKING PORTAL
         </div>
-        
+
         <div style={{ textAlign: "left" }}>
           <Input label="ACCESS KEY (USERNAME)" value={u} onChange={e => setU(e.target.value)} placeholder="Enter username" style={{ padding: "14px 18px" }} />
           <Input label="SECURITY PHRASE (PASSWORD)" type="password" value={p} onChange={e => setP(e.target.value)} placeholder="••••••••" style={{ padding: "14px 18px" }} />
         </div>
-        
+
         <Btn variant="primary" onClick={submit} disabled={loading || !u || !p} style={{ width: "100%", padding: "16px", fontSize: 15, marginTop: 20 }}>
           INITIALIZE SESSION
         </Btn>
-        
+
         {msg && <div style={{ marginTop: 20, fontSize: 13, color: "#f87171", fontWeight: 700, background: "rgba(248,113,113,0.1)", padding: "10px", borderRadius: 10 }}>⚠️ {msg}</div>}
-        
+
         <div style={{ marginTop: 40, fontSize: 11, color: "var(--text-dim)", lineHeight: 1.6, fontWeight: 500 }}>
-          SYSTEM SECURITY PROTOCOL ACTIVE.<br/>
+          SYSTEM SECURITY PROTOCOL ACTIVE.<br />
           UNAUTHORIZED ACCESS IS STRICTLY PROHIBITED.
         </div>
       </div>
@@ -4716,7 +4942,7 @@ function AuthScreen({ onAuthed, logo }) {
 function PermissionsEditor({ userId, token }) {
   const [perms, setPerms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const modules = ["dashboard", "students", "subjects", "grades", "permits", "semesters", "payments", "search", "attendance", "users", "logs", "rolepermissions", "debug"];
+  const modules = ["dashboard", "students", "studentmgmt", "subjects", "grades", "permits", "semesters", "payments", "search", "attendance", "users", "logs", "rolepermissions", "debug"];
 
   useEffect(() => {
     api(`/users/${userId}/permissions`, {}, token)
@@ -4836,7 +5062,7 @@ function SemestersView({ token, canWrite, canDelete }) {
   return (
     <div>
       <PageHeader title="Manage Semesters" sub="Setup school years and terms for permits and accounting" />
-      
+
       {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", color: "var(--neon-blue)", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
 
       <div className="glass-card" style={{ padding: 24 }}>
@@ -4883,8 +5109,8 @@ function SemestersView({ token, canWrite, canDelete }) {
       {modal === "form" && (
         <Modal show={true} title={editing ? "Edit Semester" : "Add New Semester"} onClose={() => setModal(null)}>
           <div style={{ display: "grid", gap: 16 }}>
-            <Input label="School Year" placeholder="e.g. 2025-2026" value={form.school_year} onChange={e => setForm({...form, school_year: e.target.value})} />
-            <Select label="Term" value={form.term} onChange={e => setForm({...form, term: e.target.value})}>
+            <Input label="School Year" placeholder="e.g. 2025-2026" value={form.school_year} onChange={e => setForm({ ...form, school_year: e.target.value })} />
+            <Select label="Term" value={form.term} onChange={e => setForm({ ...form, term: e.target.value })}>
               <option value="1st Semester">1st Semester</option>
               <option value="2nd Semester">2nd Semester</option>
               <option value="Summer">Summer</option>
@@ -4989,7 +5215,7 @@ function UsersAdmin({ token }) {
             <option value="student">student</option>
             <option value="developer">developer</option>
             <option value="saps">saps</option>
-            <option value="register">register</option>
+            <option value="registrar">registrar</option>
             <option value="cashier">cashier</option>
           </Select>
           <Select label="User Type" value={ut} onChange={e => setUT(e.target.value)}>
@@ -4997,40 +5223,40 @@ function UsersAdmin({ token }) {
             <option value="student">student</option>
             <option value="developer">developer</option>
             <option value="saps">saps</option>
-            <option value="register">register</option>
+            <option value="registrar">registrar</option>
             <option value="cashier">cashier</option>
           </Select>
           <Input label="Student ID Link" value={studentIdLink} onChange={e => setStudentIdLink(e.target.value)} />
           <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 16 }}>
-             <Btn variant="primary" onClick={createUser} disabled={!u || !p || busy} style={{ width: "100%" }}>Create</Btn>
+            <Btn variant="primary" onClick={createUser} disabled={!u || !p || busy} style={{ width: "100%" }}>Create</Btn>
           </div>
         </div>
       </Card>
       <Card title="Users">
         <div className="table-container">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead><tr><Th>Full Name</Th><Th>Username</Th><Th>Role</Th><Th>User Type</Th><Th>Created</Th><Th>Actions</Th></tr></thead>
-          <tbody>
-            {list.map(x => (
-              <tr key={x.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <Td><strong>{x.full_name || "-"}</strong></Td>
-                <Td>{x.username}</Td>
-                <Td><Badge text={x.role} type={x.role === "teacher" ? "blue" : x.role === "developer" ? "yellow" : "green"} /></Td>
-                <Td>{x.user_type || "-"}</Td>
-                <Td style={{ color: "#6b7280", fontSize: 12 }}>{x.created_at}</Td>
-                <Td>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <Btn variant="outline" onClick={() => openEdit(x)} style={{ fontSize: 11, padding: "4px 10px" }}>Edit</Btn>
-                    <Btn variant="outline" onClick={() => setPermModal(x)} style={{ fontSize: 11, padding: "4px 10px", borderColor: "var(--neon-blue)" }}>🛡️ Perms</Btn>
-                    <Btn variant="danger" onClick={() => setConfirmDel(x.id)} style={{ fontSize: 11, padding: "4px 10px" }}>Delete</Btn>
-                  </div>
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+            <thead><tr><Th>Full Name</Th><Th>Username</Th><Th>Role</Th><Th>User Type</Th><Th>Created</Th><Th>Actions</Th></tr></thead>
+            <tbody>
+              {list.map(x => (
+                <tr key={x.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <Td><strong>{x.full_name || "-"}</strong></Td>
+                  <Td>{x.username}</Td>
+                  <Td><Badge text={x.role} type={x.role === "teacher" ? "blue" : x.role === "developer" ? "yellow" : "green"} /></Td>
+                  <Td>{x.user_type || "-"}</Td>
+                  <Td style={{ color: "#6b7280", fontSize: 12 }}>{x.created_at}</Td>
+                  <Td>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <Btn variant="outline" onClick={() => openEdit(x)} style={{ fontSize: 11, padding: "4px 10px" }}>Edit</Btn>
+                      <Btn variant="outline" onClick={() => setPermModal(x)} style={{ fontSize: 11, padding: "4px 10px", borderColor: "var(--neon-blue)" }}>🛡️ Perms</Btn>
+                      <Btn variant="danger" onClick={() => setConfirmDel(x.id)} style={{ fontSize: 11, padding: "4px 10px" }}>Delete</Btn>
+                    </div>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
       <Modal show={!!edit} title="Edit User" onClose={() => setEdit(null)}>
         {edit && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -5042,7 +5268,7 @@ function UsersAdmin({ token }) {
               <option value="student">student</option>
               <option value="developer">developer</option>
               <option value="saps">saps</option>
-              <option value="register">register</option>
+              <option value="registrar">registrar</option>
               <option value="cashier">cashier</option>
             </Select>
             <Select label="User Type" value={edit.user_type} onChange={e => setEdit(s => ({ ...s, user_type: e.target.value }))}>
@@ -5050,7 +5276,7 @@ function UsersAdmin({ token }) {
               <option value="student">student</option>
               <option value="developer">developer</option>
               <option value="saps">saps</option>
-              <option value="register">register</option>
+              <option value="registrar">registrar</option>
               <option value="cashier">cashier</option>
             </Select>
             <div style={{ gridColumn: "1/-1", display: "flex", gap: 10 }}>
@@ -5106,7 +5332,7 @@ function LogsView({ token }) {
   return (
     <div>
       <PageHeader title={<span>{"\u{1F4DC}"} System Audit Logs</span>} sub="Track system-wide activities" />
-      
+
       <Card title="Recent Activity" action={<Btn variant="outline" onClick={refresh}>🔄 Refresh</Btn>}>
         <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ width: 220 }}>
@@ -5180,7 +5406,7 @@ function RolePermissionsView({ token, auth, syncAuth }) {
 
   const flash = m => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
-    const toggle = async (r, m, p, currentVal) => {
+  const toggle = async (r, m, p, currentVal) => {
     try {
       const currentPerms = r.permissions[m] || { can_read: false, can_write: false, can_delete: false };
       const payload = {
@@ -5191,7 +5417,7 @@ function RolePermissionsView({ token, auth, syncAuth }) {
       await api(`/authorization/${encodeURIComponent(r.role)}/${encodeURIComponent(m)}`, {
         method: "PUT", body: payload
       }, token);
-      
+
       const newPermissions = {
         ...r.permissions,
         [m]: {
@@ -5236,7 +5462,7 @@ function RolePermissionsView({ token, auth, syncAuth }) {
     <div>
       <PageHeader title={<span>{"\u{1F510}"} Role Permissions</span>} sub="Manage access control for all roles dynamically" />
       {msg && <div style={{ background: "rgba(68, 215, 255, 0.1)", border: "1px solid var(--border-color)", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "var(--neon-blue)", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
-      
+
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
         <Btn variant="danger" onClick={resetAll}>🔄 Restore Defaults</Btn>
       </div>
@@ -5255,8 +5481,8 @@ function RolePermissionsView({ token, auth, syncAuth }) {
               </thead>
               <tbody>
                 {Array.from(new Set([
-                  "dashboard", "search", "students", "subjects", "grades", 
-                  "attendance", "permits", "payments", "settings", "users", 
+                  "dashboard", "search", "students", "studentmgmt", "subjects", "grades",
+                  "attendance", "permits", "semesters", "payments", "settings", "users",
                   "logs", "rolepermissions", ...Object.keys(r.permissions)
                 ])).sort().map(m => {
                   const p = r.permissions[m] || { can_read: false, can_write: false, can_delete: false };
@@ -5297,7 +5523,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
       const list = Array.isArray(r) ? r : [];
       setSemesters(list);
       if (list.length > 0) setSelectedSemId(String(list[0].id));
-    }).catch(() => {});
+    }).catch(() => { });
   }, [token]);
 
   useEffect(() => {
@@ -5348,14 +5574,14 @@ function MyLedger({ token, studentId, authName, authUsername }) {
   const totalFees = feeItems.reduce((s, f) => s + Number(ledger[f.key] || 0), 0);
   const totalCharges = totalFees - Number(ledger.discount || 0) + Number(ledger.bank_account || 0);
   const fmt = n => Number(n) > 0 ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-.-';
-  const fmtDate = d => { try { return new Date(d).toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' }); } catch { return d; } };
+  const fmtDate = d => { try { return new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }); } catch { return d; } };
   const tuitionPmts = pmts.filter(p => !p.payment_type || p.payment_type === 'Tuition');
-  const pmtSorted = [...tuitionPmts].sort((a,b) => new Date(a.created_at)-new Date(b.created_at));
+  const pmtSorted = [...tuitionPmts].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   let runBal = totalCharges;
-  const pmtRows = pmtSorted.map(p => { runBal -= Number(p.amount||0); return {...p, balance: runBal}; }).reverse();
-  const totalPaid = tuitionPmts.reduce((s,p) => s + Number(p.amount||0), 0);
+  const pmtRows = pmtSorted.map(p => { runBal -= Number(p.amount || 0); return { ...p, balance: runBal }; }).reverse();
+  const totalPaid = tuitionPmts.reduce((s, p) => s + Number(p.amount || 0), 0);
   const outstanding = totalCharges - totalPaid;
-  const stColor = s => s==='confirmed'?'#10b981':s==='pending'?'#fbbf24':'#f87171';
+  const stColor = s => s === 'confirmed' ? '#10b981' : s === 'pending' ? '#fbbf24' : '#f87171';
 
   return (
     <div>
@@ -5387,7 +5613,7 @@ function MyLedger({ token, studentId, authName, authUsername }) {
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Total Charges</div>
           <div style={{ fontSize: 30, fontWeight: 800, color: totalCharges > 0 ? '#f87171' : '#4ade80' }}>&#8369;{fmt(totalCharges)}</div>
-                    {(() => { const sem = semesters.find(s => String(s.id) === String(selectedSemId)); return sem ? <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>{sem.term} ({sem.school_year})</div> : null; })()}
+          {(() => { const sem = semesters.find(s => String(s.id) === String(selectedSemId)); return sem ? <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>{sem.term} ({sem.school_year})</div> : null; })()}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
@@ -5431,39 +5657,39 @@ function MyLedger({ token, studentId, authName, authUsername }) {
           )}
         </div>
         <div className="glass-card" style={{ padding: 24 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, paddingBottom:8, borderBottom:'1px solid var(--border-color)' }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'var(--neon-blue)' }}>Payment History</div>
-            <div style={{ fontSize:11, fontWeight:700, color: outstanding>0?'#fbbf24':'#10b981', background: outstanding>0?'rgba(251,191,36,0.1)':'rgba(16,185,129,0.1)', padding:'3px 10px', borderRadius:20 }}>
-              {outstanding>0 ? `Balance: ₱${fmt(outstanding)}` : '✅ Fully Paid'}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--neon-blue)' }}>Payment History</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: outstanding > 0 ? '#fbbf24' : '#10b981', background: outstanding > 0 ? 'rgba(251,191,36,0.1)' : 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 20 }}>
+              {outstanding > 0 ? `Balance: ₱${fmt(outstanding)}` : '✅ Fully Paid'}
             </div>
           </div>
           {pmtRows.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'32px 0', color:'var(--text-dim)' }}>
-              <div style={{ fontSize:32, marginBottom:10 }}>&#128173;</div>
-              <div style={{ fontSize:13, fontWeight:700, color:'white', marginBottom:6 }}>No payments recorded yet</div>
-              <div style={{ fontSize:11 }}>Visit the cashier office to record a payment.</div>
+            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-dim)' }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>&#128173;</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 6 }}>No payments recorded yet</div>
+              <div style={{ fontSize: 11 }}>Visit the cashier office to record a payment.</div>
             </div>
           ) : (
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr style={{ background:'rgba(68,215,255,0.06)' }}>
-                    {['Date','Reference','Amount','Balance','Status'].map(h => (
-                      <th key={h} style={{ padding:'8px 8px', textAlign:'left', color:'var(--neon-blue)', fontWeight:700, fontSize:10, textTransform:'uppercase', borderBottom:'1px solid var(--border-color)', whiteSpace:'nowrap' }}>{h}</th>
+                  <tr style={{ background: 'rgba(68,215,255,0.06)' }}>
+                    {['Date', 'Reference', 'Amount', 'Balance', 'Status'].map(h => (
+                      <th key={h} style={{ padding: '8px 8px', textAlign: 'left', color: 'var(--neon-blue)', fontWeight: 700, fontSize: 10, textTransform: 'uppercase', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {pmtRows.map((p,i) => (
-                    <tr key={p.id||i} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
-                      onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.02)'}
-                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                      <td style={{ padding:'10px 8px', color:'var(--text-dim)', whiteSpace:'nowrap' }}>{fmtDate(p.created_at)}</td>
-                      <td style={{ padding:'10px 8px' }}><code style={{ fontSize:10, background:'rgba(68,215,255,0.08)', color:'var(--neon-blue)', padding:'2px 6px', borderRadius:4, fontWeight:700 }}>{p.reference||'—'}</code></td>
-                      
-                      <td style={{ padding:'10px 8px', fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>+&#8369;{fmt(p.amount)}</td>
-                      <td style={{ padding:'10px 8px', fontWeight:700, color:p.balance>0?'#fbbf24':'#10b981', whiteSpace:'nowrap' }}>&#8369;{fmt(Math.max(0,p.balance))}</td>
-                      <td style={{ padding:'10px 8px' }}><span style={{ fontSize:10, fontWeight:700, color:stColor(p.status), background:`${stColor(p.status)}18`, padding:'2px 8px', borderRadius:20, textTransform:'capitalize' }}>{p.status||'confirmed'}</span></td>
+                  {pmtRows.map((p, i) => (
+                    <tr key={p.id || i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <td style={{ padding: '10px 8px', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{fmtDate(p.created_at)}</td>
+                      <td style={{ padding: '10px 8px' }}><code style={{ fontSize: 10, background: 'rgba(68,215,255,0.08)', color: 'var(--neon-blue)', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>{p.reference || '—'}</code></td>
+
+                      <td style={{ padding: '10px 8px', fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>+&#8369;{fmt(p.amount)}</td>
+                      <td style={{ padding: '10px 8px', fontWeight: 700, color: p.balance > 0 ? '#fbbf24' : '#10b981', whiteSpace: 'nowrap' }}>&#8369;{fmt(Math.max(0, p.balance))}</td>
+                      <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 10, fontWeight: 700, color: stColor(p.status), background: `${stColor(p.status)}18`, padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize' }}>{p.status || 'confirmed'}</span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -5471,13 +5697,73 @@ function MyLedger({ token, studentId, authName, authUsername }) {
             </div>
           )}
           {totalPaid > 0 && (
-            <div style={{ marginTop:12, padding:'10px 14px', background:'rgba(16,185,129,0.06)', borderRadius:8, border:'1px solid rgba(16,185,129,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontSize:12, color:'var(--text-dim)' }}>{tuitionPmts.length} payment{tuitionPmts.length!==1?'s':''} recorded</span>
-              <span style={{ fontSize:13, fontWeight:800, color:'#10b981' }}>Total Paid: &#8369;{fmt(totalPaid)}</span>
+            <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(16,185,129,0.06)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{tuitionPmts.length} payment{tuitionPmts.length !== 1 ? 's' : ''} recorded</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#10b981' }}>Total Paid: &#8369;{fmt(totalPaid)}</span>
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function GradeRequestsView({ token, role }) {
+  const [requests, setRequests] = useState([]);
+  const [msg, setMsg] = useState("");
+
+  const flash = m => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+
+  const fetchRequests = useCallback(async () => {
+    try {
+      const data = await api("/grade-change-requests", {}, token);
+      if (Array.isArray(data)) setRequests(data);
+    } catch { }
+  }, [token]);
+
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  return (
+    <div>
+      <PageHeader title={<span>{"\u{1F4EC}"} Grade Change Requests</span>} sub="Review and manage student grade modifications" />
+      {msg && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 16px", marginBottom: 14, color: "#15803d", fontWeight: 600, fontSize: 13 }}>{msg}</div>}
+
+      <Card title={`Pending & Recent Requests (${requests.length})`} variant={requests.length > 0 ? "active" : "default"}>
+        {requests.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-dim)", fontSize: 13 }}>No grade change requests found.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {requests.map(req => (
+              <div key={req.id} style={{
+                padding: 20, borderRadius: 12, border: "1px solid var(--border-color)", background: req.status === "done" ? "rgba(16, 185, 129, 0.05)" : "rgba(255,255,255,0.03)",
+                display: "flex", justifyContent: "space-between", alignItems: "flex-start"
+              }}>
+                <div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "white" }}>{req.student_name}</div>
+                    <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, background: req.status === "done" ? "#065f46" : "#854d0e", color: "white", fontWeight: 700 }}>{req.status.toUpperCase()}</span>
+                    {req.status === "done" && req.marked_done_by && <span style={{ fontSize: 10, color: "var(--neon-blue)", fontStyle: "italic", fontWeight: 600 }}>By: {req.marked_done_by}</span>}
+                    <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{new Date(req.created_at).toLocaleString()}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--neon-blue)", marginBottom: 10, fontWeight: 600 }}>{req.subject_name} • Requested by: {req.teacher_username}</div>
+                  <div style={{ fontSize: 14, color: "var(--text-main)", background: "rgba(0,0,0,0.2)", padding: "12px 16px", borderRadius: 8, borderLeft: "3px solid var(--neon-blue)", lineHeight: 1.5 }}>
+                    {req.requested_changes.split('|').map((part, i) => <div key={i}>{part.trim()}</div>)}
+                  </div>
+                </div>
+                {req.status !== "done" && ["owner", "registrar", "developer"].includes(role) && (
+                  <Btn variant="primary" onClick={async () => {
+                    try {
+                      await api(`/grade-change-requests/${req.id}/done`, { method: "PUT" }, token);
+                      fetchRequests();
+                      flash("✅ Request marked as done.");
+                    } catch (e) { alert(e.message); }
+                  }} style={{ fontSize: 12, padding: "8px 16px", marginLeft: 16, flexShrink: 0 }}>✓ Mark Done</Btn>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

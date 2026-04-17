@@ -42,7 +42,7 @@ export async function initDB() {
       id SERIAL PRIMARY KEY,
       username TEXT NOT NULL,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('student','teacher','developer','owner','saps','register','cashier')),
+      role TEXT NOT NULL CHECK(role IN ('student','teacher','developer','owner','saps','registrar','cashier')),
       user_type TEXT,
       student_id TEXT,
       full_name TEXT,
@@ -89,15 +89,17 @@ export async function initDB() {
     CREATE TABLE IF NOT EXISTS grades (
       student_id TEXT NOT NULL,
       subject_id TEXT NOT NULL,
+      semester_id INTEGER,
       prelim1 INTEGER,
       prelim2 INTEGER,
       midterm INTEGER,
       semi_final INTEGER,
       final INTEGER,
       deleted_at TIMESTAMP WITH TIME ZONE,
-      PRIMARY KEY (student_id, subject_id),
+      PRIMARY KEY (student_id, subject_id, semester_id),
       FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-      FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+      FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+      FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS payments (
@@ -263,6 +265,22 @@ export async function initDB() {
       deleted_at TIMESTAMP WITH TIME ZONE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS grade_change_requests (
+      id SERIAL PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      subject_id TEXT NOT NULL,
+      semester_id INTEGER,
+      teacher_username TEXT NOT NULL,
+      requested_changes TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      marked_done_by TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+      FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+      FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE CASCADE
+    );
   `);
 
   console.log("[DB] Seeding default values...");
@@ -315,8 +333,29 @@ export async function initDB() {
         WHERE a.student_id = b.student_id AND a.semester_id = b.semester_id AND a.ctid < b.ctid
       `);
       await pool.query("ALTER TABLE student_ledgers ADD PRIMARY KEY (student_id, semester_id)");
-      console.log("[DB] Finished semester tracking migrations.");
+      console.log("[DB] Finished student_ledgers semester tracking migrations.");
     }
+    
+    // Extracted the grades migration to run independently of the ledgers check
+    const checkGrades = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='grades' AND column_name='semester_id'");
+    if (checkGrades.rows.length === 0) {
+      console.log("[DB] Migrating grades table to include semester_id...");
+      await pool.query("ALTER TABLE grades ADD COLUMN semester_id INTEGER REFERENCES semesters(id) ON DELETE SET NULL");
+      
+      const firstSem = await pool.query("SELECT id FROM semesters ORDER BY id ASC LIMIT 1");
+      const sid = firstSem?.rows?.[0]?.id;
+      if (sid) {
+        await pool.query("UPDATE grades SET semester_id = $1 WHERE semester_id IS NULL", [sid]);
+      }
+      
+      try {
+        await pool.query("ALTER TABLE grades DROP CONSTRAINT IF EXISTS grades_pkey");
+        await pool.query("ALTER TABLE grades ADD PRIMARY KEY (student_id, subject_id, semester_id)");
+      } catch (pkErr) {
+        console.warn("[DB] Note: Could not safely reassign grades PK, skipping. ", pkErr.message);
+      }
+    }
+    
   } catch (e) {
     console.log("[DB] Migration handled/skipped:", e.message);
   }

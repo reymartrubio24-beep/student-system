@@ -407,18 +407,18 @@ app.put(
         .optional(),
       role: z
         .enum(
-          ["teacher", "student", "developer", "saps", "register", "cashier", "viewer"],
+          ["teacher", "student", "developer", "saps", "registrar", "cashier", "viewer"],
           {
             errorMap: () => ({
               message:
-                "role must be a valid system role (teacher, student, developer, saps, register, cashier, or viewer)",
+                "role must be a valid system role (teacher, student, developer, saps, registrar, cashier, or viewer)",
             }),
           },
         )
         .optional(),
       user_type: z
         .enum(
-          ["teacher", "student", "developer", "saps", "register", "cashier", "viewer"],
+          ["teacher", "student", "developer", "saps", "registrar", "cashier", "viewer"],
           { errorMap: () => ({ message: "user_type must be a valid role" }) },
         )
         .optional(),
@@ -741,6 +741,7 @@ const subjectSchema = z.object({
   semester_id: z.number().int().optional().nullable(),
 });
 const gradeSchema = z.object({
+  semester_id: z.coerce.number().optional().nullable(),
   student_id: z.string().min(1),
   subject_id: z.string().min(1),
   prelim1: z.number().int().min(0).max(100).nullable().optional(),
@@ -1127,7 +1128,6 @@ app.delete(
 app.get(
   "/semesters",
   authRequired,
-  requireRole("permits", "read"),
   async (req, res) => {
     const rows = await all(
       "SELECT * FROM semesters ORDER BY school_year DESC, term ASC",
@@ -1965,12 +1965,12 @@ app.get("/students/:id/subjects", authRequired, requireRole("students"), async (
   const semesterId = req.query.semester_id ? Number(req.query.semester_id) : null;
   const rows = semesterId
     ? await all(`
-        SELECT b.* FROM subjects b
+        SELECT b.*, g.semester_id as assigned_semester FROM subjects b
         JOIN grades g ON g.subject_id=b.id AND g.deleted_at IS NULL
-        WHERE g.student_id=? AND b.deleted_at IS NULL AND b.semester_id=?
+        WHERE g.student_id=? AND b.deleted_at IS NULL AND g.semester_id=?
       `, [id, semesterId])
     : await all(`
-        SELECT b.* FROM subjects b
+        SELECT b.*, g.semester_id as assigned_semester FROM subjects b
         JOIN grades g ON g.subject_id=b.id AND g.deleted_at IS NULL
         WHERE g.student_id=? AND b.deleted_at IS NULL
       `, [id]);
@@ -1984,7 +1984,6 @@ app.get("/ledgers/:id", authRequired, async (req, res) => {
   if (semester_id) {
     ledger = await get("SELECT * FROM student_ledgers WHERE student_id = ? AND semester_id = ?", [id, semester_id]);
   } else {
-    // Fallback: get most recently updated ledger for this student
     ledger = await get("SELECT * FROM student_ledgers WHERE student_id = ? ORDER BY semester_id DESC LIMIT 1", [id]);
   }
   if (!ledger) {
@@ -1996,6 +1995,27 @@ app.get("/ledgers/:id", authRequired, async (req, res) => {
       id_fee: 0, subscription_fee: 0, discount: 0, bank_account: "", bill_of_payment: "", notes: ""
     };
   }
+  
+  // Apply auto-calculated units from grades/enrollments for this semester!
+  const targetSem = ledger.semester_id || semester_id;
+  if (targetSem) {
+      const unitsRow = await get("SELECT SUM(CAST(s.units AS INTEGER)) as total_units FROM subjects s JOIN grades g ON g.subject_id = s.id WHERE g.student_id = ? AND g.deleted_at IS NULL AND g.semester_id = ?", [id, targetSem]);
+      if (unitsRow && unitsRow.total_units > 0) {
+          // Force UI to use the auto-calculation
+          ledger.regular_units = String(unitsRow.total_units);
+          
+          // Recalculate tuition dynamically based on price
+          const rPrice = Number(ledger.regular_unit_price || 204);
+          const pPrice = Number(ledger.petition_unit_price || 0);
+          
+          // Parse petition units if any (extract numbers from string)
+          const pMatch = String(ledger.petition_class || '').match(/\d+/);
+          const pUnits = pMatch ? Number(pMatch[0]) : 0;
+          
+          ledger.tuition_fee = (unitsRow.total_units * rPrice) + (pUnits * pPrice);
+      }
+  }
+
   res.json(ledger);
 });
 
@@ -2088,17 +2108,19 @@ app.get("/grades", authRequired, requireRole("grades"), async (req, res) => {
       `SELECT g.* FROM grades g
        JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
        JOIN subjects b ON b.id = g.subject_id AND b.deleted_at IS NULL
-       WHERE g.deleted_at IS NULL AND g.student_id = ?` + (semesterId ? ` AND b.semester_id = ?` : ``),
+       WHERE g.deleted_at IS NULL AND g.student_id = ?` + (semesterId ? ` AND g.semester_id = ?` : ``),
       semesterId ? [sid, semesterId] : [sid],
     );
     await logAction({ userId: req.user.id, action: "READ", entity: "grade", entityId: sid, details: { semester_id: semesterId || null, ip: req.ip } });
     return res.json(bySelf);
   }
+  const semesterId = req.query.semester_id ? Number(req.query.semester_id) : null;
   const rows = await all(
     `SELECT g.* FROM grades g
      JOIN students s ON s.id = g.student_id AND s.deleted_at IS NULL
      JOIN subjects b ON b.id = g.subject_id AND b.deleted_at IS NULL
-     WHERE g.deleted_at IS NULL`,
+     WHERE g.deleted_at IS NULL` + (semesterId ? ` AND g.semester_id = ?` : ``),
+    semesterId ? [semesterId] : []
   );
   res.json(rows);
 });
@@ -2111,6 +2133,7 @@ app.post(
     const norm = {
       student_id: String(body.student_id || "").trim(),
       subject_id: String(body.subject_id || "").trim(),
+      semester_id: body.semester_id,
       prelim1: (body.prelim1 === undefined || body.prelim1 === "" || body.prelim1 === null) ? null : Number(body.prelim1),
       prelim2: (body.prelim2 === undefined || body.prelim2 === "" || body.prelim2 === null) ? null : Number(body.prelim2),
       midterm: (body.midterm === undefined || body.midterm === "" || body.midterm === null) ? null : Number(body.midterm),
@@ -2136,9 +2159,12 @@ app.post(
       );
       if (!activeSubject)
         return res.status(404).json({ error: "Subject not found or inactive" });
-      const key = [parsed.data.student_id, parsed.data.subject_id];
+      const key = [parsed.data.student_id, parsed.data.subject_id, parsed.data.semester_id];
+      // If semester_id is missing (from an old client), we might have issues. We expect it to be present.
+      if (!parsed.data.semester_id) return res.status(400).json({ error: "semester_id is required" });
+      
       const existing = await get(
-        "SELECT deleted_at FROM grades WHERE student_id=? AND subject_id=?",
+        "SELECT deleted_at FROM grades WHERE student_id=? AND subject_id=? AND semester_id=?",
         key,
       );
       if (existing && !existing.deleted_at) {
@@ -2147,7 +2173,7 @@ app.post(
       await tx(async () => {
         if (existing && existing.deleted_at) {
           await run(
-            "UPDATE grades SET prelim1=?, prelim2=?, midterm=?, semi_final=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=?",
+            "UPDATE grades SET prelim1=?, prelim2=?, midterm=?, semi_final=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=? AND semester_id=?",
             [
               parsed.data.prelim1 ?? null,
               parsed.data.prelim2 ?? null,
@@ -2166,10 +2192,11 @@ app.post(
           });
         } else {
           await run(
-            "INSERT INTO grades (student_id,subject_id,prelim1,prelim2,midterm,semi_final,final) VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO grades (student_id,subject_id,semester_id,prelim1,prelim2,midterm,semi_final,final) VALUES (?,?,?,?,?,?,?,?)",
             [
               parsed.data.student_id,
               parsed.data.subject_id,
+              parsed.data.semester_id,
               parsed.data.prelim1 ?? null,
               parsed.data.prelim2 ?? null,
               parsed.data.midterm ?? null,
@@ -2191,15 +2218,15 @@ app.post(
       const isUnique =
         /UNIQUE constraint failed|UNIQUE constraint|ConstraintError/i.test(msg);
       if (isUnique) {
-        const { student_id, subject_id } = parsed.data;
+        const { student_id, subject_id, semester_id } = parsed.data;
         const soft = await get(
-          "SELECT deleted_at FROM grades WHERE student_id=? AND subject_id=?",
-          [student_id, subject_id],
+          "SELECT deleted_at FROM grades WHERE student_id=? AND subject_id=? AND semester_id=?",
+          [student_id, subject_id, semester_id],
         );
         if (soft && soft.deleted_at) {
           await tx(async () => {
             await run(
-              "UPDATE grades SET prelim1=?, prelim2=?, midterm=?, semi_final=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=?",
+              "UPDATE grades SET prelim1=?, prelim2=?, midterm=?, semi_final=?, final=?, deleted_at=NULL WHERE student_id=? AND subject_id=? AND semester_id=?",
               [
                 parsed.data.prelim1 ?? null,
                 parsed.data.prelim2 ?? null,
@@ -2208,6 +2235,7 @@ app.post(
                 parsed.data.final ?? null,
                 student_id,
                 subject_id,
+                semester_id,
               ],
             );
             await logAction({
@@ -2237,9 +2265,10 @@ app.put(
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid data" });
     const { studentId, subjectId } = req.params;
+    const semesterId = req.query.semester_id ? Number(req.query.semester_id) : null;
     const g = await get(
-      "SELECT 1 FROM grades WHERE student_id=? AND subject_id=? AND deleted_at IS NULL",
-      [studentId, subjectId],
+      "SELECT 1 FROM grades WHERE student_id=? AND subject_id=? AND deleted_at IS NULL" + (semesterId ? " AND semester_id=?" : ""),
+      semesterId ? [studentId, subjectId, semesterId] : [studentId, subjectId],
     );
     if (!g) return res.status(404).json({ error: "Not found" });
     await tx(async () => {
@@ -2248,12 +2277,22 @@ app.put(
         .filter((f) => f in parsed.data)
         .map((f) => `${f}=?`)
         .join(", ");
-      if (sets)
-        await run(`UPDATE grades SET ${sets} WHERE student_id=? AND subject_id=?`, [
-          ...fields.filter((f) => f in parsed.data).map((f) => parsed.data[f]),
-          studentId,
-          subjectId,
-        ]);
+      if (sets) {
+        if (semesterId) {
+          await run(`UPDATE grades SET ${sets} WHERE student_id=? AND subject_id=? AND semester_id=?`, [
+            ...fields.filter((f) => f in parsed.data).map((f) => parsed.data[f]),
+            studentId,
+            subjectId,
+            semesterId
+          ]);
+        } else {
+          await run(`UPDATE grades SET ${sets} WHERE student_id=? AND subject_id=?`, [
+            ...fields.filter((f) => f in parsed.data).map((f) => parsed.data[f]),
+            studentId,
+            subjectId,
+          ]);
+        }
+      }
       await logAction({
         userId: req.user.id,
         action: "UPDATE",
@@ -2271,16 +2310,24 @@ app.delete(
   requireRole("grades", "delete"),
   async (req, res) => {
     const { studentId, subjectId } = req.params;
+    const semesterId = req.query.semester_id ? Number(req.query.semester_id) : null;
     const g = await get(
-      "SELECT 1 FROM grades WHERE student_id=? AND subject_id=? AND deleted_at IS NULL",
-      [studentId, subjectId],
+      "SELECT 1 FROM grades WHERE student_id=? AND subject_id=? AND deleted_at IS NULL" + (semesterId ? " AND semester_id=?" : ""),
+      semesterId ? [studentId, subjectId, semesterId] : [studentId, subjectId],
     );
     if (!g) return res.status(404).json({ error: "Not found" });
     await tx(async () => {
-      await run(
-        "UPDATE grades SET deleted_at=CURRENT_TIMESTAMP WHERE student_id=? AND subject_id=?",
-        [studentId, subjectId],
-      );
+      if (semesterId) {
+        await run(
+          "UPDATE grades SET deleted_at=CURRENT_TIMESTAMP WHERE student_id=? AND subject_id=? AND semester_id=?",
+          [studentId, subjectId, semesterId],
+        );
+      } else {
+        await run(
+          "UPDATE grades SET deleted_at=CURRENT_TIMESTAMP WHERE student_id=? AND subject_id=?",
+          [studentId, subjectId],
+        );
+      }
       await logAction({
         userId: req.user.id,
         action: "DELETE",
@@ -2686,6 +2733,86 @@ app.get("/attendance/my", authRequired, async (req, res) => {
   res.json(rows);
 });
 
+// --- Grade Change Requests ---
+app.post("/grade-change-requests", authRequired, async (req, res) => {
+  const { role, username } = req.user;
+  if (role !== "teacher") return res.status(403).json({ error: "Only teachers can request grade changes" });
+  
+  const shape = z.object({
+    student_id: z.string().min(1),
+    subject_id: z.string().min(1),
+    semester_id: z.number().int().optional().nullable(),
+    requested_changes: z.string().min(1)
+  });
+  
+  const parsed = shape.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid fields" });
+  
+  try {
+    await tx(async () => {
+      await run(
+        "INSERT INTO grade_change_requests (student_id, subject_id, semester_id, teacher_username, requested_changes) VALUES (?,?,?,?,?)",
+        [parsed.data.student_id, parsed.data.subject_id, parsed.data.semester_id, username, parsed.data.requested_changes]
+      );
+      await logAction({ userId: req.user.id, action: "GRADE_CHANGE_REQUEST_CREATE", entity: "grade_change_request", entityId: String(lastInsertId()) });
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/grade-change-requests", authRequired, async (req, res) => {
+  const { role, username } = req.user;
+  
+  try {
+    let rows = [];
+    if (role === "teacher") {
+      rows = await all(`
+        SELECT g.*, s.name as student_name, sub.name as subject_name 
+        FROM grade_change_requests g
+        JOIN students s ON s.id = g.student_id
+        JOIN subjects sub ON sub.id = g.subject_id
+        WHERE g.teacher_username = ?
+        ORDER BY g.status DESC, g.created_at DESC
+      `, [username]);
+    } else if (["owner", "registrar", "developer"].includes(role)) {
+      rows = await all(`
+        SELECT g.*, s.name as student_name, sub.name as subject_name 
+        FROM grade_change_requests g
+        JOIN students s ON s.id = g.student_id
+        JOIN subjects sub ON sub.id = g.subject_id
+        ORDER BY g.status DESC, g.created_at DESC
+      `);
+    } else {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put("/grade-change-requests/:id/done", authRequired, async (req, res) => {
+  const { role, username } = req.user;
+  if (!["owner", "registrar", "developer"].includes(role)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  
+  const id = Number(req.params.id);
+  try {
+    const existing = await get("SELECT 1 FROM grade_change_requests WHERE id=?", [id]);
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    
+    await tx(async () => {
+      await run("UPDATE grade_change_requests SET status='done', marked_done_by=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [username, id]);
+      await logAction({ userId: req.user.id, action: "GRADE_CHANGE_REQUEST_DONE", entity: "grade_change_request", entityId: String(id) });
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
