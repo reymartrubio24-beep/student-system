@@ -24,6 +24,9 @@ import {
 } from "./auth.js";
 import { z } from "zod";
 import { writeProfile, moveIfNeeded, markFilesDeleted } from "./userFiles.js";
+import axios from "axios";
+import nodemailer from "nodemailer";
+
 
 await initDB();
 await ensureInitialAdmin();
@@ -1679,6 +1682,8 @@ app.post(
     const shape = z.object({
       student_id: z.string().min(1),
       amount: z.number().min(0.01),
+      amount_given: z.number().optional(),
+      change: z.number().optional(),
       method: z.string().optional(),
       reference: z.string().optional(),
       payment_type: z.string().optional(),
@@ -1701,11 +1706,13 @@ app.post(
       }
 
       await run(
-        "INSERT INTO payments (student_id, semester_id, amount, method, reference, payment_type, status) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+        "INSERT INTO payments (student_id, semester_id, amount, amount_given, change, method, reference, payment_type, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
         [
           parsed.data.student_id,
           parsed.data.semester_id || null,
           parsed.data.amount,
+          parsed.data.amount_given || null,
+          parsed.data.change || null,
           parsed.data.method || null,
           ref,
           parsed.data.payment_type || "Tuition",
@@ -1744,7 +1751,7 @@ app.get(
     const where = clauses.length ? ` AND ${clauses.join(" AND ")}` : "";
     if (role === "student") {
       const rows = await all(
-      "SELECT id, semester_id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
+      "SELECT id, student_id, semester_id, amount, amount_given, change, method, reference, payment_type, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
         [student_id, ...params],
       );
       await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(student_id), details: { from, to, method, semester_id } });
@@ -1779,7 +1786,7 @@ app.get(
        return res.status(403).json({ error: "Forbidden" });
     }
     const rows = await all(
-      "SELECT id, semester_id, amount, method, reference, payment_type, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
+      "SELECT id, student_id, semester_id, amount, amount_given, change, method, reference, payment_type, status, created_at FROM payments WHERE student_id=?"+where+" ORDER BY created_at DESC",
       [sid, ...params],
     );
     await logAction({ userId: req.user.id, action: "READ", entity: "payment", entityId: String(sid), details: { from, to, method, semester_id } });
@@ -2814,7 +2821,220 @@ app.put("/grade-change-requests/:id/done", authRequired, async (req, res) => {
   }
 });
 
+// ─── PayMongo Online Payment Integration ─────────────────────────────────────
+
+// Helper: send email receipt
+async function sendReceiptEmail({ toEmail, studentName, studentId, amount, paymentMethod, referenceId, transactionDate, amountGiven, change }) {
+  try {
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPass = process.env.GMAIL_PASS;
+    if (!gmailUser || !gmailPass || gmailPass === "REPLACE_WITH_GOOGLE_APP_PASSWORD") {
+      console.warn("[EMAIL] Gmail credentials not configured. Skipping email receipt.");
+      return;
+    }
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: gmailUser, pass: gmailPass },
+    });
+    const amountFormatted = `₱${Number(amount).toFixed(2)}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 580px; margin: auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
+        <div style="background: #1a1a2e; padding: 28px; text-align: center;">
+          <h1 style="color: #44d7ff; margin: 0; font-size: 22px;">Yllana Bay View College</h1>
+          <p style="color: #a0a0c0; margin: 4px 0 0; font-size: 13px;">Enerio St. Balangasan Dist., Pagadian City</p>
+        </div>
+        <div style="padding: 30px 36px; background: #ffffff;">
+          <h2 style="color: #1a1a2e; font-size: 18px; margin-bottom: 4px;">Official Payment Receipt</h2>
+          <p style="color: #666; font-size: 13px; margin-top: 0;">Thank you for your payment, <strong>${studentName}</strong>!</p>
+          <hr style="border: none; border-top: 1px solid #e8e8e8; margin: 20px 0;" />
+          <table style="width: 100%; font-size: 14px; color: #333; border-collapse: collapse;">
+            <tr><td style="padding: 8px 0; color: #888;">Student ID</td><td style="padding: 8px 0; font-weight: bold; text-align:right;">${studentId}</td></tr>
+            <tr><td style="padding: 8px 0; color: #888;">Date</td><td style="padding: 8px 0; text-align:right;">${transactionDate}</td></tr>
+            <tr><td style="padding: 8px 0; color: #888;">Description</td><td style="padding: 8px 0; text-align:right;">TUITION (CURRENT)</td></tr>
+            <tr><td style="padding: 8px 0; color: #888;">Payment Method</td><td style="padding: 8px 0; text-align:right;">${paymentMethod}</td></tr>
+            <tr><td style="padding: 8px 0; color: #888;">Reference No.</td><td style="padding: 8px 0; text-align:right; font-family: monospace;">${referenceId}</td></tr>
+          </table>
+          <hr style="border: none; border-top: 1px solid #e8e8e8; margin: 20px 0;" />
+          <div style="text-align: right;">
+            <table style="width: 100%; font-size: 15px; color: #333; border-collapse: collapse;">
+              <tr><td style="padding: 4px 0; color: #888;">Grand Total:</td><td style="padding: 4px 0; font-weight: bold; text-align:right;">${amountFormatted}</td></tr>
+              ${amountGiven ? `<tr><td style="padding: 4px 0; color: #888;">Payment:</td><td style="padding: 4px 0; text-align:right;">₱${Number(amountGiven).toFixed(2)}</td></tr>` : ''}
+              ${change !== undefined ? `<tr><td style="padding: 4px 0; color: #888;">Change/Balance:</td><td style="padding: 4px 0; text-align:right;">₱${Number(change).toFixed(2)}</td></tr>` : ''}
+            </table>
+          </div>
+          <p style="font-size: 11px; color: #aaa; margin-top: 28px; text-align: center;">This is an automated official receipt from the STUDENT PORTAL MANAGEMENT SYSTEM.</p>
+        </div>
+        <div style="background: #f5f5f5; padding: 14px; text-align: center;">
+          <p style="font-size: 11px; color: #999; margin: 0;">Yllana Bay View College &bull; Student System</p>
+        </div>
+      </div>
+    `;
+    await transporter.sendMail({
+      from: `"YBVC Student System" <${gmailUser}>`,
+      to: toEmail,
+      subject: `Payment Receipt - ₱${Number(amount).toFixed(2)} - ${studentName}`,
+      html,
+    });
+    console.log(`[EMAIL] Receipt sent to ${toEmail}`);
+  } catch (err) {
+    console.error("[EMAIL] Failed to send receipt:", err.message);
+  }
+}
+
+// POST /paymongo/checkout - Create a PayMongo checkout session
+app.post("/paymongo/checkout", authRequired, async (req, res) => {
+  try {
+    const { student_id, amount } = req.body;
+    if (!student_id || !amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      return res.status(400).json({ error: "Valid student_id and amount are required." });
+    }
+    // Get student info for the checkout
+    const student = await get("SELECT id, name, email FROM students WHERE id=? AND deleted_at IS NULL", [student_id]);
+    if (!student) return res.status(404).json({ error: "Student not found." });
+
+    const amountInCentavos = Math.round(Number(amount) * 100);
+    const appUrl = process.env.APP_URL || "http://localhost:3000";
+
+    const response = await axios.post(
+      "https://api.paymongo.com/v1/checkout_sessions",
+      {
+        data: {
+          attributes: {
+            billing: { name: student.name, email: student.email },
+            send_email_receipt: false, // We handle our own styled receipt
+            show_description: true,
+            show_line_items: true,
+            line_items: [
+              {
+                currency: "PHP",
+                amount: amountInCentavos,
+                name: "Tuition Payment",
+                description: `Tuition payment for Student ID: ${student_id}`,
+                quantity: 1,
+              },
+            ],
+            payment_method_types: ["gcash", "paymaya", "card", "dob", "brankas_bdo", "brankas_landbank", "brankas_metrobank"],
+            success_url: `${appUrl}?payment=success&student_id=${student_id}&amount=${amount}`,
+            cancel_url: `${appUrl}?payment=cancelled`,
+            metadata: {
+              student_id: String(student_id),
+              amount: String(amount),
+              student_name: student.name,
+              student_email: student.email || "",
+            },
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ":").toString("base64")}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const checkoutUrl = response.data.data.attributes.checkout_url;
+    const sessionId = response.data.data.id;
+    console.log(`[PAYMONGO] Checkout session created: ${sessionId} for student ${student_id}`);
+    res.json({ checkout_url: checkoutUrl, session_id: sessionId });
+  } catch (err) {
+    console.error("[PAYMONGO] Checkout error:", err.response?.data || err.message);
+    res.status(500).json({ error: err.response?.data?.errors?.[0]?.detail || err.message });
+  }
+});
+
+// POST /paymongo/webhook - Called automatically by PayMongo when payment succeeds
+// In PayMongo dashboard, set webhook URL to: https://your-server.com/paymongo/webhook
+app.post("/paymongo/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  try {
+    const event = JSON.parse(req.body.toString());
+    const eventType = event.data?.attributes?.type;
+    console.log(`[PAYMONGO WEBHOOK] Event received: ${eventType}`);
+
+    if (eventType === "checkout_session.payment.paid") {
+      const session = event.data.attributes.data;
+      const metadata = session.attributes.metadata || {};
+      const student_id = metadata.student_id;
+      const amount = parseFloat(metadata.amount);
+      const studentName = metadata.student_name || student_id;
+      const studentEmail = metadata.student_email || "";
+
+      if (!student_id || isNaN(amount)) {
+        console.error("[PAYMONGO WEBHOOK] Missing student_id or amount in metadata.");
+        return res.json({ ok: true });
+      }
+
+      const paymentId = session.attributes.payments?.[0]?.id || "";
+      const paymentMethodStr = session.attributes.payments?.[0]?.attributes?.source?.type || "Online";
+      const transactionDate = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
+
+      // Record the payment in the database
+      await tx(async () => {
+        await run(
+          "INSERT INTO payments (student_id, amount, method, reference, payment_type, created_at) VALUES ($1, $2, $3, $4, $5, NOW())",
+          [student_id, amount, paymentMethodStr, paymentId, "Tuition"]
+        );
+        await logAction({
+          userId: 0,
+          action: "ONLINE_PAYMENT",
+          entity: "payment",
+          entityId: student_id,
+          details: { amount, method: paymentMethodStr, reference: paymentId, via: "PayMongo" },
+        });
+      });
+
+      console.log(`[PAYMONGO WEBHOOK] Payment of ₱${amount} recorded for student ${student_id}.`);
+
+      // Send email receipt if student has email
+      if (studentEmail) {
+        await sendReceiptEmail({
+          toEmail: studentEmail,
+          studentName,
+          studentId: student_id,
+          amount,
+          paymentMethod: paymentMethodStr,
+          referenceId: paymentId,
+          transactionDate,
+        });
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[PAYMONGO WEBHOOK] Error processing event:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /paymongo/send-receipt - Manually send a receipt email for a cash payment
+app.post("/paymongo/send-receipt", authRequired, async (req, res) => {
+  try {
+    const { student_id, amount, method, reference, amount_given, change } = req.body;
+    if (!student_id || !amount) return res.status(400).json({ error: "student_id and amount required." });
+
+    const student = await get("SELECT id, name, email FROM students WHERE id=? AND deleted_at IS NULL", [student_id]);
+    if (!student) return res.status(404).json({ error: "Student not found." });
+    if (!student.email) return res.status(400).json({ error: "Student has no email address on file." });
+
+    const transactionDate = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
+    await sendReceiptEmail({
+      toEmail: student.email,
+      studentName: student.name,
+      studentId: student_id,
+      amount: parseFloat(amount),
+      paymentMethod: method || "Cash",
+      amountGiven: amount_given ? parseFloat(amount_given) : undefined,
+      change: change !== undefined ? parseFloat(change) : undefined,
+      referenceId: reference || "N/A",
+      transactionDate,
+    });
+    res.json({ ok: true, message: `Receipt sent to ${student.email}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   process.stdout.write(`server listening on ${port}\n`);
 });
+

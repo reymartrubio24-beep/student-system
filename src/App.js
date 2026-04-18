@@ -355,7 +355,7 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem("auth") || "null"); } catch { return null; }
   });
   const role = auth?.role || null;
-  const [title, setTitle] = useState(() => localStorage.getItem("appTitle") || "Student Subject Management & Tracking System");
+  const [title, setTitle] = useState(() => localStorage.getItem("appTitle") || "STUDENT PORTAL MANAGEMENT SYSTEM");
   const [logo, setLogo] = useState(() => localStorage.getItem("appLogo") || "");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [changePassOpen, setChangePassOpen] = useState(false);
@@ -1531,84 +1531,125 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
               </div>
             </div>
           </Card>
-          <Card title="Spreadsheet">
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-              <Input label="Start Date" value={rangeStart} onChange={e => setRangeStart(e.target.value)} />
-              <Input label="End Date" value={rangeEnd} onChange={e => setRangeEnd(e.target.value)} />
-              <Btn onClick={loadSheet}>Load</Btn>
-              <Select label="Bulk Status" onChange={e => { const v = e.target.value; if (v) markSelection(v); }}>
+          <Card title="📊 Attendance Spreadsheet & Export">
+            {/* Controls row */}
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>From Date</label>
+                <input type="date" value={rangeStart} onChange={e => setRangeStart(e.target.value)}
+                  style={{ padding: "10px 14px", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13, background: "#0f172a", color: "white", outline: "none" }} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>To Date</label>
+                <input type="date" value={rangeEnd} onChange={e => setRangeEnd(e.target.value)}
+                  style={{ padding: "10px 14px", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13, background: "#0f172a", color: "white", outline: "none" }} />
+              </div>
+              <Btn onClick={loadSheet} style={{ padding: "11px 22px" }}>🔍 Apply Filters</Btn>
+              <Select label="Bulk Mark Selected" onChange={e => { const v = e.target.value; if (v) markSelection(v); }} style={{ minWidth: 160 }}>
                 <option value="">Bulk set…</option>
-                <option value="present">Present</option>
-                <option value="absent">Absent</option>
-                <option value="late">Late</option>
-                <option value="leave">Leave</option>
+                <option value="present">✅ Present</option>
+                <option value="absent">❌ Absent</option>
+                <option value="late">🕐 Late</option>
+                <option value="leave">📋 Leave/Excuse</option>
               </Select>
-              <Btn onClick={undo} variant="outline">Undo</Btn>
-              <Btn onClick={redo} variant="outline">Redo</Btn>
-              <Btn onClick={exportCSV} variant="outline">Export CSV</Btn>
-              <Btn onClick={exportXLSX} variant="outline">Export Excel</Btn>
+              <Btn onClick={undo} variant="outline" style={{ padding: "11px 16px" }}>↩ Undo</Btn>
+              <Btn onClick={redo} variant="outline" style={{ padding: "11px 16px" }}>↪ Redo</Btn>
+              <div style={{ flex: 1 }} />
+              <Btn onClick={exportCSV} variant="outline" style={{ padding: "11px 18px", borderColor: "#10b981", color: "#10b981" }}>📄 Export CSV</Btn>
+              <Btn onClick={exportXLSX} style={{ padding: "11px 22px", background: "linear-gradient(135deg, #10b981, #059669)", border: "none" }}>📥 Export Excel (.xlsx)</Btn>
             </div>
+
+            {/* Legend */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+              {[["🟢 P", "present", "#dcfce7", "#166534"], ["🔴 A", "absent", "#fee2e2", "#991b1b"], ["🟡 L", "late", "#fef9c3", "#713f12"], ["🔵 Ex", "excuse", "#e0e7ff", "#3730a3"]].map(([label, , bg, tc]) => (
+                <span key={label} style={{ padding: "3px 10px", borderRadius: 20, background: bg, color: tc, fontSize: 11, fontWeight: 700 }}>{label}</span>
+              ))}
+              <span style={{ fontSize: 11, color: "var(--text-dim)", marginLeft: 8, alignSelf: "center" }}>Tip: Click cells to select, use Shift+Click for multi-select. Press P/A/L/E keys to mark quickly.</span>
+            </div>
+
             {sheetDates.length > 0 ? (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
                   <thead>
                     <tr>
-                      <Th>Student</Th>
-                      {sheetDates.map(d => <Th key={d}>{d}</Th>)}
+                      <th style={{ padding: "10px 14px", textAlign: "left", background: "#1e293b", color: "#94a3b8", fontWeight: 700, fontSize: 11, textTransform: "uppercase", whiteSpace: "nowrap", position: "sticky", left: 0, zIndex: 2, minWidth: 180 }}>Student</th>
+                      {sheetDates.map(d => {
+                        const dateObj = new Date(d + "T00:00:00");
+                        const mon = dateObj.toLocaleString("default", { month: "short" });
+                        const day = dateObj.getDate();
+                        return (
+                          <th key={d} style={{ padding: "8px 6px", textAlign: "center", background: "#1e293b", color: "#94a3b8", fontWeight: 700, fontSize: 11, minWidth: 70, whiteSpace: "nowrap" }}>
+                            <div style={{ color: "var(--neon-blue)" }}>{mon}</div>
+                            <div style={{ fontSize: 14, color: "white" }}>{day}</div>
+                          </th>
+                        );
+                      })}
+                      <th style={{ padding: "10px 14px", textAlign: "center", background: "#1e293b", color: "#94a3b8", fontWeight: 700, fontSize: 11, whiteSpace: "nowrap", minWidth: 130 }}>Summary</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {enrollments.map(s => (
-                      <tr key={s.student_id}>
-                        <Td><strong>{s.name}</strong> <span style={{ color: "#6b7280" }}>({s.student_id})</span></Td>
-                        {sheetDates.map(d => {
-                          const val = sheetMap[d]?.[s.student_id] || "";
-                          const isSelected = selectedCells.some(c => c.sid === s.student_id && c.date === d);
-                          const isFocus = focusCell && focusCell.sid === s.student_id && focusCell.date === d;
-                          return (
-                            <td key={d}
-                              onClick={(e) => toggleSelect(s.student_id, d, e.shiftKey)}
-                              style={{
-                                padding: "6px 8px",
-                                border: "1px solid #e5e7eb",
-                                background: isFocus ? "#e0f2fe" : isSelected ? "#f3f4f6" : statusColor(val),
-                                cursor: "pointer",
-                                textAlign: "center",
-                                minWidth: 90
-                              }}>
-                              {val || "—"}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div style={{ color: "#6b7280", fontSize: 12 }}>Load a date range to view the spreadsheet.</div>
-            )}
-            {sheetDates.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <PageHeader title="Summary" />
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                  <thead><tr><Th>Student</Th><Th>Present</Th><Th>Absent</Th><Th>Late</Th><Th>Leave</Th><Th>Rate %</Th></tr></thead>
-                  <tbody>
-                    {Object.entries(computeStats()).map(([sid, st]) => {
-                      const s = enrollments.find(x => x.student_id === sid);
+                    {enrollments.map((s, ri) => {
+                      const stats = (() => {
+                        let p=0,a=0,l=0,ex=0;
+                        for (const d of sheetDates) {
+                          const v = sheetMap[d]?.[s.student_id] || "";
+                          if (v === "present") p++;
+                          else if (v === "absent") a++;
+                          else if (v === "late") l++;
+                          else if (v === "excuse" || v === "leave") ex++;
+                        }
+                        return {p,a,l,ex};
+                      })();
                       return (
-                        <tr key={sid} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <Td><strong>{s?.name || sid}</strong></Td>
-                          <Td>{st.present}</Td>
-                          <Td>{st.absent}</Td>
-                          <Td>{st.late}</Td>
-                          <Td>{st.leave}</Td>
-                          <Td>{st.rate}</Td>
+                        <tr key={s.student_id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: ri % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                          <td style={{ padding: "10px 14px", whiteSpace: "nowrap", position: "sticky", left: 0, background: ri % 2 === 0 ? "#0f172a" : "#111827", zIndex: 1 }}>
+                            <div style={{ fontWeight: 700, color: "white", fontSize: 13 }}>{s.name}</div>
+                            <div style={{ color: "var(--neon-blue)", fontSize: 11, fontWeight: 700 }}>{s.student_id}</div>
+                          </td>
+                          {sheetDates.map(d => {
+                            const val = sheetMap[d]?.[s.student_id] || "";
+                            const isSelected = selectedCells.some(c => c.sid === s.student_id && c.date === d);
+                            const isFocus = focusCell && focusCell.sid === s.student_id && focusCell.date === d;
+                            const bgMap = { present: "#dcfce7", absent: "#fee2e2", late: "#fef9c3", excuse: "#e0e7ff", leave: "#e0e7ff" };
+                            const tcMap = { present: "#166534", absent: "#991b1b", late: "#713f12", excuse: "#3730a3", leave: "#3730a3" };
+                            const labelMap = { present: "P", absent: "A", late: "L", excuse: "Ex", leave: "Ex" };
+                            return (
+                              <td key={d}
+                                onClick={(e) => toggleSelect(s.student_id, d, e.shiftKey)}
+                                style={{
+                                  padding: "8px 6px",
+                                  border: isFocus ? "2px solid #44d7ff" : isSelected ? "2px solid #7c3aed" : "1px solid rgba(255,255,255,0.06)",
+                                  background: isFocus ? "rgba(68,215,255,0.15)" : isSelected ? "rgba(124,58,237,0.15)" : (bgMap[val] || "transparent"),
+                                  cursor: "pointer", textAlign: "center", minWidth: 70,
+                                  transition: "all 0.1s"
+                                }}>
+                                {val ? (
+                                  <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 12, background: bgMap[val], color: tcMap[val], fontWeight: 800, fontSize: 12 }}>
+                                    {labelMap[val]}
+                                  </span>
+                                ) : <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 16 }}>—</span>}
+                              </td>
+                            );
+                          })}
+                          <td style={{ padding: "8px 14px", textAlign: "center", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: 12, fontWeight: 700 }}>
+                              <span style={{ color: "#4ade80" }}>{stats.p}P</span>{" / "}
+                              <span style={{ color: "#f87171" }}>{stats.a}A</span>{" / "}
+                              <span style={{ color: "#fbbf24" }}>{stats.l}L</span>{" / "}
+                              <span style={{ color: "#818cf8" }}>{stats.ex}Ex</span>
+                            </span>
+                          </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-dim)" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "white", marginBottom: 6 }}>Select a Date Range</div>
+                <div style={{ fontSize: 13 }}>Choose a From and To date above and click <strong style={{ color: "var(--neon-blue)" }}>Apply Filters</strong> to load the spreadsheet.</div>
               </div>
             )}
           </Card>
@@ -1633,6 +1674,11 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
   const [loading, setLoading] = useState(false);
   const [loadingAtt, setLoadingAtt] = useState(false);
   const [err, setErr] = useState("");
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
+  const [sheetDates, setSheetDates] = useState([]);
+  const [sheetMap, setSheetMap] = useState({});
+  const [sheetLoading, setSheetLoading] = useState(false);
 
   useEffect(() => {
     api("/semesters", {}, token).then(r => setSemesters(Array.isArray(r) ? r : [])).catch(() => { });
@@ -1740,6 +1786,82 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
       await api(`/attendance/tables/${tableId}/attendance/present-all`, { method: "POST", body: { date: attDate } }, token);
       await loadAttendance(tableId, attDate);
     } catch (e) { setErr(e.message); }
+  };
+
+  const dateRange = (start, end) => {
+    if (!start || !end) return [];
+    const out = [];
+    for (let d = new Date(start + "T00:00:00"); d <= new Date(end + "T00:00:00"); d.setDate(d.getDate() + 1)) {
+      out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+    }
+    return out;
+  };
+
+  const loadSheet = async () => {
+    if (!tableId) return setErr("Open a subject first.");
+    if (!rangeStart || !rangeEnd) return setErr("Select a From and To date.");
+    setSheetLoading(true); setErr("");
+    const dates = dateRange(rangeStart, rangeEnd);
+    setSheetDates(dates);
+    const map = {};
+    for (const d of dates) {
+      try {
+        const data = await api(`/attendance/tables/${tableId}/attendance?date=${encodeURIComponent(d)}`, {}, token);
+        map[d] = {};
+        for (const r of data.rows || []) map[d][r.student_id] = r.attendance_status || "";
+      } catch { }
+    }
+    setSheetMap(map);
+    setSheetLoading(false);
+  };
+
+  const exportSheetXLSX = async () => {
+    if (sheetDates.length === 0 || enrolledStudents.length === 0) return;
+    const subjectLabel = activeSubject ? `${activeSubject.id} - ${activeSubject.name}` : "Attendance";
+    const header = ["Student ID", "Name", "Course", ...sheetDates, "Present", "Absent", "Late", "Leave/Excuse", "Attendance Rate"];
+    const data = [header];
+    for (const s of enrolledStudents) {
+      let p=0,a=0,l=0,ex=0;
+      const row = [s.id, s.name, s.course || ""];
+      for (const d of sheetDates) {
+        const v = sheetMap[d]?.[s.id] || "";
+        row.push(v || "-");
+        if (v==="present") p++;
+        else if (v==="absent") a++;
+        else if (v==="late") l++;
+        else if (v==="excuse"||v==="leave") ex++;
+      }
+      const total = sheetDates.length;
+      row.push(p, a, l, ex, total ? `${Math.round((p/total)*100)}%` : "0%");
+      data.push(row);
+    }
+    let XLSX;
+    try { XLSX = await import("xlsx"); } catch { return alert("Excel export not available"); }
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+    XLSX.writeFile(wb, `attendance_${subjectLabel.replace(/[^a-z0-9]/gi,"_")}_${rangeStart}_to_${rangeEnd}.xlsx`);
+  };
+
+  const exportSheetCSV = () => {
+    if (sheetDates.length === 0) return;
+    const header = ["Student ID", "Name", "Course", ...sheetDates, "Present", "Absent", "Late", "Leave/Excuse"];
+    const lines = [header.join(",")];
+    for (const s of enrolledStudents) {
+      let p=0,a=0,l=0,ex=0;
+      const row = [s.id, `"${(s.name||"").replace(/"/g,'""')}"`, s.course||""];
+      for (const d of sheetDates) {
+        const v = sheetMap[d]?.[s.id] || "";
+        row.push(v||"-");
+        if(v==="present")p++; else if(v==="absent")a++; else if(v==="late")l++; else if(v==="excuse"||v==="leave")ex++;
+      }
+      row.push(p,a,l,ex);
+      lines.push(row.join(","));
+    }
+    const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download="attendance.csv"; a.click();
+    URL.revokeObjectURL(url);
   };
 
   const shiftDate = (days) => {
@@ -1998,6 +2120,113 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* ── Spreadsheet & Export ── */}
+          <div className="glass-card" style={{ marginTop: 20, overflow: "hidden", padding: 0 }}>
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "white" }}>📊 Attendance Spreadsheet & Export</div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Select a date range then export to Excel</div>
+            </div>
+            <div style={{ padding: "18px 24px" }}>
+              {/* Controls */}
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>From Date</label>
+                  <input type="date" value={rangeStart} onChange={e => setRangeStart(e.target.value)}
+                    style={{ padding: "10px 14px", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13, background: "#0f172a", color: "white", outline: "none" }} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>To Date</label>
+                  <input type="date" value={rangeEnd} onChange={e => setRangeEnd(e.target.value)}
+                    style={{ padding: "10px 14px", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 13, background: "#0f172a", color: "white", outline: "none" }} />
+                </div>
+                <button onClick={loadSheet} disabled={sheetLoading}
+                  style={{ padding: "11px 22px", borderRadius: 10, background: "var(--accent-gradient)", border: "none", color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  {sheetLoading ? "Loading..." : "🔍 Apply Filters"}
+                </button>
+                <div style={{ flex: 1 }} />
+                <button onClick={exportSheetCSV} disabled={sheetDates.length === 0}
+                  style={{ padding: "11px 18px", borderRadius: 10, background: "transparent", border: "1.5px solid #10b981", color: "#10b981", fontWeight: 700, fontSize: 13, cursor: sheetDates.length ? "pointer" : "not-allowed", opacity: sheetDates.length ? 1 : 0.4 }}>
+                  📄 Export CSV
+                </button>
+                <button onClick={exportSheetXLSX} disabled={sheetDates.length === 0}
+                  style={{ padding: "11px 22px", borderRadius: 10, background: sheetDates.length ? "linear-gradient(135deg,#10b981,#059669)" : "#374151", border: "none", color: "white", fontWeight: 800, fontSize: 13, cursor: sheetDates.length ? "pointer" : "not-allowed" }}>
+                  📥 Export Excel (.xlsx)
+                </button>
+              </div>
+              {/* Legend */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+                {[["🟢 P","#dcfce7","#166534"],["🔴 A","#fee2e2","#991b1b"],["🟡 L","#fef9c3","#713f12"],["🔵 Ex","#e0e7ff","#3730a3"]].map(([lbl,bg,tc]) => (
+                  <span key={lbl} style={{ padding: "3px 10px", borderRadius: 20, background: bg, color: tc, fontSize: 11, fontWeight: 700 }}>{lbl}</span>
+                ))}
+              </div>
+              {/* Table */}
+              {sheetDates.length > 0 ? (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: "10px 14px", textAlign: "left", background: "#1e293b", color: "#94a3b8", fontWeight: 700, fontSize: 11, textTransform: "uppercase", position: "sticky", left: 0, zIndex: 2, minWidth: 180, whiteSpace: "nowrap" }}>Student</th>
+                        {sheetDates.map(d => {
+                          const dObj = new Date(d + "T00:00:00");
+                          return (
+                            <th key={d} style={{ padding: "8px 6px", textAlign: "center", background: "#1e293b", color: "#94a3b8", fontWeight: 700, fontSize: 11, minWidth: 64, whiteSpace: "nowrap" }}>
+                              <div style={{ color: "var(--neon-blue)", fontSize: 10 }}>{dObj.toLocaleString("default",{month:"short"})}</div>
+                              <div style={{ fontSize: 14, color: "white" }}>{dObj.getDate()}</div>
+                            </th>
+                          );
+                        })}
+                        <th style={{ padding: "10px 12px", textAlign: "center", background: "#1e293b", color: "#94a3b8", fontWeight: 700, fontSize: 11, minWidth: 140, whiteSpace: "nowrap" }}>Summary</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {enrolledStudents.map((s, ri) => {
+                        let p=0,a=0,l=0,ex=0;
+                        for (const d of sheetDates) {
+                          const v = sheetMap[d]?.[s.id] || "";
+                          if(v==="present")p++; else if(v==="absent")a++; else if(v==="late")l++; else if(v==="excuse"||v==="leave")ex++;
+                        }
+                        const bgMap = {present:"#dcfce7",absent:"#fee2e2",late:"#fef9c3",excuse:"#e0e7ff",leave:"#e0e7ff"};
+                        const tcMap = {present:"#166534",absent:"#991b1b",late:"#713f12",excuse:"#3730a3",leave:"#3730a3"};
+                        const lblMap = {present:"P",absent:"A",late:"L",excuse:"Ex",leave:"Ex"};
+                        return (
+                          <tr key={s.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: ri%2===0?"transparent":"rgba(255,255,255,0.02)" }}>
+                            <td style={{ padding: "10px 14px", position: "sticky", left: 0, background: ri%2===0?"#0f172a":"#111827", zIndex: 1, whiteSpace: "nowrap" }}>
+                              <div style={{ fontWeight: 700, color: "white", fontSize: 13 }}>{s.name}</div>
+                              <div style={{ color: "var(--neon-blue)", fontSize: 11, fontWeight: 700 }}>{s.id}</div>
+                            </td>
+                            {sheetDates.map(d => {
+                              const val = sheetMap[d]?.[s.id] || "";
+                              return (
+                                <td key={d} style={{ padding: "8px 4px", border: "1px solid rgba(255,255,255,0.05)", textAlign: "center", background: bgMap[val]||"transparent", minWidth: 64 }}>
+                                  {val ? <span style={{ display:"inline-block", padding:"2px 7px", borderRadius:12, background:bgMap[val], color:tcMap[val], fontWeight:800, fontSize:12 }}>{lblMap[val]}</span>
+                                       : <span style={{ color:"rgba(255,255,255,0.15)" }}>—</span>}
+                                </td>
+                              );
+                            })}
+                            <td style={{ padding: "8px 12px", textAlign: "center", whiteSpace: "nowrap" }}>
+                              <span style={{ fontWeight:700, fontSize:12 }}>
+                                <span style={{color:"#4ade80"}}>{p}P</span>{" / "}
+                                <span style={{color:"#f87171"}}>{a}A</span>{" / "}
+                                <span style={{color:"#fbbf24"}}>{l}L</span>{" / "}
+                                <span style={{color:"#818cf8"}}>{ex}Ex</span>
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "32px 20px", color: "var(--text-dim)" }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>📅</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "white", marginBottom: 6 }}>Select a Date Range</div>
+                  <div style={{ fontSize: 13 }}>Choose a <strong style={{color:"var(--neon-blue)"}}>From</strong> and <strong style={{color:"var(--neon-blue)"}}>To</strong> date above and click <strong style={{color:"var(--neon-blue)"}}>Apply Filters</strong></div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2788,6 +3017,7 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   const [studentId, setStudentId] = useState("");
   const [balance, setBalance] = useState(null);
   const [amount, setAmount] = useState("");
+  const [amountGiven, setAmountGiven] = useState("");
   const [method, setMethod] = useState("");
   const [reference, setReference] = useState("");
   const [paymentType, setPaymentType] = useState("Tuition");
@@ -2836,15 +3066,78 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
   }, [studentId, loadBalance]);
   const submitPayment = async () => {
     try {
-      const data = { student_id: studentId.trim(), amount: parseFloat(amount), method: method.trim(), reference: reference.trim(), payment_type: paymentType, semester_id: recordSemId ? Number(recordSemId) : undefined };
+      let changeVal = undefined;
+      if (amountGiven && parseFloat(amountGiven) > 0) {
+        changeVal = parseFloat(amountGiven) - parseFloat(amount);
+      }
+      const data = { 
+        student_id: studentId.trim(), 
+        amount: parseFloat(amount), 
+        amount_given: amountGiven ? parseFloat(amountGiven) : undefined,
+        change: changeVal,
+        method: method.trim(), 
+        reference: reference.trim(), 
+        payment_type: paymentType, 
+        semester_id: recordSemId ? Number(recordSemId) : undefined 
+      };
       await api("/payments", { method: "POST", body: data }, token);
       setMsg("Payment recorded.");
-      setAmount(""); setMethod(""); setReference(""); setPaymentType("Tuition");
+      setAmount(""); setAmountGiven(""); setMethod(""); setReference(""); setPaymentType("Tuition");
       loadBalance();
     } catch (e) {
       setMsg(e.message);
     }
   };
+
+  const printReceipt = async (payment) => {
+    try {
+      setMsg("Generating receipt...");
+      const sid = payment.student_id || studentId;
+      const studentsList = await api(`/students`, {}, token);
+      const st = studentsList.find(s => s.id === sid);
+      if (!st || !st.name) throw new Error("Student not found for ID: " + sid + " - " + JSON.stringify(payment));
+
+      const w = window.open("", "_blank", "width=400,height=600");
+      w.document.write(`<html><head><title>Receipt</title><style>body { font-family: 'Courier New', Courier, monospace; width: 300px; margin: 0 auto; padding: 20px; color: black; background: white; } .center { text-align: center; } .right { text-align: right; } .bold { font-weight: bold; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } td { padding: 4px 0; font-size: 14px; } hr { border: 1px dashed #ccc; margin: 15px 0; }</style></head><body>`);
+      w.document.write(`<div class="center"><h2 style="margin-bottom: 5px; font-family: serif;">Yllana Bay View College</h2><p style="font-size: 12px; margin-top: 0;">Enerio St. Balangasan Dist., Pagadian City</p></div>`);
+      w.document.write(`<p style="font-size: 14px;">ID Number: ${sid}<br/>Fullname: ${st.name}</p>`);
+      w.document.write(`<p class="center bold" style="font-size: 14px;">${new Date(payment.created_at).toLocaleString()}</p>`);
+      w.document.write(`<table><tr><td class="bold">Description</td><td class="bold right">Total</td></tr>`);
+      w.document.write(`<tr><td>TUITION (CURRENT)</td><td class="right">${Number(payment.amount).toFixed(2)}</td></tr></table>`);
+      w.document.write(`<hr/><table><tr><td class="bold">Grand Total:</td><td class="bold right">${Number(payment.amount).toFixed(2)}</td></tr>`);
+      if (payment.amount_given) w.document.write(`<tr><td class="bold">Payment:</td><td class="bold right">${Number(payment.amount_given).toFixed(2)}</td></tr>`);
+      if (payment.change !== undefined && payment.change !== null) w.document.write(`<tr><td class="bold">Change/Balance:</td><td class="bold right">${Number(payment.change).toFixed(2)}</td></tr>`);
+      w.document.write(`</table><hr/>`);
+      w.document.write(`<p class="center" style="font-size: 14px; margin-top: 20px;">CASHIER<br/><br/>Transaction No: ${payment.reference || payment.id}</p>`);
+      w.document.write(`<p class="center" style="font-size: 12px; margin-top: 30px; font-style: italic;">This is not an official receipt</p>`);
+      w.document.write(`</body></html>`);
+      w.document.close();
+      w.setTimeout(() => { w.print(); }, 500);
+      setMsg("Receipt ready for printing.");
+    } catch (e) {
+      setMsg("Error: " + e.message);
+    }
+  };
+
+  const sendReceiptEmail = async (payment) => {
+    try {
+      await api("/paymongo/send-receipt", {
+        method: "POST",
+        body: { 
+          student_id: studentId, 
+          amount: payment.amount, 
+          amount_given: payment.amount_given,
+          change: payment.change,
+          method: payment.method, 
+          reference: payment.reference 
+        }
+      }, token);
+      setMsg("Receipt sent to student's email!");
+    } catch (e) {
+      setMsg("Error: " + e.message);
+    }
+  };
+
   return (
     <div>
       <PageHeader title={<span>{"\u{1F4B3}"} Payments</span>} sub={role === "student" ? "View your tuition balance and history" : "Record tuition payments"} />
@@ -2867,9 +3160,12 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
               ))}
             </select>
           </div>
-          <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1.5fr 1fr", gap: 10, alignItems: "end" }}>
+          <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "end", marginBottom: 10 }}>
             <Input label="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} />
-            <Input label="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
+            <Input label="Amount (₱)" value={amount} onChange={e => setAmount(e.target.value)} />
+            <Input label="Cash Handed by Student (₱) (Optional)" value={amountGiven} onChange={e => setAmountGiven(e.target.value)} placeholder="e.g. 1000" />
+          </div>
+          <div className="grid-1-on-mobile" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 1fr", gap: 10, alignItems: "end" }}>
             <Input label="Method" value={method} onChange={e => setMethod(e.target.value)} />
             <Select label="Type" value={paymentType} onChange={e => setPaymentType(e.target.value)}>
               <option value="Tuition">Tuition</option>
@@ -2882,6 +3178,11 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
               <Btn variant="primary" onClick={submitPayment} disabled={!studentId || !amount} style={{ width: "100%", padding: "12px 16px" }}>Record</Btn>
             </div>
           </div>
+          {amountGiven && parseFloat(amountGiven) > 0 && amount && parseFloat(amount) > 0 && parseFloat(amountGiven) >= parseFloat(amount) && (
+            <div style={{ marginTop: 10, color: "var(--neon-blue)", fontWeight: "bold", fontSize: 14 }}>
+              Change to give: ₱{(parseFloat(amountGiven) - parseFloat(amount)).toFixed(2)}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
             <Btn variant="outline" onClick={loadBalance} disabled={!studentId}>Load Balance & History</Btn>
           </div>
@@ -2928,7 +3229,7 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
         <Card title={role === "student" ? "Payment History" : (studentId ? `Recent Payments for ${studentId}` : "All Payments")}>
           <div className="table-container">
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead><tr><Th>Date</Th><Th>Amount</Th><Th>Method</Th><Th>Type</Th><Th>Transaction No:</Th></tr></thead>
+              <thead><tr><Th>Date</Th><Th>Amount</Th><Th>Method</Th><Th>Type</Th><Th>Transaction No:</Th>{canWrite && <Th>Actions</Th>}</tr></thead>
               <tbody>
                 {payments.map(p => (
                   <tr key={p.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
@@ -2937,6 +3238,16 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
                     <Td>{p.method || "-"}</Td>
                     <Td><span style={{ padding: '2px 8px', background: 'rgba(68,215,255,0.1)', color: '#44d7ff', borderRadius: 12, fontSize: 11, fontWeight: 700 }}>{p.payment_type || "Tuition"}</span></Td>
                     <Td><code style={{ background: '#1e293b', padding: '3px 8px', borderRadius: 4, fontWeight: 'bold' }}>{p.reference || "-"}</code></Td>
+                    {canWrite && (
+                      <Td>
+                        <Btn variant="outline" onClick={() => sendReceiptEmail(p)} style={{ fontSize: 11, padding: "3px 10px" }}>
+                          Send Receipt
+                        </Btn>
+                        <Btn variant="outline" onClick={() => printReceipt(p)} style={{ fontSize: 11, padding: "3px 10px", marginLeft: 6 }}>
+                          Print Receipt
+                        </Btn>
+                      </Td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -1,4 +1,4 @@
-import { config } from "dotenv";
+﻿import { config } from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 const __filename = fileURLToPath(import.meta.url);
@@ -107,6 +107,8 @@ export async function initDB() {
       student_id TEXT NOT NULL,
       semester_id INTEGER,
       amount DECIMAL NOT NULL,
+      amount_given DECIMAL,
+      change DECIMAL,
       reference TEXT,
       method TEXT,
       payment_type TEXT DEFAULT 'Tuition',
@@ -117,6 +119,8 @@ export async function initDB() {
     );
     -- Ensure payment_type exists if upgrading from older schema
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'Tuition';
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount_given DECIMAL;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS change DECIMAL;
 
     -- Sequence for auto transaction numbers starting at 1
     CREATE SEQUENCE IF NOT EXISTS txn_seq START 1;
