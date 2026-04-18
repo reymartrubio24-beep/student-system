@@ -1253,7 +1253,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
     }
     setFocusCell({ sid, date: d });
   };
-  const statusColor = (s) => s === "present" ? "#dcfce7" : s === "late" ? "#fef9c3" : s === "excuse" || s === "leave" ? "#e0e7ff" : s === "absent" ? "#fee2e2" : "transparent";
+
   const exportCSV = () => {
     if (sheetDates.length === 0 || enrollments.length === 0) return;
     const header = ["Student ID", "Name", ...sheetDates];
@@ -1312,26 +1312,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
     XLSX.utils.book_append_sheet(wb, ws2, "Summary");
     XLSX.writeFile(wb, "attendance.xlsx");
   };
-  const computeStats = () => {
-    const stats = {};
-    for (const s of enrollments) stats[s.student_id] = { present: 0, absent: 0, late: 0, leave: 0, rate: 0 };
-    for (const d of sheetDates) {
-      const m = sheetMap[d] || {};
-      for (const sid of Object.keys(stats)) {
-        const v = m[sid] || "";
-        if (v === "present") stats[sid].present += 1;
-        if (v === "absent") stats[sid].absent += 1;
-        if (v === "late") stats[sid].late += 1;
-        if (v === "excuse" || v === "leave") stats[sid].leave += 1;
-      }
-    }
-    for (const sid of Object.keys(stats)) {
-      const tot = sheetDates.length;
-      const p = stats[sid].present;
-      stats[sid].rate = tot ? Math.round((p / tot) * 100) : 0;
-    }
-    return stats;
-  };
+
   const undo = async () => {
     const last = undoStack[0];
     if (!last) return;
@@ -1590,7 +1571,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
                   <tbody>
                     {enrollments.map((s, ri) => {
                       const stats = (() => {
-                        let p=0,a=0,l=0,ex=0;
+                        let p = 0, a = 0, l = 0, ex = 0;
                         for (const d of sheetDates) {
                           const v = sheetMap[d]?.[s.student_id] || "";
                           if (v === "present") p++;
@@ -1598,7 +1579,7 @@ function AttendanceManage({ token, role, students, subjects, canWrite, canDelete
                           else if (v === "late") l++;
                           else if (v === "excuse" || v === "leave") ex++;
                         }
-                        return {p,a,l,ex};
+                        return { p, a, l, ex };
                       })();
                       return (
                         <tr key={s.student_id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: ri % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
@@ -1792,7 +1773,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
     if (!start || !end) return [];
     const out = [];
     for (let d = new Date(start + "T00:00:00"); d <= new Date(end + "T00:00:00"); d.setDate(d.getDate() + 1)) {
-      out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
     }
     return out;
   };
@@ -1821,18 +1802,18 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
     const header = ["Student ID", "Name", "Course", ...sheetDates, "Present", "Absent", "Late", "Leave/Excuse", "Attendance Rate"];
     const data = [header];
     for (const s of enrolledStudents) {
-      let p=0,a=0,l=0,ex=0;
+      let p = 0, a = 0, l = 0, ex = 0;
       const row = [s.id, s.name, s.course || ""];
       for (const d of sheetDates) {
         const v = sheetMap[d]?.[s.id] || "";
         row.push(v || "-");
-        if (v==="present") p++;
-        else if (v==="absent") a++;
-        else if (v==="late") l++;
-        else if (v==="excuse"||v==="leave") ex++;
+        if (v === "present") p++;
+        else if (v === "absent") a++;
+        else if (v === "late") l++;
+        else if (v === "excuse" || v === "leave") ex++;
       }
       const total = sheetDates.length;
-      row.push(p, a, l, ex, total ? `${Math.round((p/total)*100)}%` : "0%");
+      row.push(p, a, l, ex, total ? `${Math.round((p / total) * 100)}%` : "0%");
       data.push(row);
     }
     let XLSX;
@@ -1840,7 +1821,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, "Attendance");
-    XLSX.writeFile(wb, `attendance_${subjectLabel.replace(/[^a-z0-9]/gi,"_")}_${rangeStart}_to_${rangeEnd}.xlsx`);
+    XLSX.writeFile(wb, `attendance_${subjectLabel.replace(/[^a-z0-9]/gi, "_")}_${rangeStart}_to_${rangeEnd}.xlsx`);
   };
 
   const exportSheetCSV = () => {
@@ -1848,19 +1829,19 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
     const header = ["Student ID", "Name", "Course", ...sheetDates, "Present", "Absent", "Late", "Leave/Excuse"];
     const lines = [header.join(",")];
     for (const s of enrolledStudents) {
-      let p=0,a=0,l=0,ex=0;
-      const row = [s.id, `"${(s.name||"").replace(/"/g,'""')}"`, s.course||""];
+      let p = 0, a = 0, l = 0, ex = 0;
+      const row = [s.id, `"${(s.name || "").replace(/"/g, '""')}"`, s.course || ""];
       for (const d of sheetDates) {
         const v = sheetMap[d]?.[s.id] || "";
-        row.push(v||"-");
-        if(v==="present")p++; else if(v==="absent")a++; else if(v==="late")l++; else if(v==="excuse"||v==="leave")ex++;
+        row.push(v || "-");
+        if (v === "present") p++; else if (v === "absent") a++; else if (v === "late") l++; else if (v === "excuse" || v === "leave") ex++;
       }
-      row.push(p,a,l,ex);
+      row.push(p, a, l, ex);
       lines.push(row.join(","));
     }
-    const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href=url; a.download="attendance.csv"; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = "attendance.csv"; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -2158,7 +2139,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
               </div>
               {/* Legend */}
               <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-                {[["🟢 P","#dcfce7","#166534"],["🔴 A","#fee2e2","#991b1b"],["🟡 L","#fef9c3","#713f12"],["🔵 Ex","#e0e7ff","#3730a3"]].map(([lbl,bg,tc]) => (
+                {[["🟢 P", "#dcfce7", "#166534"], ["🔴 A", "#fee2e2", "#991b1b"], ["🟡 L", "#fef9c3", "#713f12"], ["🔵 Ex", "#e0e7ff", "#3730a3"]].map(([lbl, bg, tc]) => (
                   <span key={lbl} style={{ padding: "3px 10px", borderRadius: 20, background: bg, color: tc, fontSize: 11, fontWeight: 700 }}>{lbl}</span>
                 ))}
               </div>
@@ -2173,7 +2154,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
                           const dObj = new Date(d + "T00:00:00");
                           return (
                             <th key={d} style={{ padding: "8px 6px", textAlign: "center", background: "#1e293b", color: "#94a3b8", fontWeight: 700, fontSize: 11, minWidth: 64, whiteSpace: "nowrap" }}>
-                              <div style={{ color: "var(--neon-blue)", fontSize: 10 }}>{dObj.toLocaleString("default",{month:"short"})}</div>
+                              <div style={{ color: "var(--neon-blue)", fontSize: 10 }}>{dObj.toLocaleString("default", { month: "short" })}</div>
                               <div style={{ fontSize: 14, color: "white" }}>{dObj.getDate()}</div>
                             </th>
                           );
@@ -2183,35 +2164,35 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
                     </thead>
                     <tbody>
                       {enrolledStudents.map((s, ri) => {
-                        let p=0,a=0,l=0,ex=0;
+                        let p = 0, a = 0, l = 0, ex = 0;
                         for (const d of sheetDates) {
                           const v = sheetMap[d]?.[s.id] || "";
-                          if(v==="present")p++; else if(v==="absent")a++; else if(v==="late")l++; else if(v==="excuse"||v==="leave")ex++;
+                          if (v === "present") p++; else if (v === "absent") a++; else if (v === "late") l++; else if (v === "excuse" || v === "leave") ex++;
                         }
-                        const bgMap = {present:"#dcfce7",absent:"#fee2e2",late:"#fef9c3",excuse:"#e0e7ff",leave:"#e0e7ff"};
-                        const tcMap = {present:"#166534",absent:"#991b1b",late:"#713f12",excuse:"#3730a3",leave:"#3730a3"};
-                        const lblMap = {present:"P",absent:"A",late:"L",excuse:"Ex",leave:"Ex"};
+                        const bgMap = { present: "#dcfce7", absent: "#fee2e2", late: "#fef9c3", excuse: "#e0e7ff", leave: "#e0e7ff" };
+                        const tcMap = { present: "#166534", absent: "#991b1b", late: "#713f12", excuse: "#3730a3", leave: "#3730a3" };
+                        const lblMap = { present: "P", absent: "A", late: "L", excuse: "Ex", leave: "Ex" };
                         return (
-                          <tr key={s.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: ri%2===0?"transparent":"rgba(255,255,255,0.02)" }}>
-                            <td style={{ padding: "10px 14px", position: "sticky", left: 0, background: ri%2===0?"#0f172a":"#111827", zIndex: 1, whiteSpace: "nowrap" }}>
+                          <tr key={s.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: ri % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                            <td style={{ padding: "10px 14px", position: "sticky", left: 0, background: ri % 2 === 0 ? "#0f172a" : "#111827", zIndex: 1, whiteSpace: "nowrap" }}>
                               <div style={{ fontWeight: 700, color: "white", fontSize: 13 }}>{s.name}</div>
                               <div style={{ color: "var(--neon-blue)", fontSize: 11, fontWeight: 700 }}>{s.id}</div>
                             </td>
                             {sheetDates.map(d => {
                               const val = sheetMap[d]?.[s.id] || "";
                               return (
-                                <td key={d} style={{ padding: "8px 4px", border: "1px solid rgba(255,255,255,0.05)", textAlign: "center", background: bgMap[val]||"transparent", minWidth: 64 }}>
-                                  {val ? <span style={{ display:"inline-block", padding:"2px 7px", borderRadius:12, background:bgMap[val], color:tcMap[val], fontWeight:800, fontSize:12 }}>{lblMap[val]}</span>
-                                       : <span style={{ color:"rgba(255,255,255,0.15)" }}>—</span>}
+                                <td key={d} style={{ padding: "8px 4px", border: "1px solid rgba(255,255,255,0.05)", textAlign: "center", background: bgMap[val] || "transparent", minWidth: 64 }}>
+                                  {val ? <span style={{ display: "inline-block", padding: "2px 7px", borderRadius: 12, background: bgMap[val], color: tcMap[val], fontWeight: 800, fontSize: 12 }}>{lblMap[val]}</span>
+                                    : <span style={{ color: "rgba(255,255,255,0.15)" }}>—</span>}
                                 </td>
                               );
                             })}
                             <td style={{ padding: "8px 12px", textAlign: "center", whiteSpace: "nowrap" }}>
-                              <span style={{ fontWeight:700, fontSize:12 }}>
-                                <span style={{color:"#4ade80"}}>{p}P</span>{" / "}
-                                <span style={{color:"#f87171"}}>{a}A</span>{" / "}
-                                <span style={{color:"#fbbf24"}}>{l}L</span>{" / "}
-                                <span style={{color:"#818cf8"}}>{ex}Ex</span>
+                              <span style={{ fontWeight: 700, fontSize: 12 }}>
+                                <span style={{ color: "#4ade80" }}>{p}P</span>{" / "}
+                                <span style={{ color: "#f87171" }}>{a}A</span>{" / "}
+                                <span style={{ color: "#fbbf24" }}>{l}L</span>{" / "}
+                                <span style={{ color: "#818cf8" }}>{ex}Ex</span>
                               </span>
                             </td>
                           </tr>
@@ -2224,7 +2205,7 @@ function TeacherAttendanceFlow({ token, canWrite, canDelete, allSubjects, role, 
                 <div style={{ textAlign: "center", padding: "32px 20px", color: "var(--text-dim)" }}>
                   <div style={{ fontSize: 36, marginBottom: 10 }}>📅</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "white", marginBottom: 6 }}>Select a Date Range</div>
-                  <div style={{ fontSize: 13 }}>Choose a <strong style={{color:"var(--neon-blue)"}}>From</strong> and <strong style={{color:"var(--neon-blue)"}}>To</strong> date above and click <strong style={{color:"var(--neon-blue)"}}>Apply Filters</strong></div>
+                  <div style={{ fontSize: 13 }}>Choose a <strong style={{ color: "var(--neon-blue)" }}>From</strong> and <strong style={{ color: "var(--neon-blue)" }}>To</strong> date above and click <strong style={{ color: "var(--neon-blue)" }}>Apply Filters</strong></div>
                 </div>
               )}
             </div>
@@ -2348,7 +2329,7 @@ function PermitAssignmentModal({ show, student, onClose, token, onAssigned }) {
     if (!semesterId || periodIds.length === 0) return alert("Please select semester and at least one period.");
     try {
       setLoading(true);
-      await Promise.all(periodIds.map(pid => 
+      await Promise.all(periodIds.map(pid =>
         api(`/students/${encodeURIComponent(student.id)}/permits`, {
           method: "POST",
           body: {
@@ -3070,15 +3051,15 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
       if (amountGiven && parseFloat(amountGiven) > 0) {
         changeVal = parseFloat(amountGiven) - parseFloat(amount);
       }
-      const data = { 
-        student_id: studentId.trim(), 
-        amount: parseFloat(amount), 
+      const data = {
+        student_id: studentId.trim(),
+        amount: parseFloat(amount),
         amount_given: amountGiven ? parseFloat(amountGiven) : undefined,
         change: changeVal,
-        method: method.trim(), 
-        reference: reference.trim(), 
-        payment_type: paymentType, 
-        semester_id: recordSemId ? Number(recordSemId) : undefined 
+        method: method.trim(),
+        reference: reference.trim(),
+        payment_type: paymentType,
+        semester_id: recordSemId ? Number(recordSemId) : undefined
       };
       await api("/payments", { method: "POST", body: data }, token);
       setMsg("Payment recorded.");
@@ -3123,13 +3104,13 @@ function Payments({ token, role, studentIdFromAuth, canWrite, canDelete }) {
     try {
       await api("/paymongo/send-receipt", {
         method: "POST",
-        body: { 
-          student_id: studentId, 
-          amount: payment.amount, 
+        body: {
+          student_id: studentId,
+          amount: payment.amount,
           amount_given: payment.amount_given,
           change: payment.change,
-          method: payment.method, 
-          reference: payment.reference 
+          method: payment.method,
+          reference: payment.reference
         }
       }, token);
       setMsg("Receipt sent to student's email!");
@@ -4176,6 +4157,24 @@ function Students({ students, setStudents, subjects, token, role, canWrite, canD
     return () => { mounted = false; };
   }, [token, setStudents]);
 
+  const handleWipeAllStudents = async () => {
+    if (!window.confirm("WARNING: This will permanently delete ALL students, grades, payments, ledgers, permits, and attendance records from the system. This action CANNOT be undone.\n\nAre you absolutely sure you want to proceed?")) {
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await api("/admin/wipe-students", { method: "DELETE" }, token);
+      if (res.error) throw new Error(res.error);
+      setMsg(res.message || "All student data wiped successfully.");
+      setStudents([]); // Clear local state
+    } catch (err) {
+      setMsg(err.message || "Failed to wipe student data.");
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMsg(""), 5000);
+    }
+  };
+
   const termName = (semId) => {
     const sem = semesters.find(x => x.id === semId);
     return sem?.term || null;
@@ -4695,7 +4694,7 @@ function StudentManagement({ token, role, students, allSubjects, grades, setGrad
     if (!selectedStudent || assignIds.length === 0) return;
     if (!assignSemId) return alert("Please select a semester.");
     try {
-      await Promise.all(assignIds.map(id => 
+      await Promise.all(assignIds.map(id =>
         api("/grades", {
           method: "POST", body: {
             student_id: selectedStudent, subject_id: id, semester_id: Number(assignSemId)
@@ -4897,7 +4896,8 @@ function Grades({ students, subjects, grades, setGrades, token, role, studentIdF
   const [searchStu, setSearchStu] = useState("");
   const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState("");
-  const [requests, setRequests] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [_requests, setRequests] = useState([]);
   const [requestModal, setRequestModal] = useState(null);
   const [reqForm, setReqForm] = useState({ subjectId: "", term: "1st Prelim", reason: "" });
 
@@ -5225,9 +5225,9 @@ function AuthScreen({ onAuthed, logo }) {
           <img src={logo || "/yllanalogo.png"} alt="Logo" style={{ width: "95%", height: "95%", objectFit: "contain" }}
             onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "🎓"; }} />
         </div>
-        <div className="glow-text" style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, color: "white", letterSpacing: "-0.5px" }}>STUDENT<span style={{ color: "var(--neon-blue)" }}>DASHBOARD</span></div>
+        <div className="glow-text" style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, color: "white", letterSpacing: "-0.5px" }}>LOGIN<span style={{ color: "var(--neon-blue)" }}>DASHBOARD</span></div>
         <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 40, fontWeight: 500 }}>
-          STUDENT SUBJECT TRACKING PORTAL
+          STUDENT PORTAL MANAGEMENT SYSTEM
         </div>
 
         <div style={{ textAlign: "left" }}>
@@ -5243,7 +5243,8 @@ function AuthScreen({ onAuthed, logo }) {
 
         <div style={{ marginTop: 40, fontSize: 11, color: "var(--text-dim)", lineHeight: 1.6, fontWeight: 500 }}>
           SYSTEM SECURITY PROTOCOL ACTIVE.<br />
-          UNAUTHORIZED ACCESS IS STRICTLY PROHIBITED.
+          UNAUTHORIZED ACCESS IS STRICTLY PROHIBITED.<br />
+          THIS SYSTEM USE FOR GUI ONLY.
         </div>
       </div>
     </div>

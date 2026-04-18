@@ -3033,6 +3033,33 @@ app.post("/paymongo/send-receipt", authRequired, async (req, res) => {
   }
 });
 
+// ── ADMIN: Mass-wipe all students and related data ─────────────────────────
+app.delete("/admin/wipe-students", authRequired, async (req, res) => {
+  const allowed = ["owner", "developer", "registrar"];
+  if (!allowed.includes(req.user.role)) {
+    return res.status(403).json({ error: "Access denied" });
+  }
+  try {
+    // Delete in dependency order. Most child tables have ON DELETE CASCADE
+    // but we also remove student-role user accounts explicitly.
+    await run(`DELETE FROM grade_change_requests`);
+    await run(`DELETE FROM attendance_records`);
+    await run(`DELETE FROM attendance_enrollments`);
+    await run(`DELETE FROM student_permits`);
+    await run(`DELETE FROM student_ledgers`);
+    await run(`DELETE FROM payments`);
+    await run(`DELETE FROM grades`);
+    await run(`DELETE FROM students`);
+    await run(`DELETE FROM users WHERE role = 'student'`);
+    await run(`DELETE FROM student_id_sequence`);
+    res.json({ ok: true, message: "All student data wiped successfully." });
+  } catch (err) {
+    console.error("[WIPE] Error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   process.stdout.write(`server listening on ${port}\n`);
